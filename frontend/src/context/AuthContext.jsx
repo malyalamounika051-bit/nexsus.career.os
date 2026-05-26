@@ -33,7 +33,8 @@ export const AuthProvider = ({ children }) => {
         };
         
         try {
-          const response = await fetch('/api/auth/me', {
+          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+          const response = await fetch(`${apiBase}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${idToken}`
             }
@@ -84,7 +85,8 @@ export const AuthProvider = ({ children }) => {
     if (!currentToken) return;
     
     try {
-      const response = await fetch('/api/auth/me', {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${currentToken}`
         }
@@ -124,7 +126,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     try {
-      const response = await fetch('/api/auth/me', {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
