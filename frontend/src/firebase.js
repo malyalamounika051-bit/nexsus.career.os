@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyAHJbxJUnbhfXdmgWArMRO060ZjpMOhBzM",
+  authDomain: "nexus-os-e49a9.firebaseapp.com",
+  projectId: "nexus-os-e49a9",
+  storageBucket: "nexus-os-e49a9.firebasestorage.app",
+  messagingSenderId: "944036352568",
+  appId: "1:944036352568:web:504aeeafe50e068a564ccd"
 };
 
 const app = initializeApp(firebaseConfig);
