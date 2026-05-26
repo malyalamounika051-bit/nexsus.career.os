@@ -1,5 +1,7 @@
 const { callGeminiREST } = require('../utils/geminiClient');
+const { parseStructuredJson } = require('../utils/jsonParser');
 const { protect } = require('../middleware/authMiddleware');
+const { awardXP } = require('../utils/gamification');
 
 // @desc   Analyze skill gap against a target career
 // @route  POST /api/skill-gap/analyze
@@ -73,12 +75,14 @@ RULES:
     // Robust JSON parsing
     let analysis;
     try {
-      const cleanJson = responseText.replace(/```json|```/g, '').trim();
-      analysis = JSON.parse(cleanJson);
+      analysis = parseStructuredJson(responseText);
     } catch (parseErr) {
       console.error('JSON Parse Error:', parseErr.message, 'Raw text:', responseText);
       return res.status(500).json({ success: false, message: 'Failed to parse AI response. Please try again.' });
     }
+
+    // Award XP for skill gap analysis (async, non-blocking)
+    awardXP(req.user.id, 'SKILL_GAP_ANALYSIS').catch(() => {});
 
     res.json({ success: true, data: analysis });
 

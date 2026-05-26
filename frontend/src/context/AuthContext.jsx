@@ -5,7 +5,8 @@ import {
   signOut, 
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  updateProfile
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -22,15 +23,38 @@ export const AuthProvider = ({ children }) => {
       if (firebaseUser) {
         // We use the Firebase ID token as our nexus_token for now
         const idToken = await firebaseUser.getIdToken();
-        const userData = {
+        localStorage.setItem('nexus_token', idToken);
+        
+        let userData = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          displayName: firebaseUser.displayName || firebaseUser.email.split('@')[0]
+          displayName: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+          name: firebaseUser.displayName || firebaseUser.email.split('@')[0]
         };
+        
+        try {
+          const response = await fetch('/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${idToken}`
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+              userData = {
+                ...userData,
+                ...data.user,
+                name: data.user.name || userData.name,
+                email: data.user.email || userData.email,
+              };
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch user stats from backend:', err.message);
+        }
         
         setUser(userData);
         setToken(idToken);
-        localStorage.setItem('nexus_token', idToken);
         localStorage.setItem('nexus_user', JSON.stringify(userData));
       } else {
         setUser(null);
@@ -55,9 +79,77 @@ export const AuthProvider = ({ children }) => {
     return { user: userCredential.user };
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const currentToken = token || localStorage.getItem('nexus_token');
+    if (!currentToken) return;
+    
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${currentToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user) {
+          setUser(prev => {
+            const updated = {
+              ...prev,
+              ...data.user,
+              name: data.user.name || prev?.name,
+              email: data.user.email || prev?.email,
+            };
+            localStorage.setItem('nexus_user', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to refresh user stats:', err.message);
+    }
+  }, [token]);
+
   const register = useCallback(async (name, email, password) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    return { user: userCredential.user };
+    await updateProfile(userCredential.user, { displayName: name });
+    await userCredential.user.reload();
+    
+    const refreshedUser = auth.currentUser;
+    const idToken = await refreshedUser.getIdToken(true);
+    let userData = {
+      uid: refreshedUser.uid,
+      email: refreshedUser.email,
+      displayName: name,
+      name: name
+    };
+
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.user) {
+          userData = {
+            ...userData,
+            ...data.user,
+            name: data.user.name || userData.name,
+            email: data.user.email || userData.email,
+          };
+        }
+      }
+    } catch (err) {
+      console.error('Failed to initialize user database profile:', err.message);
+    }
+    
+    setUser(userData);
+    setToken(idToken);
+    localStorage.setItem('nexus_token', idToken);
+    localStorage.setItem('nexus_user', JSON.stringify(userData));
+    
+    return { user: refreshedUser };
   }, []);
 
   const logout = useCallback(async () => {
@@ -79,6 +171,7 @@ export const AuthProvider = ({ children }) => {
       register, 
       logout, 
       updateUser, 
+      refreshUser,
       isAuthenticated: !!user 
     }}>
       {children}

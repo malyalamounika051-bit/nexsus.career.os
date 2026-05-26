@@ -1,4 +1,6 @@
 const { callGeminiREST } = require('../utils/geminiClient');
+const { parseStructuredJson } = require('../utils/jsonParser');
+const { awardXP } = require('../utils/gamification');
 
 // In-memory cache for simulation results
 const simulationCache = new Map();
@@ -74,8 +76,7 @@ RULES:
     // Robust JSON parsing
     let simulation;
     try {
-      const cleanJson = responseText.replace(/```json|```/g, '').trim();
-      simulation = JSON.parse(cleanJson);
+      simulation = parseStructuredJson(responseText);
     } catch (parseErr) {
       console.error('JSON Parse Error:', parseErr.message, 'Raw text:', responseText);
       return res.status(500).json({ success: false, message: 'Failed to parse AI response. Please try again.' });
@@ -89,6 +90,9 @@ RULES:
       const firstKey = simulationCache.keys().next().value;
       simulationCache.delete(firstKey);
     }
+
+    // Award XP for simulator (async, non-blocking)
+    awardXP(req.user.id, 'CAREER_SIMULATION').catch(() => {});
 
     res.json({ success: true, data: simulation, cached: false });
 

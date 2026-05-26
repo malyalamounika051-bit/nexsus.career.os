@@ -1,5 +1,6 @@
 const Resume = require('../models/Resume');
 const { callGeminiDirectly } = require('../utils/geminiClient');
+const { parseStructuredJson } = require('../utils/jsonParser');
 
 // @desc    Get all resumes for logged in user
 exports.getResumes = async (req, res) => {
@@ -97,9 +98,7 @@ exports.optimizeResume = async (req, res) => {
     // Robust JSON parsing
     let analysis;
     try {
-      const responseText = aiResponse.text || '';
-      const cleanJson = responseText.replace(/```json|```/g, '').trim();
-      analysis = JSON.parse(cleanJson);
+      analysis = parseStructuredJson(aiResponse.text);
     } catch (parseErr) {
       console.error('Resume Analysis Parse Error:', parseErr.message, 'Raw text:', aiResponse.text);
       return res.status(500).json({ success: false, message: 'AI failed to generate a valid analysis. Please try again.' });

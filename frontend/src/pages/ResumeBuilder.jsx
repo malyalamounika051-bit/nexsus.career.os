@@ -7,15 +7,21 @@ import {
   ModernTemplate,
   ProfessionalTemplate,
   CreativeTemplate,
-  MinimalistTemplate
+  MinimalistTemplate,
+  GreyLiningTemplate,
+  SaharaContrastTemplate,
+  GlacierChillTemplate,
+  IvoryPrestigeTemplate,
+  RoyalEssenceTemplate,
+  ExecutiveEdgeTemplate
 } from '../components/ResumeTemplates';
 import {
   FileText, Download, Plus, Trash2, Zap, User, Mail, Phone,
   MapPin, Link, Globe, Briefcase, GraduationCap, Code2,
   ChevronDown, ChevronUp, Eye, Edit3, Sparkles, Save,
   Layers, Palette, Type, Layout, History, Share2, 
-  CheckCircle2, AlertCircle, TrendingUp, Info, ExternalLink,
-  ChevronRight, MoreHorizontal, Settings, Moon, Sun, Monitor
+  ExternalLink, ChevronRight, MoreHorizontal, Settings, Moon, Sun, Monitor,
+  TrendingUp, CheckCircle2
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { exportToDocx } from '../utils/resumeExportUtils';
@@ -23,6 +29,12 @@ import { exportToDocx } from '../utils/resumeExportUtils';
 // ─── Constants ───────────────────────────────────────────────────────────────
 const TEMPLATES = [
   { id: 'modern', name: 'Modern ATS', icon: Layout, component: ModernTemplate, color: '#3b82f6', desc: 'Clean, professional, and optimized for ATS systems.' },
+  { id: 'grey_lining', name: 'Grey Lining', icon: FileText, component: GreyLiningTemplate, color: '#475569', desc: 'Clean ATS-friendly template with slate lining separators.' },
+  { id: 'sahara_contrast', name: 'Sahara Contrast', icon: Palette, component: SaharaContrastTemplate, color: '#b45309', desc: 'Top ATS template featuring elegant sand/amber accents.' },
+  { id: 'glacier_chill', name: 'Glacier Chill', icon: Layers, component: GlacierChillTemplate, color: '#0f172a', desc: 'Premium modern layout with a bold top header banner.' },
+  { id: 'ivory_prestige', name: 'Ivory Prestige', icon: Sparkles, component: IvoryPrestigeTemplate, color: '#a27b5c', desc: 'Classic luxury serif template with ivory background and gold accents.' },
+  { id: 'royal_essence', name: 'Royal Essence', icon: Zap, component: RoyalEssenceTemplate, color: '#0f2963', desc: 'Bold modern design with deep royal banners and structured grids.' },
+  { id: 'executive_edge', name: 'Executive Edge', icon: Settings, component: ExecutiveEdgeTemplate, color: '#0f766e', desc: 'Sleek executive template with left timeline accents and steel teal highlights.' },
   { id: 'professional', name: 'Executive', icon: Briefcase, component: ProfessionalTemplate, color: '#111827', desc: 'Traditional serif design for corporate leadership roles.' },
   { id: 'creative', name: 'Creative', icon: Palette, component: CreativeTemplate, color: '#ec4899', desc: 'Modern two-column layout for designers and marketers.' },
   { id: 'minimalist', name: 'Minimalist', icon: Type, component: MinimalistTemplate, color: '#111111', desc: 'Ultra-clean design focused on high-end typography.' },
@@ -115,10 +127,8 @@ export default function ResumeBuilder() {
   const { user } = useAuth();
   const printRef = useRef();
   const [activeTab, setActiveTab] = useState('edit'); 
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [savedResumes, setSavedResumes] = useState([]);
   const [currentResumeId, setCurrentResumeId] = useState(null);
-  const [showAnalysis, setShowAnalysis] = useState(false);
   const [zoom, setZoom] = useState(0.7);
 
   // Resume State
@@ -147,7 +157,7 @@ export default function ResumeBuilder() {
     'achievements', 'socialLinks', 'customSections'
   ]);
   
-  const [analysis, setAnalysis] = useState({ score: 0, atsScore: 0, tips: [], keywords: [] });
+
   
   // Ref to prevent initial auto-save
   const isInitialMount = useRef(true);
@@ -163,16 +173,7 @@ export default function ResumeBuilder() {
     } catch (e) { console.error(e); }
   };
 
-  const handleAIAnalyze = async () => {
-    if (!currentResumeId) return alert("Please save your resume first.");
-    try {
-      setIsOptimizing(true);
-      const { data } = await resumeService.optimize(currentResumeId);
-      setAnalysis(data.data);
-      setShowAnalysis(true);
-    } catch (e) { alert("AI analysis unavailable."); }
-    finally { setIsOptimizing(false); }
-  };
+
 
 
 
@@ -194,7 +195,7 @@ export default function ResumeBuilder() {
     setSocialLinks(res.socialLinks || []);
     setCustomSections(res.customSections || []);
     if (res.sectionOrder?.length) setSectionOrder(res.sectionOrder);
-    setAnalysis(res.analysis || { score: 0, atsScore: 0, tips: [], keywords: [] });
+
     setActiveTab('edit');
   };
 
@@ -444,20 +445,7 @@ export default function ResumeBuilder() {
                       })}
                     </Reorder.Group>
 
-                    <div style={{ padding: '2rem', background: 'var(--color-primary-glow)', borderRadius: '20px', border: '1px dashed var(--color-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <div style={{ width: '48px', height: '48px', background: 'var(--color-primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 8px 16px rgba(14,165,233,0.3)' }}>
-                             <Zap size={24} fill="white" />
-                          </div>
-                          <div>
-                             <h4 style={{ margin: 0, fontWeight: 700 }}>ATS Optimization</h4>
-                             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-dim)' }}>Check your resume score with AI</p>
-                          </div>
-                       </div>
-                       <button onClick={handleAIAnalyze} disabled={isOptimizing} className="btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '12px' }}>
-                          {isOptimizing ? 'Analyzing...' : 'Run Scan'}
-                       </button>
-                    </div>
+
                   </motion.div>
                 )}
 
@@ -546,46 +534,7 @@ export default function ResumeBuilder() {
                 </div>
              </div>
 
-             {/* Analysis Sidebar (Overlays preview) */}
-             <AnimatePresence>
-               {showAnalysis && (
-                 <motion.div initial={{ x: 350 }} animate={{ x: 0 }} exit={{ x: 350 }} style={{ position: 'absolute', right: 0, top: '72px', bottom: 0, width: '320px', background: 'var(--color-surface)', borderLeft: '1px solid var(--color-border)', padding: '1.5rem', zIndex: 5, boxShadow: '-10px 0 30px rgba(0,0,0,0.3)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                       <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Resume Insights</h3>
-                       <button onClick={() => setShowAnalysis(false)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}><ChevronRight size={20} /></button>
-                    </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                       <div className="glass-card" style={{ padding: '1.25rem', textAlign: 'center' }}>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 700, marginBottom: '0.5rem' }}>OVERALL SCORE</div>
-                          <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--color-primary)' }}>{analysis.score}</div>
-                          <div style={{ height: '4px', background: 'var(--color-surface-2)', borderRadius: '2px', marginTop: '0.5rem', overflow: 'hidden' }}>
-                             <div style={{ width: `${analysis.score}%`, height: '100%', background: 'var(--color-primary)' }} />
-                          </div>
-                       </div>
-
-                       <div>
-                          <div style={{ ...labelStyle, color: 'var(--color-success)' }}>Strengths & Tips</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                             {analysis.tips.map((tip, i) => (
-                               <div key={i} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem' }}>
-                                  <CheckCircle2 size={16} color="var(--color-success)" style={{ flexShrink: 0 }} />
-                                  <span>{tip}</span>
-                               </div>
-                             ))}
-                          </div>
-                       </div>
-
-                       <div>
-                          <div style={{ ...labelStyle, color: 'var(--color-primary)' }}>Keywords Found</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                             {analysis.keywords.map(kw => <span key={kw} style={{ background: 'var(--color-surface-2)', padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem' }}>{kw}</span>)}
-                          </div>
-                       </div>
-                    </div>
-                 </motion.div>
-               )}
-             </AnimatePresence>
           </div>
 
         </div>

@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const { callGeminiDirectly } = require('../utils/geminiClient');
+const { parseStructuredJson } = require('../utils/jsonParser');
 
 /**
  * Normalizes strings to help with duplicate detection
@@ -98,9 +99,7 @@ const fetchSimulatedJobs = async (role, location, isRemote, platformName) => {
     // Robust JSON parsing
     let parsed;
     try {
-      const responseText = response.text || '';
-      const cleanJson = responseText.replace(/```json|```/g, '').trim();
-      parsed = JSON.parse(cleanJson);
+      parsed = parseStructuredJson(response.text);
     } catch (parseErr) {
       console.error(`${platformName} Simulated Scrape JSON Parse Error:`, parseErr.message, 'Raw text:', response.text);
       return [];
@@ -111,13 +110,19 @@ const fetchSimulatedJobs = async (role, location, isRemote, platformName) => {
     return parsed.map(job => {
       const p = platformName.toLowerCase();
       const qDash = role.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const jobQuery = encodeURIComponent(`"${job.title}" jobs ${job.company}`);
       
-      let realUrl = `https://www.google.com/search?q=${jobQuery}`;
-      if (p.includes('linkedin')) realUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(job.title + ' ' + job.company)}`;
-      else if (p.includes('indeed')) realUrl = `https://www.indeed.com/jobs?q=${encodeURIComponent(job.title.replace(/ /g, '+'))}`;
-      else if (p.includes('wellfound')) realUrl = `https://wellfound.com/role/l/${qDash}`;
-      else if (p.includes('glassdoor')) realUrl = `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${encodeURIComponent(job.title + ' ' + job.company)}`;
+      let realUrl = `https://www.google.com/search?q=${encodeURIComponent(job.title + ' ' + job.company + ' ' + platformName + ' job')}`;
+      if (p.includes('linkedin')) {
+        realUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(job.title + ' ' + job.company)}`;
+      } else if (p.includes('indeed')) {
+        realUrl = `https://www.indeed.com/jobs?q=${encodeURIComponent(job.title + ' ' + job.company)}`;
+      } else if (p.includes('wellfound')) {
+        realUrl = `https://www.google.com/search?q=${encodeURIComponent(job.title + ' ' + job.company + ' site:wellfound.com')}`;
+      } else if (p.includes('glassdoor')) {
+        realUrl = `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${encodeURIComponent(job.title + ' ' + job.company)}`;
+      } else if (p.includes('internshala')) {
+        realUrl = `https://www.google.com/search?q=${encodeURIComponent(job.title + ' ' + job.company + ' site:internshala.com')}`;
+      }
 
       return {
         id: crypto.randomUUID(),
@@ -173,15 +178,95 @@ exports.aggregateJobs = async ({ role, location, isRemote, isInternship }) => {
   // Intelligent Deduplication
   const uniqueJobs = removeDuplicates(allJobs);
   
+  // Relevance keyword-based filtering
+  const stopWords = new Set([
+    'senior', 'junior', 'lead', 'independent', 'associate', 'chief', 'principal', 
+    'staff', 'entry', 'level', 'mid', 'contract', 'full', 'time', 'part', 'remote', 
+    'onsite', 'and', 'or', 'in', 'the', 'a', 'of', 'for', 'with', 'at', 'to', 
+    'from', 'by', 'as', 'on', 'about', 'into', 'through', 'over', 'after', 
+    'between', 'under', 'during', 'without', 'before', 'against', 'hiring', 
+    'opportunity', 'opportunities', 'job', 'jobs', 'position', 'positions'
+  ]);
+
+  const queryWords = role.toLowerCase().split(/[\s,.\-\/&]+/).filter(w => w.length > 1 && !stopWords.has(w));
+  
+  let filteredJobs = uniqueJobs;
+  if (queryWords.length > 0) {
+    filteredJobs = uniqueJobs.map(job => {
+      const titleLower = job.title.toLowerCase();
+      const descLower = (job.description || '').toLowerCase();
+      const skillsLower = (job.skills || []).map(s => s.toLowerCase());
+
+      let score = 0;
+      let matchedCount = 0;
+
+      queryWords.forEach(word => {
+        let matchedThisWord = false;
+        
+        // Match word boundaries for higher precision
+        const titleRegex = new RegExp(`\\b${word}\\b`, 'i');
+        const descRegex = new RegExp(`\\b${word}\\b`, 'i');
+
+        if (titleRegex.test(titleLower)) {
+          score += 15;
+          matchedThisWord = true;
+        } else if (titleLower.includes(word)) {
+          score += 8;
+          matchedThisWord = true;
+        }
+
+        if (skillsLower.some(s => s === word || s.includes(word))) {
+          score += 10;
+          matchedThisWord = true;
+        }
+
+        if (descRegex.test(descLower)) {
+          score += 4;
+          matchedThisWord = true;
+        } else if (descLower.includes(word)) {
+          score += 2;
+          matchedThisWord = true;
+        }
+
+        if (matchedThisWord) {
+          matchedCount++;
+        }
+      });
+
+      // Big relevance boost if multiple query terms matched
+      if (matchedCount === queryWords.length) {
+        score += 25;
+      }
+
+      return { ...job, relevanceScore: score };
+    });
+
+    // Filter out jobs with low relevance scores
+    const threshold = queryWords.length > 1 ? 15 : 8;
+    filteredJobs = filteredJobs.filter(job => (job.relevanceScore || 0) >= threshold);
+
+    // Sort by relevance score descending
+    filteredJobs.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+
+    // Safety check: if filtering is too aggressive and yields fewer than 3 jobs, fallback to original uniqueJobs
+    if (filteredJobs.length < 3) {
+      filteredJobs = uniqueJobs;
+    }
+  }
+
   // Basic Sorting: Put remote/flexible jobs higher if requested
   if (isRemote) {
-    uniqueJobs.sort((a, b) => {
+    filteredJobs.sort((a, b) => {
       const aRem = a.location.toLowerCase().includes('remote');
       const bRem = b.location.toLowerCase().includes('remote');
-      return (aRem === bRem) ? 0 : aRem ? -1 : 1;
+      if (aRem !== bRem) {
+        return aRem ? -1 : 1;
+      }
+      return (b.relevanceScore || 0) - (a.relevanceScore || 0);
     });
   }
 
-  console.log(`✅ Aggregation complete. Found ${allJobs.length} raw jobs, deduplicated to ${uniqueJobs.length}.`);
-  return uniqueJobs;
+  console.log(`... Aggregation complete. Found ${allJobs.length} raw jobs, filtered to ${filteredJobs.length} relevant jobs.`);
+  return filteredJobs;
 };
+

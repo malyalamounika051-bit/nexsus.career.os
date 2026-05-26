@@ -5,7 +5,13 @@ import {
   ModernTemplate, 
   ProfessionalTemplate, 
   CreativeTemplate, 
-  MinimalistTemplate 
+  MinimalistTemplate,
+  GreyLiningTemplate,
+  SaharaContrastTemplate,
+  GlacierChillTemplate,
+  IvoryPrestigeTemplate,
+  RoyalEssenceTemplate,
+  ExecutiveEdgeTemplate
 } from '../components/ResumeTemplates';
 import { Download, Printer, Globe, Share2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
@@ -14,7 +20,13 @@ const TEMPLATES = {
   modern: ModernTemplate,
   professional: ProfessionalTemplate,
   creative: CreativeTemplate,
-  minimalist: MinimalistTemplate
+  minimalist: MinimalistTemplate,
+  grey_lining: GreyLiningTemplate,
+  sahara_contrast: SaharaContrastTemplate,
+  glacier_chill: GlacierChillTemplate,
+  ivory_prestige: IvoryPrestigeTemplate,
+  royal_essence: RoyalEssenceTemplate,
+  executive_edge: ExecutiveEdgeTemplate
 };
 
 export default function PublicResume() {

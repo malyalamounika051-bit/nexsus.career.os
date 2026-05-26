@@ -1,4 +1,5 @@
 const { callGeminiDirectly } = require('../utils/geminiClient');
+const { parseStructuredJson } = require('../utils/jsonParser');
 const Interview = require('../models/Interview');
 
 // @desc    Generate interview questions and start interview
@@ -31,8 +32,7 @@ Respond in this EXACT JSON format:
 Return ONLY the JSON object. Do not include any markdown formatting or extra text.`;
 
     const response = await callGeminiDirectly({ prompt, temperature: 0.7 });
-    const cleanJson = response.text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
+    const parsed = parseStructuredJson(response.text);
 
     if (!parsed.questions || parsed.questions.length === 0) {
       throw new Error("Failed to generate questions");
@@ -80,8 +80,7 @@ Respond in this EXACT JSON format:
 Return ONLY the JSON object. No markdown.`;
 
     const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
-    const cleanJson = response.text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
+    const parsed = parseStructuredJson(response.text);
 
     // Save to transcript
     await Interview.findByIdAndUpdate(interviewId, {
@@ -151,8 +150,7 @@ Return ONLY the JSON object. No markdown.`;
     const response = await callGeminiDirectly({ prompt, temperature: 0.6 });
     let parsed;
     try {
-      const cleanJson = response.text.replace(/```json|```/g, '').trim();
-      parsed = JSON.parse(cleanJson);
+      parsed = parseStructuredJson(response.text);
     } catch (e) {
       console.error("JSON parse error on finalize:", e);
       // Fallback dummy data if parse fails

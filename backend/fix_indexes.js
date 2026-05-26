@@ -1,52 +1,53 @@
+/**
+ * One-time script: drop the stale userId_1_domain_1_isGeneratedRoadmap_1 index
+ * that causes E11000 duplicate key errors when saving roadmaps.
+ * Run: node fix_indexes.js  (from the backend/ directory)
+ */
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+require('dotenv').config();
 const mongoose = require('mongoose');
 const dns = require('dns');
-require('dotenv').config();
 
 // Force Google DNS — system resolver blocks SRV queries (ECONNREFUSED on Windows)
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
-async function run() {
+(async () => {
   try {
-    console.log('Connecting to DB:', process.env.MONGO_URI);
-    await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 20000,
-      tls: true,
-      tlsAllowInvalidCertificates: true,
-      tlsAllowInvalidHostnames: true,
-    });
-    console.log('✅ Connected successfully to', mongoose.connection.host);
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('✅ Connected to MongoDB');
 
-    const collection = mongoose.connection.db.collection('careers');
-    
-    console.log('\nFetching current indexes on "careers" collection:');
-    const indexes = await collection.indexes();
-    console.log(JSON.stringify(indexes, null, 2));
-    
-    // Look for ANY unique index that includes ONLY domain, or is global
-    for (const index of indexes) {
-      const keys = Object.keys(index.key || {});
-      const isDomainOnly = keys.length === 1 && keys[0] === 'domain';
-      
-      if (index.unique && isDomainOnly) {
-        console.log(`⚠️ Found blocking UNIQUE index on "domain" only: "${index.name}". Dropping it...`);
-        try {
-          await collection.dropIndex(index.name);
-          console.log(`✅ Successfully dropped index "${index.name}"!`);
-        } catch (dropErr) {
-          console.error(`❌ Failed to drop index:`, dropErr.message);
+    const db = mongoose.connection.db;
+    const col = db.collection('careers');
+
+    // List all current indexes
+    const indexes = await col.indexes();
+    console.log('\n📋 Current indexes:');
+    indexes.forEach(i => console.log(' -', i.name, JSON.stringify(i.key)));
+
+    // Drop the broken legacy index (if it still exists)
+    const broken = ['userId_1_domain_1_isGeneratedRoadmap_1'];
+    for (const idx of broken) {
+      try {
+        await col.dropIndex(idx);
+        console.log(`\n🗑️  Dropped index: ${idx}`);
+      } catch (e) {
+        if (e.codeName === 'IndexNotFound') {
+          console.log(`ℹ️  Index already removed: ${idx}`);
+        } else {
+          console.error(`❌ Could not drop ${idx}:`, e.message);
         }
       }
     }
 
-    console.log('\nRe-verifying indexes...');
-    const finalIndexes = await collection.indexes();
-    console.log('Final indexes count:', finalIndexes.length);
+    // List remaining indexes
+    const remaining = await col.indexes();
+    console.log('\n✅ Remaining indexes:');
+    remaining.forEach(i => console.log(' -', i.name, JSON.stringify(i.key)));
 
-    console.log('\nDone!');
-    process.exit(0);
+    await mongoose.disconnect();
+    console.log('\n✅ Done — backend will auto-restart.');
   } catch (err) {
-    console.error('❌ ERROR:', err);
+    console.error('❌ Error:', err.message);
     process.exit(1);
   }
-}
-run();
+})();

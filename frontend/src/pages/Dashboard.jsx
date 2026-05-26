@@ -57,18 +57,21 @@ const AI_INSIGHTS = [
 
 /* ── Dashboard ────────────────────────────────────────── */
 const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [assessments, setAssessments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
+    if (refreshUser) {
+      refreshUser();
+    }
     assessmentService.getAll()
       .then(({ data }) => setAssessments(data.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshUser]);
 
   const latest = assessments[0];
   const archetype = getArchetype(latest?.scores);

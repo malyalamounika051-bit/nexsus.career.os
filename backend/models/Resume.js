@@ -93,11 +93,10 @@ const resumeSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-resumeSchema.pre('save', function(next) {
+resumeSchema.pre('save', function() {
   if (!this.shareableToken) {
     this.shareableToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   }
-  next();
 });
 
 module.exports = mongoose.model('Resume', resumeSchema);

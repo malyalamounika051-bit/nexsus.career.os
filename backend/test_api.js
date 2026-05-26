@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config({ path: './backend/.env' });
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 async function test() {
-  const token = jwt.sign({ id: 'dummy_user_id', email: 'test@example.com' }, process.env.JWT_SECRET || 'fallbacksecret', { expiresIn: '1h' });
+  const token = jwt.sign({ id: '69f759eac5f172426fe8820e', email: 'malyalamounika0@gmail.com' }, process.env.JWT_SECRET || 'fallbacksecret', { expiresIn: '1h' });
   
   const headers = { 
     'Authorization': `Bearer ${token}`,

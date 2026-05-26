@@ -1,52 +1,13 @@
 const Career = require('../models/Career');
 const { callGeminiDirectly } = require('../utils/geminiClient');
+const { awardXP } = require('../utils/gamification');
+const { parseStructuredJson } = require('../utils/jsonParser');
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
 /** Avoid RegExp syntax errors / ReDoS when matching user-entered career titles */
 const escapeRegex = (str = '') => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Parse AI response that may contain fenced JSON or mixed text + JSON */
-const parseStructuredJson = (raw) => {
-  if (raw == null || String(raw).trim() === '') {
-    throw new Error('Empty response from AI model.');
-  }
-  let text = String(raw).trim();
-  const fence = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  if (fence) text = fence[1].trim();
-
-  const tryParse = (candidate) => JSON.parse(candidate);
-
-  // Fast path: pure JSON
-  try { return tryParse(text); } catch { /* continue */ }
-
-  // Extract first JSON object from mixed model output
-  const extractFirstJsonObject = (input) => {
-    const s = String(input);
-    const start = s.indexOf('{');
-    if (start < 0) return null;
-    let depth = 0, inString = false, escaped = false;
-    for (let i = start; i < s.length; i++) {
-      const ch = s[i];
-      if (inString) {
-        if (escaped) { escaped = false; }
-        else if (ch === '\\') { escaped = true; }
-        else if (ch === '"') { inString = false; }
-        continue;
-      }
-      if (ch === '"') { inString = true; continue; }
-      if (ch === '{') depth += 1;
-      if (ch === '}') depth -= 1;
-      if (depth === 0) return s.slice(start, i + 1);
-    }
-    return null;
-  };
-
-  const extracted = extractFirstJsonObject(text);
-  if (extracted) return tryParse(extracted);
-
-  throw new Error('Model did not return a JSON object.');
-};
 
 /* ── Normalize & validate AI output ──────────────────────── */
 
@@ -339,7 +300,7 @@ const generateRoadmap = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
-    // ── Check cache: return existing high-quality roadmap ──
+    // ── Check cache: return existing high-quality roadmap for this user ──
     const existingCareer = await Career.findOne({
       domain: { $regex: new RegExp(`^${escapeRegex(query)}$`, 'i') },
       userUid: String(userUid),
@@ -353,39 +314,69 @@ const generateRoadmap = async (req, res) => {
         return res.json({ success: true, data: existingCareer, cached: true });
       }
       // Stale entry — regenerate
-      console.log(`♻️ Regenerating stale roadmap for "${existingCareer.domain}"...`);
+      console.log(`♻️ Regenerating stale user roadmap for "${existingCareer.domain}"...`);
       await Career.deleteOne({ _id: existingCareer._id });
     }
 
+    // ── Global Cache Check: If any other user generated a high-quality version of this roadmap, clone it! ──
+    const globalCachedCareer = await Career.findOne({
+      domain: { $regex: new RegExp(`^${escapeRegex(query)}$`, 'i') },
+      isGeneratedRoadmap: true,
+    }).sort({ createdAt: 1 });
+
+    if (globalCachedCareer) {
+      const hasProjects = globalCachedCareer.roadmap?.some(p => p.projects && p.projects.length > 0);
+      const hasEnoughPhases = globalCachedCareer.roadmap?.length >= 7;
+      if (hasProjects && hasEnoughPhases) {
+        console.log(`⚡ Global Cache Hit! Cloning roadmap for "${globalCachedCareer.domain}" to user: ${userUid}`);
+        
+        const clonedRoadmapData = globalCachedCareer.toObject();
+        delete clonedRoadmapData._id; // Let Mongoose generate a new ID
+        clonedRoadmapData.userUid = String(userUid);
+        clonedRoadmapData.userId = String(userUid);
+        if (userEmail) clonedRoadmapData.userEmail = userEmail;
+        clonedRoadmapData.progress = {
+          completedPhases: 0,
+          totalPhases: clonedRoadmapData.roadmap.length,
+          lastUpdated: new Date(),
+        };
+        // Reset all phases to uncompleted for the new user's independent progress
+        clonedRoadmapData.roadmap.forEach(phase => {
+          phase.completed = false;
+        });
+
+        const clonedCareer = await Career.create(clonedRoadmapData);
+        awardXP(userUid, 'ROADMAP_GENERATED').catch(() => {});
+        return res.json({ success: true, data: clonedCareer, cached: true });
+      }
+    }
+
     // ── Build AI prompt ──────────────────────────────────────
-    const structuredPrompt = `You are a world-class career counselor, technical education architect, and industry expert. You have deep knowledge of hiring standards, modern tech stacks, learning science, and real-world career progression.
+    const structuredPrompt = `You are an expert career counselor. Create a detailed career roadmap for: "${query}"
 
-Your task: Create an EXCEPTIONALLY detailed and PRACTICAL career roadmap for: "${query}"
+Return ONLY valid JSON — no markdown fences, no explanations. First character must be "{", last must be "}".
 
-RESPOND ONLY WITH VALID JSON — no markdown, no explanations, no extra text. First character must be "{", last must be "}".
-
-The JSON must match this EXACT structure:
-
+JSON structure:
 {
   "domain": "Career Title",
-  "description": "2-3 sentence compelling career description",
+  "description": "2-3 sentence career description",
   "skills": ["skill1", "skill2", ...],
   "demandScore": 78,
   "futureScore": 82,
   "avgSalary": "₹X-Y LPA",
   "growthRate": "X% YoY",
   "demand": "High",
-  "trendingSkills": ["trending1", "trending2", ...],
+  "trendingSkills": ["trending1", ...],
   "salaryRange": { "min": "₹4 LPA", "max": "₹30 LPA", "currency": "INR" },
   "alternativePaths": ["Related Career 1", "Related Career 2", ...],
-  "studyStrategy": "A personalized 3-4 sentence AI study strategy covering daily hours, learning approach, project cadence, and community engagement.",
+  "studyStrategy": "3-4 sentence personalized study advice covering daily hours, approach, and community engagement.",
   "roadmap": [
     {
       "phase": "Phase 1: Beginner Phase",
       "duration": "4-6 weeks",
       "difficulty": "beginner",
       "skills": ["HTML5", "CSS3", "Basic JavaScript"],
-      "topics": ["How the web works", "HTML semantic elements", "CSS Flexbox & Grid", "JavaScript basics"],
+      "topics": ["How the web works", "HTML semantic elements", "CSS Flexbox & Grid"],
       "tools": ["VS Code", "Chrome DevTools", "Git"],
       "certifications": ["freeCodeCamp Responsive Web Design"],
       "practiceTasks": ["Build a personal portfolio page", "Complete 30 CSS challenges"],
@@ -393,60 +384,24 @@ The JSON must match this EXACT structure:
       "resources": [
         { "title": "Traversy Media - HTML Crash Course", "url": "https://youtube.com/...", "type": "video", "category": "youtube" },
         { "title": "MDN Web Docs", "url": "https://developer.mozilla.org", "type": "documentation", "category": "docs" },
-        { "title": "freeCodeCamp", "url": "https://freecodecamp.org", "type": "platform", "category": "platform" },
-        { "title": "CSS-Tricks", "url": "https://css-tricks.com", "type": "article", "category": "blog" },
-        { "title": "The Odin Project", "url": "https://theodinproject.com", "type": "course", "category": "course" }
+        { "title": "freeCodeCamp", "url": "https://freecodecamp.org", "type": "platform", "category": "platform" }
       ]
     }
   ]
 }
 
-STRICT REQUIREMENTS:
+REQUIREMENTS:
+- Create EXACTLY 7 phases: Beginner, Foundation, Skill Development, Project, Internship & Freelance, Advanced, Career Preparation
+- Each phase: 4-8 skills, 4-8 topics, 2-5 tools, 1-3 certifications, 2-4 practiceTasks, 1-3 projects, 4-8 resources
+- Skills/topics must be specific and actionable (e.g. "React Hooks" not "learn frontend")
+- Projects must be portfolio-worthy and specific (e.g. "Real-time chat app with Socket.io and React")
+- Resources must have real URLs. Types: video|article|course|book|certification|platform|tool|tutorial|documentation. Categories: youtube|course|blog|docs|platform|community|book|other
+- difficulty values: beginner|intermediate|advanced
+- demandScore and futureScore: 0-100
+- Salary data for India in INR
+- 4-6 alternativePaths (related careers)
 
-1. PHASES — Create EXACTLY 7 progressive phases:
-   - Phase 1: Beginner Phase (fundamentals, environment setup, core concepts)
-   - Phase 2: Foundation Phase (core technologies, primary stack)
-   - Phase 3: Skill Development Phase (intermediate skills, patterns)
-   - Phase 4: Project Phase (real-world projects, portfolio building)
-   - Phase 5: Internship & Freelance Phase (work experience, freelancing)
-   - Phase 6: Advanced Phase (advanced topics, specialization, system design)
-   - Phase 7: Career Preparation Phase (interview prep, resume, job search)
-
-2. SKILLS (4-8 per phase) — Specific and actionable:
-   ✅ "React Hooks (useState, useEffect, useContext)"
-   ❌ "Learn frontend"
-
-3. TOPICS (4-8 per phase) — Hyper-specific learning objectives:
-   ✅ "REST API Design with Express.js and middleware patterns"
-   ❌ "Study backend"
-
-4. TOOLS (2-5 per phase) — Real software/tools used by professionals
-
-5. CERTIFICATIONS (1-3 per phase) — Real, obtainable certifications
-
-6. PRACTICE TASKS (2-4 per phase) — Concrete exercises
-
-7. PROJECTS (1-3 per phase) — Portfolio-worthy, specific:
-   ✅ "Build a real-time chat app using Socket.io, React, and MongoDB"
-   ❌ "Build a project"
-
-8. RESOURCES (4-8 per phase) — MUST be REAL and SPECIFIC with working URLs:
-   - category "youtube": YouTube channels/videos (Traversy Media, freeCodeCamp, Fireship, etc.)
-   - category "course": Online courses (Udemy, Coursera, edX, etc.)
-   - category "docs": Official documentation
-   - category "blog": Tech blogs and articles
-   - category "platform": Practice platforms (LeetCode, HackerRank, Exercism, etc.)
-   - category "community": Forums/communities (Reddit, Discord, Stack Overflow, etc.)
-   - Each resource MUST have: title, url, type, category
-
-9. MARKET DATA — Realistic values:
-   - demandScore: 0-100
-   - futureScore: 0-100 (predicted demand in 5 years)
-   - salaryRange: Min and max for India
-   - alternativePaths: 4-6 related careers
-   - studyStrategy: 3-4 sentences of personalized advice
-
-CRITICAL: Return ONLY valid JSON. First character "{", last character "}".`;
+Return ONLY valid JSON.`;
 
     try {
       const response = await callGeminiDirectly({
@@ -478,6 +433,7 @@ CRITICAL: Return ONLY valid JSON. First character "{", last character "}".`;
       generatedData = normalizeRoadmapData(generatedData, query.trim());
       generatedData.isGeneratedRoadmap = true;
       generatedData.userUid = String(userUid);
+      generatedData.userId  = String(userUid); // also populate legacy field to satisfy old index
       if (userEmail) generatedData.userEmail = userEmail;
       generatedData.progress = {
         completedPhases: 0,
@@ -485,23 +441,47 @@ CRITICAL: Return ONLY valid JSON. First character "{", last character "}".`;
         lastUpdated: new Date(),
       };
 
-      // Upsert to DB
+      // Save to DB — use replaceOne+upsert so re-generating the same career overwrites cleanly
       let newCareer;
       try {
-        newCareer = await Career.findOneAndUpdate(
-          {
-            domain: { $regex: new RegExp(`^${escapeRegex(generatedData.domain)}$`, 'i') },
-            userUid: String(userUid),
-            isGeneratedRoadmap: true,
-          },
-          generatedData,
-          { upsert: true, new: true, runValidators: true },
-        );
+        const filter = {
+          userUid: String(userUid),
+          domain:  { $regex: new RegExp(`^${escapeRegex(generatedData.domain)}$`, 'i') },
+          isGeneratedRoadmap: true,
+        };
+
+        // Try replaceOne with upsert first
+        let replaced = false;
+        try {
+          await Career.replaceOne(filter, generatedData, { upsert: true });
+          replaced = true;
+        } catch (e11) {
+          if (e11.code === 11000) {
+            // Stale legacy index: hard-delete any conflicting doc then insert fresh
+            console.warn('⚠️  E11000 — clearing stale index conflict and retrying...');
+            await Career.collection.deleteMany({
+              $or: [
+                { domain: generatedData.domain, isGeneratedRoadmap: true, userId: null },
+                { domain: generatedData.domain, isGeneratedRoadmap: true, userUid: String(userUid) },
+              ]
+            });
+            await Career.collection.insertOne(generatedData);
+          } else {
+            throw e11;
+          }
+        }
+
+        newCareer = await Career.findOne(filter) ||
+                    await Career.findOne({ domain: generatedData.domain, userUid: String(userUid) });
+
+        if (!newCareer) throw new Error('Roadmap was generated but could not be retrieved after save.');
+        awardXP(userUid, 'ROADMAP_GENERATED').catch(() => {});
       } catch (dbError) {
-        console.error('Career upsert error:', dbError.message || dbError);
-        const err = new Error(dbError?.message || 'Could not save roadmap to database.');
-        err.isDbValidation = true;
-        throw err;
+        console.error('Career save error:', dbError.message || dbError);
+        // Return the generated data to the user even if DB save fails
+        // so they don't lose their roadmap
+        console.warn('⚠️  Returning in-memory roadmap due to DB save failure.');
+        return res.json({ success: true, data: generatedData, cached: false, saveWarning: true });
       }
 
       return res.json({ success: true, data: newCareer, cached: false });
@@ -515,7 +495,7 @@ CRITICAL: Return ONLY valid JSON. First character "{", last character "}".`;
       if (isQuota) {
         return res.status(429).json({
           success: false,
-          message: 'AI quota exhausted. Please try again in a few minutes.',
+          message: 'AI quota exhausted. Please wait a moment and try again — the system will automatically use a backup AI model.',
         });
       }
       if (isDbValidation) {
@@ -524,10 +504,13 @@ CRITICAL: Return ONLY valid JSON. First character "{", last character "}".`;
           message: 'Roadmap generated but could not be saved. Try a slightly different title.',
         });
       }
+      const isTimeout = errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT');
       return res.status(isOverloaded ? 503 : 500).json({
         success: false,
         message: isOverloaded
           ? 'AI service is temporarily busy. Please try again shortly.'
+          : isTimeout
+          ? 'The AI took too long to respond. Please try a simpler career title or try again in a moment.'
           : (errorMsg.length < 220 ? errorMsg : 'Roadmap generation failed. Please try again.'),
       });
     }

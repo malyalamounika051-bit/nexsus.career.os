@@ -402,11 +402,16 @@ const verifyLoginOtp = async (req, res) => {
 // @access Private
 const getMe = async (req, res) => {
   try {
-    if (req.user && req.user.isFirebaseUser) {
+    const user = await User.findById(req.user.id);
+    if (!user) {
       return res.json({ success: true, user: req.user });
     }
-    const user = await User.findById(req.user.id);
-    res.json({ success: true, user });
+    
+    // Update streak (async)
+    updateStreak(user._id).catch((err) => console.error('Streak update failed:', err.message));
+    
+    const updatedUser = await User.findById(user._id);
+    res.json({ success: true, user: updatedUser });
   } catch (error) {
     console.error('getMe error:', error.message);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -418,9 +423,6 @@ const getMe = async (req, res) => {
 // @access Private
 const updateProfile = async (req, res) => {
   try {
-    if (req.user && req.user.isFirebaseUser) {
-      return res.status(403).json({ success: false, message: 'Profile updates are not available for temporary Firebase sessions.' });
-    }
     const { name, bio } = req.body;
     const user = await User.findByIdAndUpdate(
       req.user.id,

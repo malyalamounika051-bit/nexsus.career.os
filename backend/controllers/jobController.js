@@ -1,4 +1,5 @@
 const { callGeminiDirectly } = require('../utils/geminiClient');
+const { parseStructuredJson } = require('../utils/jsonParser');
 const SavedJob = require('../models/SavedJob');
 const JobCache = require('../models/JobCache');
 const Resume = require('../models/Resume');
@@ -94,9 +95,7 @@ exports.analyzeJobFit = async (req, res) => {
     // Robust JSON parsing
     let fitData;
     try {
-      const responseText = aiResponse.text || '';
-      const cleanJson = responseText.replace(/```json|```/g, '').trim();
-      fitData = JSON.parse(cleanJson);
+      fitData = parseStructuredJson(aiResponse.text);
     } catch (parseErr) {
       console.error('Analyze Fit JSON Parse Error:', parseErr.message, 'Raw text:', aiResponse.text);
       throw new Error('Failed to parse AI response');
@@ -255,8 +254,7 @@ exports.matchJobsToResume = async (req, res) => {
     const aiResponse = await callGeminiDirectly({ prompt, temperature: 0.2 });
     let matchResults = [];
     try {
-      let cleanJson = (aiResponse.text || '').replace(/```json|```/g, '').trim();
-      matchResults = JSON.parse(cleanJson);
+      matchResults = parseStructuredJson(aiResponse.text);
     } catch (e) {
       console.error('Failed to parse match JSON:', e.message, aiResponse.text);
       return res.status(500).json({ success: false, message: 'Failed to process AI response' });

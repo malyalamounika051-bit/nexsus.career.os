@@ -9,7 +9,7 @@ const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
 const DEFAULT_MODEL = 'meta/llama-3.3-70b-instruct';
 const NVIDIA_MODEL_CHAIN = [
   'meta/llama-3.3-70b-instruct',
-  'meta/llama-3.2-3b-instruct',
+  'meta/llama-3.1-8b-instruct',
   'meta/llama-3.1-70b-instruct',
 ];
 
@@ -81,14 +81,14 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model })
           messages: finalMessages,
           temperature,
           top_p: 0.95,
-          max_tokens: 4096,
+          max_tokens: 8192, // Increased: roadmap JSON can be 6000+ tokens
         },
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
-          timeout: 90000, // 90s per model for faster failover (instead of 180s)
+          timeout: 45000, // 45s — fast failover to backup models if congested
         }
       );
 
@@ -156,39 +156,49 @@ const callGeminiREST = async ({ contents, systemInstruction, generationConfig })
 const callGeminiDirectly = async ({ prompt, temperature = 0.6 }) => {
   const geminiKey = process.env.GEMINI_API_KEY;
 
-  // 1. Try Google Gemini first (if key exists)
-  if (geminiKey && geminiKey !== 'YOUR_GEMINI_API_KEY') {
-    try {
-      console.log('🤖 Calling Google Gemini API directly...');
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 4096,
-          },
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 180000,
-        }
-      );
+  // Gemini model fallback chain — different models may have separate free-tier quotas
+  const GEMINI_MODELS = [
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash-lite',
+  ];
 
-      const candidates = response?.data?.candidates || [];
-      if (candidates.length === 0) throw new Error('No candidates in Gemini response');
-      const content = candidates[0]?.content?.parts?.[0]?.text || '';
-      if (!content || content.trim() === '') throw new Error('Gemini API returned empty response');
-      return { text: content };
-    } catch (geminiError) {
-      const status = geminiError?.response?.status;
-      const errMsg = geminiError?.response?.data?.error?.message || geminiError.message || '';
-      console.warn(`⚠️ Gemini API failed (status ${status}): ${errMsg}`);
-      console.log('🔄 Falling back to NVIDIA NIM...');
-      // Fall through to NVIDIA
+  // 1. Try Google Gemini models (if key exists)
+  if (geminiKey && geminiKey !== 'YOUR_GEMINI_API_KEY') {
+    for (const model of GEMINI_MODELS) {
+      try {
+        console.log(`🤖 Calling Google Gemini API (${model})...`);
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 8192,
+            },
+          },
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 180000,
+          }
+        );
+
+        const candidates = response?.data?.candidates || [];
+        if (candidates.length === 0) throw new Error('No candidates in Gemini response');
+        const content = candidates[0]?.content?.parts?.[0]?.text || '';
+        if (!content || content.trim() === '') throw new Error('Gemini API returned empty response');
+        console.log(`✅ Gemini (${model}) succeeded.`);
+        return { text: content };
+      } catch (geminiError) {
+        const status = geminiError?.response?.status;
+        const errMsg = geminiError?.response?.data?.error?.message || geminiError.message || '';
+        console.warn(`⚠️ Gemini ${model} failed (status ${status}): ${errMsg}`);
+        // Continue to next model
+      }
     }
+    console.log('🔄 All Gemini models exhausted, falling back to NVIDIA NIM...');
   }
 
   // 2. Fallback: Use NVIDIA NIM

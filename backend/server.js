@@ -1,4 +1,4 @@
-// Fix for OpenSSL TLS alert 80 on Windows with MongoDB Atlas
+// Force Nodemon Reload: Fix for OpenSSL TLS alert 80 on Windows with MongoDB Atlas
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 require('dotenv').config();
 const express = require('express');

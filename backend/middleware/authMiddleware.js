@@ -50,6 +50,33 @@ const verifyFirebaseIdToken = async (idToken) => {
   });
 };
 
+const findOrCreateUser = async (firebaseUid, email, name) => {
+  try {
+    let user = await User.findOne({
+      $or: [
+        { firebaseUid: firebaseUid },
+        { email: email }
+      ]
+    });
+
+    if (!user) {
+      user = await User.create({
+        name: name || (email ? email.split('@')[0] : 'User'),
+        email: email,
+        firebaseUid: firebaseUid,
+        password: Math.random().toString(36).slice(-8)
+      });
+    } else if (!user.firebaseUid) {
+      user.firebaseUid = firebaseUid;
+      await user.save();
+    }
+    return user;
+  } catch (err) {
+    console.error('findOrCreateUser error:', err.message);
+    return null;
+  }
+};
+
 /**
  * protect
  * Accepts BOTH local JWT tokens (from demo/local login) AND Firebase ID tokens.
@@ -85,12 +112,31 @@ const protect = async (req, res, next) => {
     // 2. Try Firebase ID token verification
     try {
       const payload = await verifyFirebaseIdToken(token);
+      const firebaseUid = payload.user_id || payload.sub;
+      const email = payload.email;
+      const name = payload.name || (email ? email.split('@')[0] : 'User');
+      
+      const dbUser = await findOrCreateUser(firebaseUid, email, name);
+      if (dbUser) {
+        req.user = {
+          _id: dbUser._id,
+          id: dbUser._id.toString(),
+          uid: dbUser._id.toString(),
+          email: dbUser.email,
+          name: dbUser.name,
+          role: dbUser.role,
+          firebaseUid: firebaseUid,
+          isFirebaseUser: true
+        };
+        return next();
+      }
+
       req.user = {
-        _id: payload.user_id || payload.sub,
-        uid: payload.user_id || payload.sub,
-        id: payload.user_id || payload.sub,
-        email: payload.email,
-        name: payload.name || (payload.email ? payload.email.split('@')[0] : 'User'),
+        _id: firebaseUid,
+        uid: firebaseUid,
+        id: firebaseUid,
+        email: email,
+        name: name,
         isFirebaseUser: true
       };
       return next();
@@ -102,12 +148,32 @@ const protect = async (req, res, next) => {
     // ONLY do this if the issuer is valid
     const decoded = jwt.decode(token);
     if (decoded && (decoded.iss?.includes('securetoken.google.com') || decoded.iss?.includes('firebase'))) {
+      const firebaseUid = decoded.user_id || decoded.sub;
+      const email = decoded.email;
+      const name = decoded.name || (email ? email.split('@')[0] : 'User');
+      
+      const dbUser = await findOrCreateUser(firebaseUid, email, name);
+      if (dbUser) {
+        req.user = {
+          _id: dbUser._id,
+          id: dbUser._id.toString(),
+          uid: dbUser._id.toString(),
+          email: dbUser.email,
+          name: dbUser.name,
+          role: dbUser.role,
+          firebaseUid: firebaseUid,
+          isFirebaseUser: true,
+          unverified: true
+        };
+        return next();
+      }
+
       req.user = {
-        _id: decoded.user_id || decoded.sub,
-        uid: decoded.user_id || decoded.sub,
-        id: decoded.user_id || decoded.sub,
-        email: decoded.email,
-        name: decoded.name || (decoded.email ? decoded.email.split('@')[0] : 'User'),
+        _id: firebaseUid,
+        uid: firebaseUid,
+        id: firebaseUid,
+        email: email,
+        name: name,
         isFirebaseUser: true,
         unverified: true
       };

@@ -149,17 +149,15 @@ const submitAssessment = async (req, res) => {
       careerDNA,
     });
 
-    // Only update local User stats if it's not a mock Firebase user
-    if (!req.user.isFirebaseUser) {
-      try {
-        // Increment user assessment count
-        await User.findByIdAndUpdate(req.user.id, { $inc: { assessmentCount: 1 } });
+    // Update User stats (increment assessment count and award XP)
+    try {
+      // Increment user assessment count
+      await User.findByIdAndUpdate(req.user.id, { $inc: { assessmentCount: 1 } });
 
-        // Award XP for assessment completion (async, non-blocking)
-        awardXP(req.user.id, 'ASSESSMENT_COMPLETED').catch(() => {});
-      } catch (userUpdateErr) {
-        console.warn('Could not update user stats (likely not a local user):', userUpdateErr.message);
-      }
+      // Award XP for assessment completion (async, non-blocking)
+      awardXP(req.user.id, 'ASSESSMENT_COMPLETED').catch(() => {});
+    } catch (userUpdateErr) {
+      console.warn('Could not update user stats:', userUpdateErr.message);
     }
 
     res.status(201).json({ success: true, data: assessment });
