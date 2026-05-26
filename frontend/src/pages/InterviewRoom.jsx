@@ -22,6 +22,17 @@ const InterviewRoom = () => {
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
 
+  const isMutedRef = useRef(isMuted);
+  const isAiSpeakingRef = useRef(isAiSpeaking);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    isAiSpeakingRef.current = isAiSpeaking;
+  }, [isAiSpeaking]);
+
   useEffect(() => {
     if (!interviewId) {
       navigate('/mock-interview/setup');
@@ -60,6 +71,16 @@ const InterviewRoom = () => {
         console.error('Speech recognition error', event.error);
         if (event.error === 'not-allowed') {
           alert('Microphone access denied. Please allow microphone access to use the mock interview.');
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        if (!isMutedRef.current && !isAiSpeakingRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.log('Error auto-restarting speech recognition:', e);
+          }
         }
       };
     } else {
@@ -108,7 +129,7 @@ const InterviewRoom = () => {
   };
 
   const handleFinishAnswering = async () => {
-    if (isMuted || !transcript.trim()) return;
+    if (!transcript.trim()) return;
 
     if (recognitionRef.current) recognitionRef.current.stop();
     setIsMuted(true);
@@ -259,10 +280,42 @@ const InterviewRoom = () => {
             </div>
           )}
           
-          {/* Live User Transcript preview */}
-          {transcript && !isAiSpeaking && (
-            <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', right: '1rem', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', maxHeight: '100px', overflowY: 'auto' }}>
-              {transcript}
+          {/* Live User Response Input/Editor */}
+          {!isAiSpeaking && (
+            <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', right: '1rem', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  Your Answer (Type or edit below)
+                </span>
+                {isMuted && (
+                  <span style={{ fontSize: '0.7rem', color: '#fbbf24', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    Mic Muted - Keyboard Mode
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder={isMuted ? "Type your answer here..." : "Listening... Speak now, or type/edit your answer here..."}
+                style={{
+                  width: '100%',
+                  height: '90px',
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '12px',
+                  color: '#f8fafc',
+                  padding: '0.75rem',
+                  fontSize: '0.88rem',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                  outline: 'none',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--color-primary)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
+              />
             </div>
           )}
         </div>
@@ -304,9 +357,9 @@ const InterviewRoom = () => {
 
         <button
           onClick={handleFinishAnswering}
-          disabled={isAiSpeaking || isMuted || processing}
+          disabled={isAiSpeaking || processing || !transcript.trim()}
           className="btn-primary"
-          style={{ padding: '1rem 2.5rem', borderRadius: '99px', opacity: (isAiSpeaking || isMuted || processing) ? 0.5 : 1, cursor: (isAiSpeaking || isMuted || processing) ? 'not-allowed' : 'pointer' }}
+          style={{ padding: '1rem 2.5rem', borderRadius: '99px', opacity: (isAiSpeaking || processing || !transcript.trim()) ? 0.5 : 1, cursor: (isAiSpeaking || processing || !transcript.trim()) ? 'not-allowed' : 'pointer' }}
         >
           {processing ? 'Processing...' : 'Done Answering'}
         </button>

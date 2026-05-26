@@ -12,7 +12,6 @@ import Results from './pages/Results';
 import Roadmap from './pages/Roadmap';
 import JobsPage from './pages/Jobs';
 
-import MarketInsights from './pages/MarketInsights';
 import MentorChat from './pages/MentorChat';
 import SkillGap from './pages/SkillGap';
 import CareerSimulator from './pages/CareerSimulator';
@@ -43,8 +42,6 @@ function App() {
           <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
 
           <Route path="/mentor" element={<ProtectedRoute><MentorChat /></ProtectedRoute>} />
-          <Route path="/market-intelligence" element={<ProtectedRoute><MarketInsights /></ProtectedRoute>} />
-          <Route path="/market-insights" element={<Navigate to="/market-intelligence" replace />} />
           <Route path="/skill-gap" element={<ProtectedRoute><SkillGap /></ProtectedRoute>} />
           <Route path="/career-simulator" element={<ProtectedRoute><CareerSimulator /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

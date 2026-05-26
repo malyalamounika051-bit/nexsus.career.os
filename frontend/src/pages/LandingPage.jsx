@@ -1,14 +1,13 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Brain, TrendingUp, ArrowRight, CheckCircle2, Star, Dna, Map, MessageSquare, FileSearch, Play, Shield } from 'lucide-react';
+import { Zap, Brain, ArrowRight, CheckCircle2, Star, Dna, Map, MessageSquare, FileSearch, Play, Shield, Mic } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const features = [
   { icon: Dna, title: 'Career DNA Engine', desc: 'Discover your career identity through AI-powered personality and skill profiling.', color: '#0ea5e9' },
   { icon: Map, title: 'AI Roadmap Generator', desc: 'Dynamic learning paths with resources, projects, and certifications for any career.', color: '#a855f7' },
-
   { icon: MessageSquare, title: 'AI Mentor Chat', desc: 'Personal career advisor that knows your profile, history, and market trends.', color: '#10b981' },
-  { icon: TrendingUp, title: 'Market Intelligence', desc: 'Real-time career demand, salary data, automation risk, and growth forecasts.', color: '#f59e0b' },
+  { icon: Mic, title: 'AI Mock Interviewer', desc: 'Real-time mock interviews with an AI avatar, speech-to-text, and detailed feedback reports.', color: '#f59e0b' },
   { icon: FileSearch, title: 'Skill Gap Analyzer', desc: 'Upload your resume and compare skills against real market requirements.', color: '#06b6d4' },
   { icon: Play, title: 'Career Simulator', desc: 'Experience "A Day in the Life" for any career with immersive simulations.', color: '#ec4899' },
 ];
@@ -80,7 +79,7 @@ const LandingPage = () => {
           initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.2 }}
           style={{ fontSize: '1.2rem', color: 'var(--color-text-muted)', maxWidth: 600, margin: '0 auto 2.5rem', lineHeight: 1.7 }}
         >
-          Answer 8 intelligent questions and unlock your Career DNA — personalized career matches, market intelligence, and skill gap analysis.
+          Answer 8 intelligent questions and unlock your Career DNA — personalized career matches, roadmap generation, and skill gap analysis.
         </motion.p>
 
         <motion.div
@@ -97,10 +96,10 @@ const LandingPage = () => {
           </button>
           <button
             className="btn-ghost"
-            onClick={() => navigate('/market-intelligence')}
+            onClick={() => navigate(isAuthenticated ? '/mock-interview/setup' : '/login')}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem 2rem', fontSize: '1rem' }}
           >
-            <TrendingUp size={18} /> Explore Market Intelligence
+            <Mic size={18} /> Practice Mock Interview
           </button>
         </motion.div>
       </section>

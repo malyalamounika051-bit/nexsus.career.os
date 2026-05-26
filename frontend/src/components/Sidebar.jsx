@@ -16,7 +16,6 @@ const navItems = [
   { to: '/resume-builder',     icon: FileText,        label: 'Resume Builder' },
   { to: '/mentor',             icon: MessageSquare,    label: 'AI Mentor' },
   { to: '/mock-interview/setup', icon: Mic,              label: 'Mock Interview' },
-  { to: '/market-intelligence', icon: TrendingUp,      label: 'Market Intel' },
   { to: '/skill-gap',          icon: FileSearch,       label: 'Skill Gap' },
   { to: '/career-simulator',   icon: Play,             label: 'Simulator' },
   { to: '/profile',            icon: User,             label: 'Profile' },
@@ -26,7 +25,6 @@ const mobileNavItems = [
   { to: '/dashboard',          icon: LayoutDashboard, label: 'Home' },
   { to: '/career-dna',         icon: Dna,             label: 'DNA' },
   { to: '/mentor',             icon: MessageSquare,    label: 'Mentor' },
-  { to: '/market-intelligence', icon: TrendingUp,      label: 'Market' },
   { to: '/profile',            icon: User,             label: 'Profile' },
 ];
 

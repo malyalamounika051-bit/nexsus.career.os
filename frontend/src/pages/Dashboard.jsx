@@ -10,9 +10,9 @@ import ScoreGauge from '../components/ScoreGauge';
 import RadarChart from '../components/RadarChart';
 import { SkeletonCard } from '../components/SkeletonLoader';
 import {
-  Dna, Trophy, Shield, TrendingUp, Zap, ArrowRight,
+  Dna, Trophy, Shield, Zap, ArrowRight,
   Brain, Map, MessageSquare, FileSearch, Play,
-  Flame, Star, CheckCircle2, Sparkles, Clock
+  Flame, Star, CheckCircle2, Sparkles, Clock, Mic
 } from 'lucide-react';
 
 /* ── Career DNA Archetypes ────────────────────────────── */
@@ -90,9 +90,8 @@ const DashboardPage = () => {
   const quickActions = [
     { label: 'Career DNA', desc: 'Discover your career identity', icon: Dna, to: '/career-dna', color: '#0ea5e9' },
     { label: 'AI Roadmaps', desc: 'Generate learning paths', icon: Map, to: '/roadmaps', color: '#a855f7' },
-
     { label: 'AI Mentor', desc: 'Get personalized advice', icon: MessageSquare, to: '/mentor', color: '#10b981' },
-    { label: 'Market Intel', desc: 'Demand & salary trends', icon: TrendingUp, to: '/market-intelligence', color: '#f59e0b' },
+    { label: 'Mock Interview', desc: 'Practice with AI feedback', icon: Mic, to: '/mock-interview/setup', color: '#f59e0b' },
     { label: 'Skill Gap', desc: 'Analyze your resume', icon: FileSearch, to: '/skill-gap', color: '#06b6d4' },
     { label: 'Simulator', desc: 'A day in the life', icon: Play, to: '/career-simulator', color: '#ec4899' },
   ];
@@ -276,7 +275,7 @@ const DashboardPage = () => {
                 style={{ padding: '1.5rem', marginBottom: '2rem' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                  <TrendingUp size={16} color="var(--color-primary-light)" />
+                  <Zap size={16} color="var(--color-primary-light)" />
                   <span style={{ fontWeight: 700, fontSize: '0.95rem', fontFamily: "'Space Grotesk', sans-serif" }}>Skill Growth Progress</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
