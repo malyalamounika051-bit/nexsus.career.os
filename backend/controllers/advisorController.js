@@ -56,7 +56,7 @@ Try to probe the following areas organically:
 3. Technical comfort (comfort with coding, tech domain interests).
 4. Career priority (growth, money, creative freedom, balance).
 5. Preferred learning style (courses, reading, building projects).
-Keep your responses short, under 3 sentences.
+CRITICAL: Keep your response short and concise (MAXIMUM 40-60 words total). Do not write long paragraphs or give verbose answers, to conserve tokens.
 Once you have gathered enough information (after 4-6 conversational turns), politely let the user know you have enough information to build their career profile and prompt them to click the "Get My Pathway" button!`;
 
 const chatWithAdvisor = async (req, res) => {
