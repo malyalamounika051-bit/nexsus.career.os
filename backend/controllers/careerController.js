@@ -302,9 +302,15 @@ const generateRoadmap = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authorized' });
     }
 
+    // Create a flexible regex that ignores minor variation in casing, spaces, hyphens, or underscores
+    const queryWords = query.split(/[\s\-_]+/).filter(Boolean);
+    const flexibleRegex = queryWords.length > 0
+      ? new RegExp('^' + queryWords.map(escapeRegex).join('[\\s\\-_]*') + '$', 'i')
+      : new RegExp(`^${escapeRegex(query)}$`, 'i');
+
     // ── Check cache: return existing high-quality roadmap for this user ──
     const existingCareer = await Career.findOne({
-      domain: { $regex: new RegExp(`^${escapeRegex(query)}$`, 'i') },
+      domain: { $regex: flexibleRegex },
       userUid: String(userUid),
       isGeneratedRoadmap: true,
     });
@@ -322,7 +328,7 @@ const generateRoadmap = async (req, res) => {
 
     // ── Global Cache Check: If any other user generated a high-quality version of this roadmap, clone it! ──
     const globalCachedCareer = await Career.findOne({
-      domain: { $regex: new RegExp(`^${escapeRegex(query)}$`, 'i') },
+      domain: { $regex: flexibleRegex },
       isGeneratedRoadmap: true,
     }).sort({ createdAt: 1 });
 
@@ -448,9 +454,14 @@ Return ONLY valid JSON.`;
       // Save to DB — use replaceOne+upsert so re-generating the same career overwrites cleanly
       let newCareer;
       try {
+        const genDomainWords = String(generatedData.domain).trim().split(/[\s\-_]+/).filter(Boolean);
+        const flexibleGenRegex = genDomainWords.length > 0
+          ? new RegExp('^' + genDomainWords.map(escapeRegex).join('[\\s\\-_]*') + '$', 'i')
+          : new RegExp(`^${escapeRegex(generatedData.domain)}$`, 'i');
+
         const filter = {
           userUid: String(userUid),
-          domain:  { $regex: new RegExp(`^${escapeRegex(generatedData.domain)}$`, 'i') },
+          domain:  { $regex: flexibleGenRegex },
           isGeneratedRoadmap: true,
         };
 
