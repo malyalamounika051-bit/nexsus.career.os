@@ -71,7 +71,7 @@ const chatWithMentor = async (req, res) => {
     const responseData = await callGeminiREST({
       contents,
       systemInstruction: SYSTEM_INSTRUCTION,
-      generationConfig: { temperature: 0.7, topK: 40, topP: 0.95 },
+      generationConfig: { temperature: 0.7, topK: 40, topP: 0.95, maxOutputTokens: 120 },
       preferredModel: 'gemini-2.0-flash',
     });
 

@@ -51,7 +51,7 @@ const isModelNotFoundError = (error) => error?.response?.status === 404;
  * Core AI call function targeting NVIDIA NIM
  * Automatically fails over across an array of validated models if one fails/times out.
  */
-const callAI = async ({ messages, systemInstruction, temperature = 0.6, model }) => {
+const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, maxTokens }) => {
   const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) throw new Error('NVIDIA_API_KEY is not configured in .env');
 
@@ -81,7 +81,7 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model })
           messages: finalMessages,
           temperature,
           top_p: 0.95,
-          max_tokens: 8192, // Increased: roadmap JSON can be 6000+ tokens
+          max_tokens: maxTokens || 8192, // Failover limit
         },
         {
           headers: {
@@ -137,7 +137,8 @@ const callGeminiSDK = async (config) => {
 const callGeminiREST = async ({ contents, systemInstruction, generationConfig }) => {
   const messages = mapGeminiToOpenAI(contents);
   const temperature = generationConfig?.temperature ?? 0.7;
-  const result = await callAI({ messages, systemInstruction, temperature });
+  const maxTokens = generationConfig?.maxOutputTokens;
+  const result = await callAI({ messages, systemInstruction, temperature, maxTokens });
   return {
     candidates: [
       {
@@ -153,7 +154,7 @@ const callGeminiREST = async ({ contents, systemInstruction, generationConfig })
  * Call AI for structured JSON responses.
  * Tries Google Gemini first, falls back to NVIDIA NIM if Gemini fails (quota, etc.)
  */
-const callGeminiDirectly = async ({ prompt, temperature = 0.6 }) => {
+const callGeminiDirectly = async ({ prompt, temperature = 0.6, maxTokens }) => {
   const geminiKey = process.env.GEMINI_API_KEY;
 
   // Gemini model fallback chain — different models may have separate free-tier quotas
@@ -176,7 +177,7 @@ const callGeminiDirectly = async ({ prompt, temperature = 0.6 }) => {
               temperature,
               topK: 40,
               topP: 0.95,
-              maxOutputTokens: 8192,
+              maxOutputTokens: maxTokens || 8192,
             },
           },
           {
@@ -203,7 +204,7 @@ const callGeminiDirectly = async ({ prompt, temperature = 0.6 }) => {
 
   // 2. Fallback: Use NVIDIA NIM
   const messages = [{ role: 'user', content: prompt }];
-  const result = await callAI({ messages, temperature });
+  const result = await callAI({ messages, temperature, maxTokens });
   return { text: result.text };
 };
 

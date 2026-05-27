@@ -78,7 +78,7 @@ ${chatHistoryText}
 
 Sara:`;
 
-    const aiResponse = await callGeminiDirectly({ prompt, temperature: 0.7 });
+    const aiResponse = await callGeminiDirectly({ prompt, temperature: 0.7, maxTokens: 120 });
     res.json({ success: true, text: aiResponse.text.trim() });
   } catch (error) {
     console.error('Advisor Chat Error:', error);
