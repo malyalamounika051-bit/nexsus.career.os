@@ -269,9 +269,11 @@ const updateProgress = async (req, res) => {
 
     // Recalculate progress
     const completedCount = career.roadmap.filter(p => p.completed).length;
+    const readiness = Math.round((completedCount / career.roadmap.length) * 100);
     career.progress = {
       completedPhases: completedCount,
       totalPhases: career.roadmap.length,
+      interviewReadiness: readiness,
       lastUpdated: new Date(),
     };
 
@@ -352,7 +354,7 @@ const generateRoadmap = async (req, res) => {
     }
 
     // ── Build AI prompt ──────────────────────────────────────
-    const structuredPrompt = `You are an expert career counselor. Create a detailed career roadmap for: "${query}"
+        const structuredPrompt = `You are an expert career counselor and labor market analyst. Create a detailed career roadmap and educational pathway for: "${query}"
 
 Return ONLY valid JSON — no markdown fences, no explanations. First character must be "{", last must be "}".
 
@@ -382,15 +384,17 @@ JSON structure:
       "practiceTasks": ["Build a personal portfolio page", "Complete 30 CSS challenges"],
       "projects": ["Personal portfolio website with responsive design"],
       "resources": [
-        { "title": "Traversy Media - HTML Crash Course", "url": "https://youtube.com/...", "type": "video", "category": "youtube" },
-        { "title": "MDN Web Docs", "url": "https://developer.mozilla.org", "type": "documentation", "category": "docs" },
-        { "title": "freeCodeCamp", "url": "https://freecodecamp.org", "type": "platform", "category": "platform" }
+        { "title": "Coursera - HTML, CSS, and Javascript for Web Developers", "url": "https://www.coursera.org/learn/html-css-javascript-for-web-developers", "type": "course", "category": "course" },
+        { "title": "Udemy - Modern JavaScript From The Beginning", "url": "https://www.udemy.com/course/modern-javascript-from-the-beginning/", "type": "course", "category": "course" },
+        { "title": "YouTube - HTML & CSS Full Course for Beginners", "url": "https://www.youtube.com/watch?v=mU6anWqODqg", "type": "video", "category": "youtube" }
       ]
     }
   ]
 }
 
 REQUIREMENTS:
+- DYNAMIC MARKET TRENDS: The demandScore, futureScore, avgSalary, growthRate, and trendingSkills must reflect the latest real-world industry demand, current hiring spikes, and labor statistics.
+- EDUCATIONAL COURSE MAPPING: For each phase, the "resources" MUST include actual high-quality educational courses or popular structured video tutorials from platforms like Coursera, Udemy, edX, or YouTube. The resource objects must have realistic URL patterns and clear platform names in their titles.
 - Create EXACTLY 7 phases: Beginner, Foundation, Skill Development, Project, Internship & Freelance, Advanced, Career Preparation
 - Each phase: 4-8 skills, 4-8 topics, 2-5 tools, 1-3 certifications, 2-4 practiceTasks, 1-3 projects, 4-8 resources
 - Skills/topics must be specific and actionable (e.g. "React Hooks" not "learn frontend")

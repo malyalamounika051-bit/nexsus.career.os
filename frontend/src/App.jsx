@@ -21,6 +21,7 @@ import PublicResume from './pages/PublicResume';
 import MockInterviewSetup from './pages/MockInterviewSetup';
 import InterviewRoom from './pages/InterviewRoom';
 import InterviewReport from './pages/InterviewReport';
+import AdvisorChat from './pages/AdvisorChat';
 function App() {
   return (
     <BrowserRouter>
@@ -42,6 +43,7 @@ function App() {
           <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
 
           <Route path="/mentor" element={<ProtectedRoute><MentorChat /></ProtectedRoute>} />
+          <Route path="/advisor-chat" element={<ProtectedRoute><AdvisorChat /></ProtectedRoute>} />
           <Route path="/skill-gap" element={<ProtectedRoute><SkillGap /></ProtectedRoute>} />
           <Route path="/career-simulator" element={<ProtectedRoute><CareerSimulator /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

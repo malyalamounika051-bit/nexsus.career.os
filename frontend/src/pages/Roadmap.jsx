@@ -322,6 +322,22 @@ const RoadmapPage = () => {
               <div className="roadmap-insights-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="glass-card" style={{ padding: '1.25rem' }}>
                   <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Award size={12} /> Interview Readiness
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--color-primary-light)' }}>
+                      {active.progress?.interviewReadiness !== undefined ? active.progress.interviewReadiness : progressPct}%
+                    </div>
+                    <div className="progress-bar" style={{ flex: 1 }}>
+                      <div className="progress-bar-fill" style={{ width: `${active.progress?.interviewReadiness !== undefined ? active.progress.interviewReadiness : progressPct}%` }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+                    Complete phases to boost readiness!
+                  </div>
+                </div>
+                <div className="glass-card" style={{ padding: '1.25rem' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <DollarSign size={12} /> Salary Range
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '1.1rem', fontFamily: "'Space Grotesk', sans-serif" }} className="gradient-text">

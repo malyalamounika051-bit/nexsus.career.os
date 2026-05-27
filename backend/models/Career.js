@@ -63,6 +63,7 @@ const careerSchema = new mongoose.Schema({
   progress: {
     completedPhases: { type: Number, default: 0 },
     totalPhases: { type: Number, default: 7 },
+    interviewReadiness: { type: Number, default: 0 },
     lastUpdated: { type: Date },
   },
 

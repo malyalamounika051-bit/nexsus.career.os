@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Dna, Map, MessageSquare, TrendingUp,
   FileSearch, Play, User, LogOut, Zap, Menu, X,
-  ChevronLeft, ChevronRight, Flame, Briefcase, FileText, Mic
+  ChevronLeft, ChevronRight, Flame, Briefcase, FileText, Mic, Compass
 } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/advisor-chat',       icon: Compass,         label: 'AI Advisor' },
   { to: '/career-dna',         icon: Dna,             label: 'Career DNA' },
   { to: '/roadmaps',           icon: Map,             label: 'AI Roadmaps' },
   { to: '/jobs',               icon: Briefcase,       label: 'Job Search' },
@@ -23,6 +24,7 @@ const navItems = [
 
 const mobileNavItems = [
   { to: '/dashboard',          icon: LayoutDashboard, label: 'Home' },
+  { to: '/advisor-chat',       icon: Compass,         label: 'Advisor' },
   { to: '/career-dna',         icon: Dna,             label: 'DNA' },
   { to: '/mentor',             icon: MessageSquare,    label: 'Mentor' },
   { to: '/profile',            icon: User,             label: 'Profile' },
