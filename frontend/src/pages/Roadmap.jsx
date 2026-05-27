@@ -163,6 +163,23 @@ const RoadmapPage = () => {
 
   const handleGenerate = async () => {
     if (!query.trim()) { setError('Please enter a career goal.'); return; }
+    
+    // Check if duplicate roadmap exists in local list
+    const queryWords = query.trim().split(/[\s\-_]+/).filter(Boolean);
+    const regex = new RegExp('^' + queryWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-_]*') + '$', 'i');
+    
+    const duplicate = roadmaps.find(r => regex.test(r.domain));
+    if (duplicate) {
+      setError(`"${duplicate.domain}" is already in your library! Loading it for you...`);
+      setTimeout(() => {
+        setActive(duplicate);
+        setShowForm(false);
+        setQuery('');
+        setError('');
+      }, 2000);
+      return;
+    }
+
     setLoading(true); setError(''); setLoadMsg(0);
     try {
       const { data } = await careerService.generateRoadmap(query.trim());
@@ -206,6 +223,36 @@ const RoadmapPage = () => {
 
   return (
     <div className="app-shell">
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+            exit={{ opacity: 0, y: -20, scale: 0.9, x: '-50%' }}
+            style={{
+              position: 'fixed',
+              top: '2.5rem',
+              left: '50%',
+              zIndex: 9999,
+              background: 'rgba(239, 68, 68, 0.16)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              backdropFilter: 'blur(12px)',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '12px',
+              color: '#fca5a5',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+            }}
+          >
+            <AlertCircle size={18} color="#fca5a5" />
+            <span>{error}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <Sidebar collapsed={sc} onToggleCollapse={() => setSc(c => !c)} />
       <main className={`app-main ${sc ? 'sidebar-is-collapsed' : ''}`}>
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '1.5rem' }}>
@@ -230,7 +277,6 @@ const RoadmapPage = () => {
             <h3 style={{ fontWeight: 700, marginBottom: '0.25rem', fontFamily: "'Space Grotesk', sans-serif" }}>What career do you want to pursue?</h3>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>e.g. AI Engineer, UI/UX Designer, Cybersecurity Analyst, Entrepreneur</p>
             <input className="input" value={query} onChange={e => setQuery(e.target.value)} placeholder="Enter your career goal..." onKeyDown={e => e.key === 'Enter' && handleGenerate()} disabled={loading} />
-            {error && <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#fca5a5', fontSize: '0.82rem', marginTop: '0.75rem' }}><AlertCircle size={14} /> {error}</div>}
             <button className="btn-primary" onClick={handleGenerate} disabled={loading || !query.trim()} style={{ width: '100%', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: loading || !query.trim() ? 0.6 : 1 }}>
               {loading ? (
                 <>
