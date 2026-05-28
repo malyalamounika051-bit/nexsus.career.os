@@ -9,11 +9,13 @@ const {
   deleteRoadmap,
   updateProgress,
 } = require('../controllers/careerController');
+const { getSkillCorrelation } = require('../controllers/skillCorrelationController');
 const { protect } = require('../middleware/authMiddleware');
 
 // Public
 router.get('/', getAllCareers);
 router.get('/market-insights', getMarketInsights);
+router.get('/skill-correlation', protect, getSkillCorrelation);
 
 // Protected — Roadmap CRUD
 router.post('/generate-roadmap', protect, generateRoadmap);

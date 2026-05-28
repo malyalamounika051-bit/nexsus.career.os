@@ -14,6 +14,7 @@ import JobsPage from './pages/Jobs';
 
 import MentorChat from './pages/MentorChat';
 import SkillGap from './pages/SkillGap';
+import SkillTrends from './pages/SkillTrends';
 import CareerSimulator from './pages/CareerSimulator';
 import Profile from './pages/Profile';
 import ResumeBuilder from './pages/ResumeBuilder';
@@ -42,7 +43,8 @@ function App() {
           <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
 
           <Route path="/mentor" element={<ProtectedRoute><MentorChat /></ProtectedRoute>} />
-          <Route path="/skill-gap" element={<ProtectedRoute><SkillGap /></ProtectedRoute>} />
+           <Route path="/skill-gap" element={<ProtectedRoute><SkillGap /></ProtectedRoute>} />
+          <Route path="/skill-trends" element={<ProtectedRoute><SkillTrends /></ProtectedRoute>} />
           <Route path="/career-simulator" element={<ProtectedRoute><CareerSimulator /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
