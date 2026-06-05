@@ -24,7 +24,7 @@ const simulateCareer = async (req, res) => {
     }
 
     // Check if AI keys are present (either one is fine as client handles fallback)
-    if (!process.env.GEMINI_API_KEY && !process.env.NVIDIA_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return res.status(500).json({ success: false, message: 'AI service is not configured.' });
     }
 

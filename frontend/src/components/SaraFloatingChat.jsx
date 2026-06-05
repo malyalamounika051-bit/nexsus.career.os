@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Bot, User as UserIcon, Sparkles, Loader2, Minimize2, Maximize2, Trash2 } from 'lucide-react';
+import { Send, X, Bot, User as UserIcon, Sparkles, Loader2, Minimize2, Maximize2, Trash2, Copy, Check, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -18,6 +18,7 @@ export default function SaraFloatingChat() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [copiedIndex, setCopiedIndex] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -70,7 +71,6 @@ export default function SaraFloatingChat() {
     if (!input.trim() || isLoading) return;
 
     const userMessage = { role: 'user', content: input.trim() };
-    const chatHistory = [...messages];
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -78,8 +78,7 @@ export default function SaraFloatingChat() {
 
     try {
       const { data } = await api.post('/mentor/chat', {
-        message: userMessage.content,
-        history: chatHistory
+        message: userMessage.content
       });
 
       if (data.success) {
@@ -122,6 +121,23 @@ export default function SaraFloatingChat() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
+  const handleCopy = async (text, index) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
+
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    try {
+      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
+  };
+
   // Format markdown-lite
   const formatText = (text) => {
     return text.split('\n').map((line, i) => {
@@ -150,10 +166,10 @@ export default function SaraFloatingChat() {
   if (!isAuthenticated || shouldHide) return null;
 
   const suggestions = [
-    'Help me with my current task',
-    'Career advice for today',
-    'Explain a concept',
-    'Interview tips'
+    'What careers match my interests?',
+    'Help me with interview prep',
+    'Review my career strategy',
+    'Trending tech careers 2025'
   ];
 
   return (
@@ -270,8 +286,26 @@ export default function SaraFloatingChat() {
                       <img src={SARA_AVATAR} alt="Sara" />
                     </div>
                   )}
-                  <div className={`sara-msg-bubble ${msg.role === 'user' ? 'sara-msg-bubble-user' : 'sara-msg-bubble-bot'}`}>
-                    {formatText(msg.content)}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div className={`sara-msg-bubble ${msg.role === 'user' ? 'sara-msg-bubble-user' : 'sara-msg-bubble-bot'}`}>
+                      {formatText(msg.content)}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                      {msg.timestamp && (
+                        <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                          <Clock size={8} /> {formatTime(msg.timestamp)}
+                        </span>
+                      )}
+                      {msg.role === 'model' && index > 0 && (
+                        <button
+                          onClick={() => handleCopy(msg.content, index)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedIndex === index ? '#22c55e' : 'var(--color-text-muted)', padding: '1px', display: 'flex', alignItems: 'center', gap: '0.15rem', fontSize: '0.6rem' }}
+                          title="Copy"
+                        >
+                          {copiedIndex === index ? <><Check size={8} /> Copied</> : <><Copy size={8} /></>}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {msg.role === 'user' && (
                     <div className="sara-msg-avatar-user">

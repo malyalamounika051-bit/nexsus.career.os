@@ -1,6 +1,6 @@
 const axios = require('axios');
-
-const API_KEY = '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';
+require('dotenv').config();
+const API_KEY = process.env.OPENROUTER_API_KEY;
 
 const prompt = `You are a career counselor. Create a career roadmap for "Full Stack Developer".
 RESPOND ONLY WITH VALID JSON — no markdown, no explanations. First character must be "{", last must be "}".
@@ -9,15 +9,15 @@ Create exactly 7 phases. Each phase needs skills, topics, tools, projects, resou
 CRITICAL: Return ONLY valid JSON.`;
 
 (async () => {
-  console.log('Testing NVIDIA with roadmap prompt...');
+  console.log('Testing OpenRouter with roadmap prompt...');
   console.log('Prompt length:', prompt.length, 'chars');
   const start = Date.now();
   
   try {
     const r = await axios.post(
-      'https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://openrouter.ai/api/v1/chat/completions',
       {
-        model: 'meta/llama-3.1-8b-instruct',
+        model: 'meta-llama/llama-3.3-70b-instruct',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 8192,
         temperature: 0.6,
@@ -26,6 +26,8 @@ CRITICAL: Return ONLY valid JSON.`;
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://nexus-career-os.vercel.app',
+          'X-Title': 'Nexus Career OS',
         },
         timeout: 120000,
       }
@@ -56,6 +58,6 @@ CRITICAL: Return ONLY valid JSON.`;
     }
   } catch (e) {
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-    console.log(`❌ NVIDIA FAILED after ${elapsed}s:`, e.response?.status, JSON.stringify(e.response?.data || e.message).slice(0, 300));
+    console.log(`❌ OpenRouter FAILED after ${elapsed}s:`, e.response?.status, JSON.stringify(e.response?.data || e.message).slice(0, 300));
   }
 })();

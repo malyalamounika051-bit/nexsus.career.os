@@ -1,16 +1,16 @@
 const axios = require('axios');
 
 /**
- * NVIDIA NIM AI Client (OpenAI-compatible)
- * Primary AI backend. Falls back from Gemini to NVIDIA when quota is exhausted.
+ * OpenRouter AI Client (OpenAI-compatible)
+ * Central AI backend for all Nexus Career OS features.
+ * Uses OpenRouter.ai which provides access to multiple LLM providers.
  */
 
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
-const DEFAULT_MODEL = 'meta/llama-3.3-70b-instruct';
-const NVIDIA_MODEL_CHAIN = [
-  'meta/llama-3.3-70b-instruct',
-  'meta/llama-3.1-8b-instruct',
-  'meta/llama-3.1-70b-instruct',
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct';
+const MODEL_CHAIN = [
+  'meta-llama/llama-3.3-70b-instruct',
+  'meta-llama/llama-3.1-70b-instruct',
 ];
 
 /**
@@ -43,17 +43,17 @@ const mapGeminiToOpenAI = (contents) => {
 const isQuotaError = (error) => {
   const status = error?.response?.status;
   const msg = (error?.message || '').toLowerCase();
-  return status === 429 || msg.includes('quota') || msg.includes('resource_exhausted');
+  return status === 429 || msg.includes('quota') || msg.includes('rate_limit') || msg.includes('resource_exhausted');
 };
 const isModelNotFoundError = (error) => error?.response?.status === 404;
 
 /**
- * Core AI call function targeting NVIDIA NIM
- * Automatically fails over across an array of validated models if one fails/times out.
+ * Core AI call function targeting OpenRouter
+ * Automatically fails over across an array of models if one fails/times out.
  */
 const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, maxTokens }) => {
-  const apiKey = process.env.NVIDIA_API_KEY;
-  if (!apiKey) throw new Error('NVIDIA_API_KEY is not configured in .env');
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not configured in .env');
 
   const finalMessages = [];
   if (systemInstruction) {
@@ -66,29 +66,31 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
   }
 
   // Determine which models to try
-  const modelsToTry = model ? [model] : [...NVIDIA_MODEL_CHAIN];
+  const modelsToTry = model ? [model] : [...MODEL_CHAIN];
   let lastError = null;
 
   for (let i = 0; i < modelsToTry.length; i++) {
     const currentModel = modelsToTry[i];
-    console.log(`🤖 Calling NVIDIA AI: ${currentModel}...`);
+    console.log(`🤖 Calling OpenRouter AI: ${currentModel}...`);
 
     try {
       const response = await axios.post(
-        `${NVIDIA_BASE_URL}/chat/completions`,
+        `${OPENROUTER_BASE_URL}/chat/completions`,
         {
           model: currentModel,
           messages: finalMessages,
           temperature,
           top_p: 0.95,
-          max_tokens: maxTokens || 8192, // Failover limit
+          max_tokens: maxTokens || 8192,
         },
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://nexus-career-os.vercel.app',
+            'X-Title': 'Nexus Career OS',
           },
-          timeout: 45000, // 45s — fast failover to backup models if congested
+          timeout: 60000, // 60s timeout
         }
       );
 
@@ -96,7 +98,7 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
       const content = choice?.message?.content || '';
       
       if (!content || content.trim() === '') {
-        console.warn(`⚠️ NVIDIA model ${currentModel} returned empty response.`);
+        console.warn(`⚠️ OpenRouter model ${currentModel} returned empty response.`);
         throw new Error(`Empty response from model ${currentModel}`);
       }
       
@@ -109,7 +111,7 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
       if (i < modelsToTry.length - 1) {
         console.log(`🔄 Retrying next model in chain...`);
       } else {
-        console.error('❌ All NVIDIA models in the failover chain failed.');
+        console.error('❌ All OpenRouter models in the failover chain failed.');
         console.error('Final Error Status:', error?.response?.status);
         console.error('Final Error Data:', JSON.stringify(error?.response?.data, null, 2));
       }
@@ -151,58 +153,10 @@ const callGeminiREST = async ({ contents, systemInstruction, generationConfig })
 };
 
 /**
- * Call AI for structured JSON responses.
- * Tries Google Gemini first, falls back to NVIDIA NIM if Gemini fails (quota, etc.)
+ * Call AI for structured/direct prompts.
+ * All requests go through OpenRouter.
  */
 const callGeminiDirectly = async ({ prompt, temperature = 0.6, maxTokens }) => {
-  const geminiKey = process.env.GEMINI_API_KEY;
-
-  // Gemini model fallback chain — different models may have separate free-tier quotas
-  const GEMINI_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash-lite',
-  ];
-
-  // 1. Try Google Gemini models (if key exists)
-  if (geminiKey && geminiKey !== 'YOUR_GEMINI_API_KEY') {
-    for (const model of GEMINI_MODELS) {
-      try {
-        console.log(`🤖 Calling Google Gemini API (${model})...`);
-        const response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-          {
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: maxTokens || 8192,
-            },
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 180000,
-          }
-        );
-
-        const candidates = response?.data?.candidates || [];
-        if (candidates.length === 0) throw new Error('No candidates in Gemini response');
-        const content = candidates[0]?.content?.parts?.[0]?.text || '';
-        if (!content || content.trim() === '') throw new Error('Gemini API returned empty response');
-        console.log(`✅ Gemini (${model}) succeeded.`);
-        return { text: content };
-      } catch (geminiError) {
-        const status = geminiError?.response?.status;
-        const errMsg = geminiError?.response?.data?.error?.message || geminiError.message || '';
-        console.warn(`⚠️ Gemini ${model} failed (status ${status}): ${errMsg}`);
-        // Continue to next model
-      }
-    }
-    console.log('🔄 All Gemini models exhausted, falling back to NVIDIA NIM...');
-  }
-
-  // 2. Fallback: Use NVIDIA NIM
   const messages = [{ role: 'user', content: prompt }];
   const result = await callAI({ messages, temperature, maxTokens });
   return { text: result.text };
@@ -212,6 +166,7 @@ module.exports = {
   callGeminiSDK,
   callGeminiREST,
   callGeminiDirectly,
+  callAI,
   isQuotaError,
   isModelNotFoundError,
   MODEL_CHAIN: [DEFAULT_MODEL],
