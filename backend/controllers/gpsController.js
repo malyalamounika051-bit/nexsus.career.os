@@ -22,16 +22,30 @@ const makeSlug = (str = '') =>
 const validateAndCleanYoutubeResources = (resources) => {
   const seenUrls = new Set();
   const cleaned = [];
+  const validTypes = ['course', 'youtube', 'docs', 'blog', 'community', 'book', 'platform', 'other'];
   
   for (const res of resources) {
-    let type = String(res.type || '').toLowerCase();
-    let category = String(res.category || '').toLowerCase();
+    let type = String(res.type || '').toLowerCase().trim();
+    let category = String(res.category || '').toLowerCase().trim();
     
     // Normalizing type/category
     const isYt = type === 'youtube' || category === 'youtube' || type.includes('video') || category.includes('video');
     
     if (!isYt) {
-      cleaned.push(res);
+      if (type === 'documentation') {
+        type = 'docs';
+      } else if (type === 'article') {
+        type = 'blog';
+      }
+      
+      if (!validTypes.includes(type)) {
+        type = 'other';
+      }
+      
+      cleaned.push({
+        ...res,
+        type
+      });
       continue;
     }
     
