@@ -49,6 +49,16 @@ app.use('/api/resumes', require('./routes/resumeRoutes'));
 app.use('/api/interview', require('./routes/interviewRoutes'));
 app.use('/api/gps', require('./routes/gpsRoutes'));
 
+// Root welcome endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Welcome to the Nexus Career OS API! 🚀 Please use the frontend application to interact with the system.', 
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+    healthCheck: '/api/health'
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Nexus Career OS API is running 🚀', timestamp: new Date().toISOString() });
