@@ -38,17 +38,143 @@ const generateRoute = async (req, res) => {
       };
     }
 
-    const checkpoints = roadmap.roadmap.map((phase, idx) => ({
-      level: idx + 1,
-      title: phase.phase,
-      description: phase.skills && phase.skills.length > 0 ? `Master ${phase.skills.slice(0, 3).join(', ')}` : `Learn essentials of ${phase.phase}`,
-      completed: false,
-      rewardXP: 250,
-      tasks: (phase.topics && phase.topics.length > 0 ? phase.topics : phase.skills || []).map(topic => ({
-        title: topic,
+    const checkpoints = roadmap.roadmap.map((phase, idx) => {
+      // Map resources to enriched structure
+      const mappedResources = (phase.resources || []).map(res => {
+        let resourceType = 'other';
+        const typeStr = String(res.type || res.category || '').toLowerCase();
+        const catStr = String(res.category || '').toLowerCase();
+
+        if (typeStr.includes('video') || typeStr.includes('youtube') || catStr.includes('youtube') || catStr.includes('video')) {
+          resourceType = 'youtube';
+        } else if (typeStr.includes('course') || typeStr.includes('class') || catStr.includes('course')) {
+          resourceType = 'course';
+        } else if (typeStr.includes('doc') || typeStr.includes('ref') || catStr.includes('docs')) {
+          resourceType = 'docs';
+        } else if (typeStr.includes('blog') || typeStr.includes('article') || catStr.includes('blog')) {
+          resourceType = 'blog';
+        } else if (typeStr.includes('code') || typeStr.includes('platform') || catStr.includes('platform')) {
+          resourceType = 'platform';
+        } else if (typeStr.includes('community') || catStr.includes('community')) {
+          resourceType = 'community';
+        } else if (typeStr.includes('book') || catStr.includes('book')) {
+          resourceType = 'book';
+        }
+
+        // Extract provider from URL hostname
+        let provider = 'Online Resource';
+        if (res.url) {
+          try {
+            const urlObj = new URL(res.url);
+            const host = urlObj.hostname.replace('www.', '');
+            if (host.includes('youtube.com') || host.includes('youtu.be')) {
+              provider = 'YouTube';
+            } else if (host.includes('coursera.org')) {
+              provider = 'Coursera';
+            } else if (host.includes('udemy.com')) {
+              provider = 'Udemy';
+            } else if (host.includes('github.com')) {
+              provider = 'GitHub';
+            } else if (host.includes('developer.mozilla.org')) {
+              provider = 'MDN Web Docs';
+            } else {
+              provider = host.split('.')[0].toUpperCase();
+            }
+          } catch (e) {
+            // Safe fallback
+          }
+        }
+
+        return {
+          title: res.title || 'Learning Guide',
+          type: resourceType,
+          provider,
+          url: res.url || '#'
+        };
+      });
+
+      // Map projects to enriched structure
+      const mappedProjects = (phase.projects || []).map(proj => {
+        const title = typeof proj === 'string' ? proj : (proj.title || 'Hands-on Project');
+        return {
+          title,
+          difficulty: phase.difficulty ? (phase.difficulty.charAt(0).toUpperCase() + phase.difficulty.slice(1)) : 'Beginner',
+          description: `Apply your skills practically by building a fully working ${title}.`,
+          githubExamples: ['https://github.com/topics/portfolio-project'],
+          resources: ['Project documentation & guidelines'],
+          expectedOutcome: 'Complete functional application deployed on the web with public GitHub repository.'
+        };
+      });
+
+      // Generate customized completion criteria list
+      const criteria = [];
+
+      // 1. Recommended course criterion
+      const courseResource = mappedResources.find(r => r.type === 'course' || r.type === 'youtube');
+      if (courseResource) {
+        criteria.push({
+          title: `Finish recommended course: ${courseResource.title}`,
+          type: 'course',
+          completed: false
+        });
+      } else {
+        criteria.push({
+          title: 'Review recommended learning resources',
+          type: 'course',
+          completed: false
+        });
+      }
+
+      // 2. Project submission criteria
+      if (mappedProjects.length > 0) {
+        mappedProjects.forEach(proj => {
+          criteria.push({
+            title: `Complete project: ${proj.title}`,
+            type: 'project',
+            completed: false
+          });
+        });
+      } else {
+        criteria.push({
+          title: 'Build a practice project demonstrating skills learned',
+          type: 'project',
+          completed: false
+        });
+      }
+
+      // 3. Skills master criteria (up to 3 items)
+      const tasksToInclude = (phase.topics && phase.topics.length > 0 ? phase.topics : phase.skills || []).slice(0, 3);
+      tasksToInclude.forEach(task => {
+        criteria.push({
+          title: `Master skill: ${task}`,
+          type: 'task',
+          completed: false
+        });
+      });
+
+      // 4. Pass evaluation quiz
+      criteria.push({
+        title: 'Pass checkpoint evaluation quiz',
+        type: 'quiz',
         completed: false
-      }))
-    }));
+      });
+
+      return {
+        level: idx + 1,
+        title: phase.phase,
+        description: phase.skills && phase.skills.length > 0 
+          ? `Master ${phase.skills.slice(0, 3).join(', ')}` 
+          : `Learn essentials of ${phase.phase}`,
+        estimatedTime: phase.duration || '2 Weeks',
+        xpReward: 250 + (idx * 50),
+        skills: phase.skills || [],
+        resources: mappedResources,
+        certifications: phase.certifications || [],
+        projects: mappedProjects,
+        completionCriteria: criteria,
+        completed: false
+      };
+    });
 
     const gps = await CareerGPS.findOneAndUpdate(
       { userId },
@@ -88,7 +214,7 @@ const getCurrentGPS = async (req, res) => {
   }
 };
 
-// @desc    Mark task complete/incomplete and award XP
+// @desc    Mark completion criteria complete/incomplete and award XP
 // @route   PATCH /api/gps/task
 // @access  Private
 const updateTaskProgress = async (req, res) => {
@@ -97,7 +223,7 @@ const updateTaskProgress = async (req, res) => {
     const { checkpointLevel, taskTitle, completed } = req.body;
 
     if (checkpointLevel == null || !taskTitle) {
-      return res.status(400).json({ success: false, message: 'Checkpoint level and task title are required.' });
+      return res.status(400).json({ success: false, message: 'Checkpoint level and criteria title are required.' });
     }
 
     const gps = await CareerGPS.findOne({ userId });
@@ -111,31 +237,31 @@ const updateTaskProgress = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Checkpoint not found' });
     }
 
-    // Find task
-    const task = checkpoint.tasks.find(t => t.title === taskTitle);
-    if (!task) {
-      return res.status(404).json({ success: false, message: 'Task not found' });
+    // Find completion criteria item
+    const criterion = checkpoint.completionCriteria.find(c => c.title === taskTitle);
+    if (!criterion) {
+      return res.status(404).json({ success: false, message: 'Completion criteria item not found' });
     }
 
-    const wasCompleted = task.completed;
-    task.completed = Boolean(completed);
+    const wasCompleted = criterion.completed;
+    criterion.completed = Boolean(completed);
 
     let xpEarned = 0;
-    if (task.completed && !wasCompleted) {
-      xpEarned += 50; // +50 XP per task
-    } else if (!task.completed && wasCompleted) {
+    if (criterion.completed && !wasCompleted) {
+      xpEarned += 50; // +50 XP per task item
+    } else if (!criterion.completed && wasCompleted) {
       xpEarned -= 50;
     }
 
     // Check if checkpoint is completed
-    const allTasksDone = checkpoint.tasks.every(t => t.completed);
+    const allCriteriaDone = checkpoint.completionCriteria.every(c => c.completed);
     const checkpointWasCompleted = checkpoint.completed;
-    checkpoint.completed = allTasksDone;
+    checkpoint.completed = allCriteriaDone;
 
     if (checkpoint.completed && !checkpointWasCompleted) {
-      xpEarned += checkpoint.rewardXP || 250; // +250 XP per checkpoint completion
+      xpEarned += checkpoint.xpReward || 250; // Award level-specific checkpoint completion reward
     } else if (!checkpoint.completed && checkpointWasCompleted) {
-      xpEarned -= checkpoint.rewardXP || 250;
+      xpEarned -= checkpoint.xpReward || 250;
     }
 
     gps.xp = Math.max(0, gps.xp + xpEarned);
@@ -148,8 +274,8 @@ const updateTaskProgress = async (req, res) => {
     gps.currentLevel = newLevel;
 
     // Recalculate progress percentage
-    const totalTasksCount = gps.checkpoints.reduce((sum, c) => sum + c.tasks.length, 0);
-    const completedTasksCount = gps.checkpoints.reduce((sum, c) => sum + c.tasks.filter(t => t.completed).length, 0);
+    const totalTasksCount = gps.checkpoints.reduce((sum, c) => sum + c.completionCriteria.length, 0);
+    const completedTasksCount = gps.checkpoints.reduce((sum, c) => sum + c.completionCriteria.filter(t => t.completed).length, 0);
     gps.progress = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
     // Find current checkpoint (first incomplete checkpoint)
@@ -222,12 +348,39 @@ const submitProject = async (req, res) => {
     // Award project completion (+500 XP)
     gps.xp += 500;
 
+    // Automatically check off the matching project completion criteria in the active checkpoint
+    const activeCpIndex = gps.checkpoints.findIndex(c => !c.completed);
+    if (activeCpIndex !== -1) {
+      const activeCheckpoint = gps.checkpoints[activeCpIndex];
+      // Mark project criteria completed
+      const projCriteria = activeCheckpoint.completionCriteria.find(c => c.type === 'project');
+      if (projCriteria && !projCriteria.completed) {
+        projCriteria.completed = true;
+      }
+
+      // Check if checkpoint is completed
+      const allCriteriaDone = activeCheckpoint.completionCriteria.every(c => c.completed);
+      if (allCriteriaDone) {
+        activeCheckpoint.completed = true;
+        gps.xp += activeCheckpoint.xpReward || 250;
+      }
+    }
+
     // Check level-up
     let newLevel = 1;
     while (gps.xp >= 100 * Math.pow(newLevel, 2)) {
       newLevel++;
     }
     gps.currentLevel = newLevel;
+
+    // Recalculate progress percentage
+    const totalTasksCount = gps.checkpoints.reduce((sum, c) => sum + c.completionCriteria.length, 0);
+    const completedTasksCount = gps.checkpoints.reduce((sum, c) => sum + c.completionCriteria.filter(t => t.completed).length, 0);
+    gps.progress = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+    // Find current checkpoint (first incomplete checkpoint)
+    const nextIncomplete = gps.checkpoints.find(c => !c.completed);
+    gps.currentCheckpoint = nextIncomplete ? nextIncomplete.title : 'Destination Reached!';
 
     if (!gps.badges.some(b => b.name === 'First Project')) {
       gps.badges.push({ name: 'First Project', unlockedAt: new Date() });

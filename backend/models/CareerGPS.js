@@ -8,20 +8,43 @@ const CareerGPSSchema = new mongoose.Schema({
   streak: { type: Number, default: 0 },
   progress: { type: Number, default: 0 },
   currentCheckpoint: { type: String, default: '' },
+  lastActiveAt: { type: Date },
 
   checkpoints: [
     {
       level: Number,
       title: String,
       description: String,
-      completed: { type: Boolean, default: false },
-      rewardXP: { type: Number, default: 250 },
-      tasks: [
+      estimatedTime: { type: String, default: '2 Weeks' },
+      xpReward: { type: Number, default: 250 },
+      skills: [String],
+      resources: [
         {
           title: String,
+          type: { type: String, enum: ['course', 'youtube', 'docs', 'blog', 'platform', 'community', 'book', 'other'], default: 'other' },
+          provider: String,
+          url: String
+        }
+      ],
+      certifications: [String],
+      projects: [
+        {
+          title: String,
+          difficulty: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], default: 'Beginner' },
+          description: String,
+          githubExamples: [String],
+          resources: [String],
+          expectedOutcome: String
+        }
+      ],
+      completionCriteria: [
+        {
+          title: String,
+          type: { type: String, enum: ['course', 'project', 'quiz', 'task'], default: 'task' },
           completed: { type: Boolean, default: false }
         }
-      ]
+      ],
+      completed: { type: Boolean, default: false }
     }
   ],
 

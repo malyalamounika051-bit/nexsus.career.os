@@ -25,7 +25,7 @@ async function testGPS() {
   }
 
   const firstCheckpoint = generatedData.checkpoints[0];
-  const firstTask = firstCheckpoint.tasks[0];
+  const firstTask = firstCheckpoint.completionCriteria[0];
 
   console.log("\n--- 2. Testing Get Current GPS Journey ---");
   try {
