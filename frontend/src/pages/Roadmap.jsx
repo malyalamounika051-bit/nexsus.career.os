@@ -3,146 +3,32 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import { careerService } from '../services/adviceService';
-import { Map, Briefcase, Plus, Sparkles, ChevronDown, ChevronUp, ExternalLink, Trash2, CheckCircle2, Circle, Clock, TrendingUp, DollarSign, Lightbulb, BookOpen, Wrench, Award, Code, Play, GraduationCap, FileText, Users, Globe, AlertCircle, ArrowRight } from 'lucide-react';
-
+import api from '../services/api';
+import {
+  Map, Briefcase, Plus, Sparkles, ChevronDown, ChevronUp, ExternalLink, Trash2,
+  CheckCircle2, Circle, Clock, TrendingUp, DollarSign, Lightbulb, BookOpen,
+  Wrench, Award, Code, Play, GraduationCap, FileText, Users, Globe, AlertCircle,
+  ArrowRight, Shield, Flame, Target, Star, Compass, Terminal, Link
+} from 'lucide-react';
 
 const CATEGORY_ICONS = { youtube: Play, course: GraduationCap, docs: FileText, blog: Globe, platform: Code, community: Users, book: BookOpen, other: ExternalLink };
 const CATEGORY_COLORS = { youtube: '#ef4444', course: '#a855f7', docs: '#0ea5e9', blog: '#f59e0b', platform: '#10b981', community: '#ec4899', book: '#06b6d4', other: '#8899b0' };
-const LOADING_MSGS = ['Analyzing career landscape...', 'Building learning phases...', 'Finding best resources...', 'Crafting your roadmap...'];
+const LOADING_MSGS = ['Scanning destination routes...', 'Configuring GPS coordinates...', 'Plotting checkpoints...', 'Engaging AI career engines...'];
 
-const PhaseCard = ({ phase, index, onToggleComplete }) => {
-  const [open, setOpen] = useState(false);
-  const diff = phase.difficulty || 'beginner';
-  return (
-    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.08 }} style={{ position: 'relative' }}>
-      <div className={`roadmap-phase-dot ${phase.completed ? 'completed' : open ? 'active' : ''}`} />
-      <div className={`roadmap-phase-card ${phase.completed ? 'completed' : ''}`} style={{ padding: 0 }}>
-        <div onClick={() => setOpen(o => !o)} style={{ padding: '1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button onClick={e => { e.stopPropagation(); onToggleComplete(index); }} style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, color: phase.completed ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-            {phase.completed ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-          </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.95rem', fontFamily: "'Space Grotesk', sans-serif" }}>{phase.phase}</span>
-              <span className={`difficulty-badge difficulty-${diff}`}>{diff}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.3rem', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Clock size={12} /> {phase.duration}</span>
-              <span>{phase.skills?.length || 0} skills</span>
-              <span>{phase.resources?.length || 0} resources</span>
-            </div>
-          </div>
-          {open ? <ChevronUp size={18} color="var(--color-text-muted)" /> : <ChevronDown size={18} color="var(--color-text-muted)" />}
-        </div>
-        <AnimatePresence>
-          {open && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} style={{ overflow: 'hidden' }}>
-              <div style={{ padding: '0 1.25rem 1.25rem', borderTop: '1px solid var(--color-border)' }}>
-                <div className="phase-content-grid" style={{ marginTop: '1rem' }}>
-                  {phase.skills?.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-primary-light)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <Sparkles size={12} /> Skills
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        {phase.skills.map((s, i) => <span key={i} className="tag" style={{ fontSize: '0.7rem' }}>{s}</span>)}
-                      </div>
-                    </div>
-                  )}
-                  {phase.tools?.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <Wrench size={12} /> Tools
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        {phase.tools.map((t, i) => (
-                          <span key={i} className="tag-warning" style={{ padding: '0.2rem 0.55rem', borderRadius: 99, fontSize: '0.7rem', background: 'var(--color-warning-glow)', border: '1px solid rgba(245,158,11,0.25)', color: '#fbbf24' }}>
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {phase.topics?.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-accent-light)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <BookOpen size={12} /> Topics
-                    </div>
-                    {phase.topics.map((t, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', padding: '0.4rem 0', fontSize: '0.82rem', color: 'var(--color-text-dim)' }}>
-                        <span style={{ color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.75rem', minWidth: 18 }}>{i + 1}.</span>{t}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {phase.projects?.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Code size={12} /> Projects
-                    </div>
-                    {phase.projects.map((p, i) => (
-                      <div key={i} style={{ padding: '0.6rem 0.75rem', borderRadius: 10, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', marginBottom: '0.4rem', fontSize: '0.82rem', color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Code size={14} color="#10b981" />{p}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {phase.certifications?.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#06b6d4', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Award size={12} /> Certifications
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                      {phase.certifications.map((c, i) => (
-                        <span key={i} style={{ padding: '0.25rem 0.6rem', borderRadius: 99, fontSize: '0.72rem', background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)', color: '#67e8f9' }}>
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {phase.practiceTasks?.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#ec4899', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Practice Tasks</div>
-                    {phase.practiceTasks.map((t, i) => (
-                      <div key={i} style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', padding: '0.3rem 0', display: 'flex', gap: '0.4rem' }}>
-                        <span style={{ color: '#ec4899' }}>•</span>{t}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {phase.resources?.length > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-dim)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Resources</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                      {phase.resources.map((r, i) => {
-                        const CatIcon = CATEGORY_ICONS[r.category] || ExternalLink;
-                        const catColor = CATEGORY_COLORS[r.category] || '#8899b0';
-                        return (
-                          <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="resource-chip" title={r.title}>
-                            <CatIcon size={14} style={{ color: catColor, flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</span>
-                          </a>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
+const getRank = (level) => {
+  if (level < 5) return { label: 'Explorer', color: '#0ea5e9', bg: 'rgba(14,165,233,0.1)' };
+  if (level < 10) return { label: 'Builder', color: '#a855f7', bg: 'rgba(168,85,247,0.1)' };
+  if (level < 20) return { label: 'Creator', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' };
+  if (level < 30) return { label: 'Professional', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
+  return { label: 'Career Master', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' };
 };
 
 const RoadmapPage = () => {
   const location = useLocation();
   const [sc, setSc] = useState(false);
   const [roadmaps, setRoadmaps] = useState([]);
-  const [active, setActive] = useState(null);
+  const [gps, setGps] = useState(null);
+  const [activeCheckpoint, setActiveCheckpoint] = useState(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -150,18 +36,43 @@ const RoadmapPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [loadMsg, setLoadMsg] = useState(0);
 
+  // Project submission state
+  const [projName, setProjName] = useState('');
+  const [projUrl, setProjUrl] = useState('');
+  const [projDesc, setProjDesc] = useState('');
+  const [projSubmitting, setProjSubmitting] = useState(false);
+  const [projSuccess, setProjSuccess] = useState(false);
+
+  const loadData = async () => {
+    setFetching(true);
+    try {
+      const { data: roadRes } = await careerService.getMyRoadmaps();
+      setRoadmaps(roadRes.data || []);
+
+      const { data: gpsRes } = await api.get('/gps/current');
+      if (gpsRes.success && gpsRes.data) {
+        setGps(gpsRes.data);
+        // Set first incomplete checkpoint or first checkpoint as active by default
+        const activeCp = gpsRes.data.checkpoints.find(c => !c.completed) || gpsRes.data.checkpoints[0];
+        setActiveCheckpoint(activeCp);
+      } else {
+        setGps(null);
+      }
+    } catch (err) {
+      console.error('Error loading roadmap/GPS data:', err);
+    } finally {
+      setFetching(false);
+    }
+  };
+
   useEffect(() => {
-    careerService.getMyRoadmaps()
-      .then(({ data }) => setRoadmaps(data.data || []))
-      .catch(() => {})
-      .finally(() => setFetching(false));
+    loadData();
   }, []);
 
   useEffect(() => {
     if (location.state?.prefillCareer) {
       setQuery(location.state.prefillCareer);
       setShowForm(true);
-      setActive(null);
     }
   }, [location.state]);
 
@@ -171,65 +82,94 @@ const RoadmapPage = () => {
     return () => clearInterval(iv);
   }, [loading]);
 
-  const handleGenerate = async () => {
-    if (!query.trim()) { setError('Please enter a career goal.'); return; }
-    
-    // Check if duplicate roadmap exists in local list
-    const queryWords = query.trim().split(/[\s\-_]+/).filter(Boolean);
-    const regex = new RegExp('^' + queryWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-_]*') + '$', 'i');
-    
-    const duplicate = roadmaps.find(r => regex.test(r.domain));
-    if (duplicate) {
-      setError(`"${duplicate.domain}" is already in your library! Loading it for you...`);
-      setTimeout(() => {
-        setActive(duplicate);
-        setShowForm(false);
-        setQuery('');
-        setError('');
-      }, 2000);
-      return;
-    }
-
-    setLoading(true); setError(''); setLoadMsg(0);
+  const handleGenerateGPS = async (careerTitle) => {
+    setLoading(true);
+    setError('');
+    setLoadMsg(0);
     try {
-      const { data } = await careerService.generateRoadmap(query.trim());
-      if (data.success) {
-        setActive(data.data);
-        if (!data.cached) {
-          const { data: listRes } = await careerService.getMyRoadmaps();
-          setRoadmaps(listRes.data || []);
+      // First make sure roadmap is generated
+      const { data: rdData } = await careerService.generateRoadmap(careerTitle);
+      if (rdData.success) {
+        // Then generate GPS route based on the roadmap
+        const { data: gpsData } = await api.post('/gps/generate', { destination: rdData.data.domain });
+        if (gpsData.success) {
+          setGps(gpsData.data);
+          const activeCp = gpsData.data.checkpoints.find(c => !c.completed) || gpsData.data.checkpoints[0];
+          setActiveCheckpoint(activeCp);
+          setShowForm(false);
+          setQuery('');
+          await loadData();
         }
-        setShowForm(false); setQuery('');
-      } else { setError(data.message || 'Generation failed.'); }
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Roadmap generation failed. Please try again.');
-    } finally { setLoading(false); }
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this roadmap?')) return;
-    try {
-      await careerService.deleteRoadmap(id);
-      setRoadmaps(prev => prev.filter(r => r._id !== id));
-      if (active?._id === id) setActive(null);
-    } catch {}
-  };
-
-  const handleToggleComplete = async (phaseIndex) => {
-    if (!active) return;
-    const newCompleted = !active.roadmap[phaseIndex].completed;
-    try {
-      const { data } = await careerService.updateProgress(active._id, { phaseIndex, completed: newCompleted });
-      if (data.success) {
-        setActive(data.data);
-        setRoadmaps(prev => prev.map(r => r._id === data.data._id ? data.data : r));
       }
-    } catch {}
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to initialize GPS route. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const completedCount = active?.roadmap?.filter(p => p.completed).length || 0;
-  const totalPhases = active?.roadmap?.length || 7;
-  const progressPct = Math.round((completedCount / totalPhases) * 100);
+  const handleToggleTask = async (checkpointLevel, taskTitle, currentStatus) => {
+    try {
+      const { data } = await api.patch('/gps/task', {
+        checkpointLevel,
+        taskTitle,
+        completed: !currentStatus
+      });
+      if (data.success) {
+        setGps(data.data);
+        // Keep active checkpoint in sync
+        const updatedCp = data.data.checkpoints.find(c => c.level === checkpointLevel);
+        setActiveCheckpoint(updatedCp);
+      }
+    } catch (err) {
+      console.error('Failed to toggle task:', err);
+    }
+  };
+
+  const handleProjectSubmit = async (e) => {
+    e.preventDefault();
+    if (!projName.trim() || !projUrl.trim()) return;
+    setProjSubmitting(true);
+    setProjSuccess(false);
+    try {
+      const { data } = await api.post('/gps/project', {
+        projectName: projName,
+        githubUrl: projUrl,
+        description: projDesc
+      });
+      if (data.success) {
+        setGps(data.data);
+        setProjSuccess(true);
+        setProjName('');
+        setProjUrl('');
+        setProjDesc('');
+        setTimeout(() => setProjSuccess(false), 4000);
+      }
+    } catch (err) {
+      console.error('Project submission failed:', err);
+    } finally {
+      setProjSubmitting(false);
+    }
+  };
+
+  const handleDeleteGPS = async () => {
+    if (!confirm('Are you sure you want to reset your Career GPS? Your progress will be lost.')) return;
+    try {
+      // Find matching roadmap and delete it
+      if (gps) {
+        const matchingRoadmap = roadmaps.find(r => r.domain.toLowerCase() === gps.destination.toLowerCase());
+        if (matchingRoadmap) {
+          await careerService.deleteRoadmap(matchingRoadmap._id);
+        }
+      }
+      // Delete/clear current GPS in local state
+      setGps(null);
+      setActiveCheckpoint(null);
+      await loadData();
+    } catch (err) {
+      console.error('Reset failed:', err);
+    }
+  };
 
   return (
     <div className="app-shell">
@@ -265,179 +205,380 @@ const RoadmapPage = () => {
       </AnimatePresence>
       <Sidebar collapsed={sc} onToggleCollapse={() => setSc(c => !c)} />
       <main className={`app-main ${sc ? 'sidebar-is-collapsed' : ''}`}>
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '1.5rem' }}>
+        
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
-                <Map size={22} color="white" />
+                <Compass size={22} color="white" />
               </div>
               <div>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif" }}>AI <span className="gradient-text">Roadmap Generator</span></h1>
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Generate structured career learning paths with AI</p>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif" }}>AI <span className="gradient-text">Career GPS</span></h1>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Navigate your learning segments like a game progression map</p>
               </div>
             </div>
-            <button className="btn-primary" onClick={() => { setShowForm(true); setActive(null); }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Plus size={16} /> New Roadmap
-            </button>
+            {!gps && !showForm && (
+              <button className="btn-primary" onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Plus size={16} /> New GPS Route
+              </button>
+            )}
+            {gps && (
+              <button className="btn-ghost" onClick={handleDeleteGPS} style={{ color: 'var(--color-error)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                Reset Route
+              </button>
+            )}
           </div>
         </motion.div>
 
-        {showForm && !active && (
+        {/* Dynamic Route Form */}
+        {showForm && !gps && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '2rem', maxWidth: 600, margin: '0 auto 2rem' }}>
-            <h3 style={{ fontWeight: 700, marginBottom: '0.25rem', fontFamily: "'Space Grotesk', sans-serif" }}>What career do you want to pursue?</h3>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>e.g. AI Engineer, UI/UX Designer, Cybersecurity Analyst, Entrepreneur</p>
-            <input className="input" value={query} onChange={e => setQuery(e.target.value)} placeholder="Enter your career goal..." onKeyDown={e => e.key === 'Enter' && handleGenerate()} disabled={loading} />
-            <button className="btn-primary" onClick={handleGenerate} disabled={loading || !query.trim()} style={{ width: '100%', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: loading || !query.trim() ? 0.6 : 1 }}>
+            <h3 style={{ fontWeight: 700, marginBottom: '0.25rem', fontFamily: "'Space Grotesk', sans-serif" }}>Choose Career Destination</h3>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>Where do you want to arrive? e.g. Full Stack Developer, AI Engineer, UI/UX Designer</p>
+            <input className="input" value={query} onChange={e => setQuery(e.target.value)} placeholder="Enter your destination role..." onKeyDown={e => e.key === 'Enter' && handleGenerateGPS(query)} disabled={loading} />
+            <button className="btn-primary" onClick={() => handleGenerateGPS(query)} disabled={loading || !query.trim()} style={{ width: '100%', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
               {loading ? (
                 <>
                   <div className="roadmap-loading-dots"><span /><span /><span /></div>
                   {LOADING_MSGS[loadMsg]}
                 </>
               ) : (
-                <><Sparkles size={16} /> Generate Career Roadmap</>
+                <><Sparkles size={16} /> Generate GPS Route</>
               )}
             </button>
           </motion.div>
         )}
 
-        {!showForm && !active && (
-          <div>
-            {fetching ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>Loading roadmaps...</div>
-            ) : roadmaps.length === 0 ? (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '3rem', textAlign: 'center', maxWidth: 500, margin: '0 auto' }}>
-                <Map size={48} color="var(--color-text-muted)" style={{ margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
-                <h3 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>No roadmaps yet</h3>
-                <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Generate your first AI-powered career roadmap</p>
-                <button className="btn-primary" onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Plus size={16} /> Generate Your First Roadmap
-                </button>
-              </motion.div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                {roadmaps.map((r, i) => {
-                  const prog = r.roadmap?.filter(p => p.completed).length || 0;
-                  const tot = r.roadmap?.length || 7;
-                  return (
-                    <motion.div key={r._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="glass-card" style={{ padding: '1.25rem', cursor: 'pointer' }} onClick={() => setActive(r)}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: '1rem', fontFamily: "'Space Grotesk', sans-serif", marginBottom: '0.3rem' }}>{r.domain}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>{new Date(r.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <button onClick={e => { e.stopPropagation(); handleDelete(r._id); }} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                        <div className="progress-bar" style={{ flex: 1 }}>
-                          <div className="progress-bar-fill" style={{ width: `${Math.round((prog / tot) * 100)}%` }} />
-                        </div>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{prog}/{tot}</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        <span className="tag" style={{ fontSize: '0.65rem' }}>{r.demand} Demand</span>
-                        {r.futureScore && (
-                          <span className="tag-purple" style={{ padding: '0.2rem 0.5rem', borderRadius: 99, fontSize: '0.65rem', background: 'var(--color-accent-glow)', color: 'var(--color-accent-light)', border: '1px solid rgba(168,85,247,0.25)' }}>
-                            Future: {r.futureScore}%
-                          </span>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
+        {/* Loading placeholder */}
+        {fetching && (
+          <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--color-text-muted)' }}>
+            <div className="roadmap-loading-dots" style={{ margin: '0 auto 1rem' }}><span /><span /><span /></div>
+            Loading Career coordinates...
           </div>
         )}
 
-        {active && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <button className="btn-ghost" onClick={() => setActive(null)} style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
-              <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to My Roadmaps
+        {/* Empty State */}
+        {!fetching && !gps && !showForm && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '4rem 2rem', textAlign: 'center', maxWidth: 500, margin: '0 auto' }}>
+            <Compass size={54} color="var(--color-text-muted)" style={{ margin: '0 auto 1.5rem', display: 'block', opacity: 0.4 }} />
+            <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', fontSize: '1.2rem', fontFamily: "'Space Grotesk', sans-serif" }}>No Active GPS Route</h3>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: '2rem', fontSize: '0.9rem', lineHeight: 1.5 }}>
+              Plot a dynamically generated custom learning path toward your chosen career destination with XP milestones.
+            </p>
+            <button className="btn-primary" onClick={() => setShowForm(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Sparkles size={16} /> Build Your Route Map
             </button>
-            <div className="roadmap-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem', alignItems: 'start' }}>
-              <div>
-                <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-                  <h2 style={{ fontWeight: 800, fontSize: '1.3rem', fontFamily: "'Space Grotesk', sans-serif", marginBottom: '0.3rem' }}>{active.domain}</h2>
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.6 }}>{active.description}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div className="progress-bar" style={{ width: 120 }}><div className="progress-bar-fill" style={{ width: `${progressPct}%` }} /></div>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 600 }} className="gradient-text">{progressPct}%</span>
-                    </div>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>{completedCount} of {totalPhases} phases complete</span>
-                  </div>
-                </div>
-                <div className="roadmap-timeline">
-                  {active.roadmap?.map((phase, i) => (
-                    <PhaseCard key={i} phase={phase} index={i} onToggleComplete={handleToggleComplete} />
-                  ))}
-                </div>
-              </div>
-              <div className="roadmap-insights-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="glass-card" style={{ padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <Award size={12} /> Interview Readiness
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", color: 'var(--color-primary-light)' }}>
-                      {active.progress?.interviewReadiness !== undefined ? active.progress.interviewReadiness : progressPct}%
-                    </div>
-                    <div className="progress-bar" style={{ flex: 1 }}>
-                      <div className="progress-bar-fill" style={{ width: `${active.progress?.interviewReadiness !== undefined ? active.progress.interviewReadiness : progressPct}%` }} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-                    Complete phases to boost readiness!
-                  </div>
-                </div>
-                <div className="glass-card" style={{ padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <DollarSign size={12} /> Salary Range
-                  </div>
-                  <div style={{ fontWeight: 800, fontSize: '1.1rem', fontFamily: "'Space Grotesk', sans-serif" }} className="gradient-text">
-                    {active.salaryRange?.min || active.avgSalary} — {active.salaryRange?.max || ''}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Growth: {active.growthRate}</div>
-                </div>
-                <div className="glass-card" style={{ padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <TrendingUp size={12} /> Future Demand
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", color: (active.futureScore || 70) >= 70 ? 'var(--color-success)' : (active.futureScore || 70) >= 40 ? '#fbbf24' : '#fca5a5' }}>
-                      {active.futureScore || 70}%
-                    </div>
-                    <div className="progress-bar" style={{ flex: 1 }}>
-                      <div className="progress-bar-fill" style={{ width: `${active.futureScore || 70}%`, background: (active.futureScore || 70) >= 70 ? 'var(--color-success)' : '#f59e0b' }} />
-                    </div>
-                  </div>
-                </div>
-                {active.alternativePaths?.length > 0 && (
-                  <div className="glass-card" style={{ padding: '1.25rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Alternative Paths</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                      {active.alternativePaths.map((p, i) => (
-                        <span key={i} className="tag-purple" style={{ padding: '0.2rem 0.55rem', borderRadius: 99, fontSize: '0.68rem', background: 'var(--color-accent-glow)', color: 'var(--color-accent-light)', border: '1px solid rgba(168,85,247,0.25)' }}>
-                          {p}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {active.studyStrategy && (
-                  <div className="glass-card" style={{ padding: '1.25rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Lightbulb size={12} /> AI Study Strategy
-                    </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-dim)', lineHeight: 1.6 }}>{active.studyStrategy}</p>
-                  </div>
-                )}
-              </div>
-            </div>
           </motion.div>
         )}
+
+        {/* Active GPS Dashboard */}
+        {gps && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.75rem', alignItems: 'start' }} className="gps-grid">
+            
+            {/* Left Column: Journey Map + Details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* Section 1: Career Overview Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card"
+                style={{ padding: '1.5rem' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Active Destination</span>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", marginTop: '0.2rem', color: 'var(--color-text)' }}>{gps.destination}</h2>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: 12,
+                      background: getRank(gps.currentLevel).bg,
+                      border: `1px solid ${getRank(gps.currentLevel).color}25`,
+                      color: getRank(gps.currentLevel).color,
+                      fontSize: '0.78rem',
+                      fontWeight: 700
+                    }}>
+                      Level {gps.currentLevel}: {getRank(gps.currentLevel).label}
+                    </div>
+                    {gps.streak > 0 && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.35rem 0.8rem',
+                        borderRadius: 12,
+                        background: 'var(--color-warning-glow)',
+                        border: '1px solid rgba(245,158,11,0.2)',
+                        color: '#fbbf24',
+                        fontSize: '0.78rem',
+                        fontWeight: 700
+                      }}>
+                        <Flame size={14} color="#f59e0b" /> {gps.streak} Day Streak
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>GPS Route Progress</span>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700 }} className="gradient-text">{gps.progress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div className="progress-bar-fill" style={{ width: `${gps.progress}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Job Readiness</span>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#10b981' }}>{Math.min(98, Math.round(gps.progress * 0.9 + 10))}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div className="progress-bar-fill" style={{ width: `${Math.min(98, Math.round(gps.progress * 0.9 + 10))}%`, background: '#10b981' }} />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Section 2: Journey Map */}
+              <div className="glass-card" style={{ padding: '1.75rem' }}>
+                <h3 style={{ fontWeight: 700, fontSize: '1.05rem', fontFamily: "'Space Grotesk', sans-serif", marginBottom: '1.5rem', color: 'var(--color-text-dim)' }}>GPS Route Checkpoints</h3>
+                
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingLeft: '2rem' }}>
+                  {/* Vertical Line Connector */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 15,
+                    bottom: 15,
+                    left: 21,
+                    width: 3,
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    zIndex: 1
+                  }} />
+
+                  {gps.checkpoints.map((cp, idx) => {
+                    // Check completion states
+                    const isActive = activeCheckpoint?.level === cp.level;
+                    const isCurrentGoal = gps.currentCheckpoint === cp.title;
+                    
+                    return (
+                      <motion.div
+                        key={cp._id || cp.level}
+                        whileHover={{ x: 4 }}
+                        onClick={() => setActiveCheckpoint(cp)}
+                        style={{
+                          display: 'flex',
+                          gap: '1.25rem',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          zIndex: 2
+                        }}
+                      >
+                        {/* Bullet indicator */}
+                        <div style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          background: cp.completed ? 'var(--gradient-primary)' : isCurrentGoal ? 'var(--color-surface)' : 'var(--color-bg)',
+                          border: isCurrentGoal ? '2px solid var(--color-primary)' : cp.completed ? 'none' : '2px solid rgba(255,255,255,0.12)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: cp.completed || isCurrentGoal ? 'white' : 'var(--color-text-muted)',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          position: 'absolute',
+                          left: -22,
+                          top: 4,
+                          boxShadow: isCurrentGoal ? '0 0 12px var(--color-primary-glow)' : 'none'
+                        }}>
+                          {cp.completed ? '✓' : cp.level}
+                        </div>
+
+                        {/* Text details */}
+                        <div style={{
+                          flex: 1,
+                          padding: '0.8rem 1.25rem',
+                          borderRadius: 12,
+                          background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
+                          border: isActive ? '1px solid rgba(14,165,233,0.25)' : '1px solid var(--color-border)',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.92rem', color: cp.completed ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
+                              {cp.title}
+                            </h4>
+                            {cp.completed && (
+                              <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                <CheckCircle2 size={12} /> Completed
+                              </span>
+                            )}
+                            {isCurrentGoal && !cp.completed && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--color-primary-light)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                Next Checkpoint
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{cp.description}</p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Mission Control + Sara Navigator */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* Section 4: Sara AI Guidance Box */}
+              <div style={{
+                background: 'var(--gradient-primary-soft)',
+                border: '1px solid rgba(14,165,233,0.15)',
+                padding: '1.25rem',
+                borderRadius: 16
+              }}>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: '0.6rem' }}>
+                  <Sparkles size={16} color="var(--color-primary-light)" />
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sara Navigator Guidance</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                  {gps.progress === 0 && `Welcome aboard! Let's start with your first segment, ${gps.checkpoints[0]?.title || 'checkpoint'}.`}
+                  {gps.progress > 0 && gps.progress < 100 && `You're ${gps.progress}% closer to becoming an ${gps.destination}. Complete more checkpoint tasks to reach Level ${gps.currentLevel + 1}!`}
+                  {gps.progress === 100 && `Incredible achievement! You have fully completed the GPS route for ${gps.destination}. Practice mock interviews to ensure job readiness!`}
+                </p>
+              </div>
+
+              {/* Section 3: Current Mission Details */}
+              {activeCheckpoint && (
+                <div className="glass-card" style={{ padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.6rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Current Mission</span>
+                      <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem', fontFamily: "'Space Grotesk', sans-serif" }}>{activeCheckpoint.title}</h4>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--color-primary-light)', fontWeight: 700 }}>+{activeCheckpoint.rewardXP} XP</span>
+                  </div>
+
+                  {/* Tasks List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Milestone Tasks</span>
+                    {activeCheckpoint.tasks.map((task, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => handleToggleTask(activeCheckpoint.level, task.title, task.completed)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.6rem',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: 8,
+                          background: 'var(--color-surface-2)',
+                          border: '1px solid var(--color-border)',
+                          cursor: 'pointer',
+                          fontSize: '0.82rem',
+                          color: task.completed ? 'var(--color-text-muted)' : 'var(--color-text-dim)'
+                        }}
+                      >
+                        <span style={{ color: task.completed ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                          {task.completed ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                        </span>
+                        <span style={{ textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Section 6: Project Submission Form */}
+                  <form onSubmit={handleProjectSubmit} style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.5rem' }}>
+                      Submit Checkpoint Project (+500 XP)
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <input
+                        className="input"
+                        placeholder="Project Name"
+                        value={projName}
+                        onChange={e => setProjName(e.target.value)}
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem' }}
+                        required
+                      />
+                      <input
+                        className="input"
+                        placeholder="GitHub URL"
+                        value={projUrl}
+                        onChange={e => setProjUrl(e.target.value)}
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem' }}
+                        required
+                      />
+                      <textarea
+                        className="input"
+                        placeholder="Short description"
+                        value={projDesc}
+                        onChange={e => setProjDesc(e.target.value)}
+                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem', height: 44, resize: 'none' }}
+                      />
+                      <button
+                        type="submit"
+                        disabled={projSubmitting || !projName || !projUrl}
+                        className="btn-primary"
+                        style={{ padding: '0.4rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', width: '100%' }}
+                      >
+                        {projSubmitting ? 'Submitting...' : <><Link size={12} /> Submit Project</>}
+                      </button>
+                      {projSuccess && (
+                        <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, textAlign: 'center', display: 'block', marginTop: '0.2rem' }}>
+                          ✓ Project saved! +500 XP Earned
+                        </span>
+                      )}
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Section 5: Achievements & Badges */}
+              <div className="glass-card" style={{ padding: '1.25rem' }}>
+                <h4 style={{ fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '1rem', letterSpacing: '0.04em' }}>
+                  Achievements & Badges
+                </h4>
+                {gps.badges.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '1rem 0', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>
+                    Complete checkpoints or submit projects to unlock badges!
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                    {gps.badges.map((b, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '0.6rem',
+                          borderRadius: 10,
+                          background: 'var(--color-surface-2)',
+                          border: '1px solid var(--color-border)',
+                          textAlign: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '0.3rem'
+                        }}
+                      >
+                        <Award size={20} color="#fbbf24" />
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text)' }}>{b.name}</span>
+                        <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)' }}>{new Date(b.unlockedAt).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
       </main>
     </div>
   );
