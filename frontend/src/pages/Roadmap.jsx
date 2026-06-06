@@ -290,6 +290,14 @@ const RoadmapPage = () => {
                   <div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Active Destination</span>
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", marginTop: '0.2rem', color: 'var(--color-text)' }}>{gps.destination}</h2>
+                    {gps.templateVersion && (
+                      <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.4rem', fontSize: '0.74rem', color: 'var(--color-text-muted)', flexWrap: 'wrap' }}>
+                        <span>🏷️ <strong>Version:</strong> {gps.templateVersion}</span>
+                        <span>👥 <strong>Learners:</strong> {gps.totalLearners?.toLocaleString() || 1}</span>
+                        <span>🔥 <strong>Popularity:</strong> {gps.popularityScore || 1}</span>
+                        <span>⏱️ <strong>Duration:</strong> {gps.estimatedDuration}</span>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <div style={{

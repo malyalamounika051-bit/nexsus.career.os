@@ -1,7 +1,19 @@
 const mongoose = require('mongoose');
 
+const completedCriteriaSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  completed: { type: Boolean, default: false }
+}, { _id: false });
+
+const completedCheckpointSchema = new mongoose.Schema({
+  level: { type: Number, required: true },
+  completed: { type: Boolean, default: false },
+  completedCriteria: [completedCriteriaSchema]
+}, { _id: false });
+
 const CareerGPSSchema = new mongoose.Schema({
   userId: { type: String, required: true, unique: true, index: true },
+  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'CareerTemplate', required: true },
   destination: { type: String, required: true },
   currentLevel: { type: Number, default: 1 },
   xp: { type: Number, default: 0 },
@@ -9,52 +21,13 @@ const CareerGPSSchema = new mongoose.Schema({
   progress: { type: Number, default: 0 },
   currentCheckpoint: { type: String, default: '' },
   lastActiveAt: { type: Date },
-
-  checkpoints: [
-    {
-      level: Number,
-      title: String,
-      description: String,
-      estimatedTime: { type: String, default: '2 Weeks' },
-      xpReward: { type: Number, default: 250 },
-      skills: [String],
-      resources: [
-        {
-          title: String,
-          type: { type: String, enum: ['course', 'youtube', 'docs', 'blog', 'platform', 'community', 'book', 'other'], default: 'other' },
-          provider: String,
-          url: String
-        }
-      ],
-      certifications: [String],
-      projects: [
-        {
-          title: String,
-          difficulty: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], default: 'Beginner' },
-          description: String,
-          githubExamples: [String],
-          resources: [String],
-          expectedOutcome: String
-        }
-      ],
-      completionCriteria: [
-        {
-          title: String,
-          type: { type: String, enum: ['course', 'project', 'quiz', 'task'], default: 'task' },
-          completed: { type: Boolean, default: false }
-        }
-      ],
-      completed: { type: Boolean, default: false }
-    }
-  ],
-
+  completedCheckpoints: [completedCheckpointSchema],
   badges: [
     {
       name: String,
       unlockedAt: { type: Date, default: Date.now }
     }
   ],
-
   projects: [
     {
       projectName: String,
