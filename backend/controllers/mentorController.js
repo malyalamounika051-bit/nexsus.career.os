@@ -208,6 +208,29 @@ const chatWithMentor = async (req, res) => {
     if (userName) {
       enhancedSystemPrompt += `\n\nUSER PROFILE: The user's name is ${userName}.`;
     }
+
+    // Load UserCareerState for cross-feature awareness
+    try {
+      const UserCareerState = require('../models/UserCareerState');
+      const userCareerState = await UserCareerState.findOne({ userId: String(userUid) });
+      if (userCareerState) {
+        enhancedSystemPrompt += `\n\nUSER CAREER OS STATE:
+- Current Journey Stage: ${userCareerState.currentStage}
+- Career DNA Archetype: ${userCareerState.careerDNA?.archetype || 'None'}
+- Top Career Matches: ${(userCareerState.careerDNA?.topMatches || []).map(m => `${m.career} (${m.matchPercent}%)`).join(', ') || 'None'}
+- Resume Stats: ${userCareerState.resumeState?.hasResume ? `Score ${userCareerState.resumeState.resumeScore}/100, ATS Score ${userCareerState.resumeState.atsScore}/100` : 'No resume created yet'}
+- Mock Interview Stats: ${userCareerState.interviewState?.totalInterviews || 0} completed, Average Score ${userCareerState.interviewState?.avgScore || 0}/100, Readiness: ${userCareerState.interviewState?.readinessLevel || 'not-started'}
+- Saved Jobs: ${userCareerState.jobState?.savedJobsCount || 0} saved`;
+      }
+    } catch (stateErr) {
+      console.error('Failed to load UserCareerState for mentor context:', stateErr);
+    }
+
+    // Add page context
+    const pageContext = req.body.pageContext;
+    if (pageContext) {
+      enhancedSystemPrompt += `\n\nCURRENT CONTEXT: the user is active on the following screen: "${pageContext}". Reference the context naturally if relevant to help them navigate or use that screen, but keep focus on their question.`;
+    }
     if (memory) {
       if (memory.conversationSummary) {
         enhancedSystemPrompt += `\n\nPREVIOUS CONVERSATION SUMMARY (use this for long-term context):\n${memory.conversationSummary}`;

@@ -1,6 +1,7 @@
 const Assessment = require('../models/Assessment');
 const Career = require('../models/Career');
 const User = require('../models/User');
+const UserCareerState = require('../models/UserCareerState');
 const { awardXP } = require('../utils/gamification');
 
 // Scoring engine: compute user category scores from answers
@@ -156,8 +157,32 @@ const submitAssessment = async (req, res) => {
 
       // Award XP for assessment completion (async, non-blocking)
       awardXP(req.user.id, 'ASSESSMENT_COMPLETED').catch(() => {});
+
+      // Upsert UserCareerState
+      await UserCareerState.findOneAndUpdate(
+        { userId: String(req.user.id) },
+        {
+          $set: {
+            currentStage: 'dna-complete',
+            careerDNA: {
+              archetype: careerDNA.archetype,
+              traitScores: {
+                technical: scores.technical || 0,
+                creative: scores.creative || 0,
+                analytical: scores.analytical || 0,
+                leadership: scores.leadership || 0,
+                communication: scores.communication || 0
+              },
+              topMatches: result.map(r => ({ career: r.career, matchPercent: r.match })),
+              assessmentCount: 1,
+              lastAssessedAt: new Date()
+            }
+          }
+        },
+        { upsert: true, new: true }
+      );
     } catch (userUpdateErr) {
-      console.warn('Could not update user stats:', userUpdateErr.message);
+      console.warn('Could not update user stats or career state:', userUpdateErr.message);
     }
 
     res.status(201).json({ success: true, data: assessment });

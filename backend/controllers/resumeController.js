@@ -2,6 +2,30 @@ const Resume = require('../models/Resume');
 const { callGeminiDirectly } = require('../utils/geminiClient');
 const { parseStructuredJson } = require('../utils/jsonParser');
 
+const updateUserCareerStateResume = async (userId, resume) => {
+  try {
+    const UserCareerState = require('../models/UserCareerState');
+    const userUid = String(userId);
+    await UserCareerState.findOneAndUpdate(
+      { userId: userUid },
+      {
+        $set: {
+          currentStage: 'resume-building',
+          resumeState: {
+            hasResume: true,
+            resumeScore: resume?.analysis?.score || 0,
+            atsScore: resume?.analysis?.atsScore || 0,
+            lastUpdatedAt: new Date()
+          }
+        }
+      },
+      { upsert: true }
+    );
+  } catch (stateErr) {
+    console.warn('Could not update UserCareerState on resume activity:', stateErr.message);
+  }
+};
+
 // @desc    Get all resumes for logged in user
 exports.getResumes = async (req, res) => {
   try {
@@ -39,6 +63,7 @@ exports.createResume = async (req, res) => {
   try {
     req.body.user = req.user._id;
     const resume = await Resume.create(req.body);
+    await updateUserCareerStateResume(req.user.id || req.user._id, resume);
     res.status(201).json({ success: true, data: resume });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -52,6 +77,7 @@ exports.updateResume = async (req, res) => {
     if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
 
     resume = await Resume.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    await updateUserCareerStateResume(req.user.id || req.user._id, resume);
     res.json({ success: true, data: resume });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -106,6 +132,7 @@ exports.optimizeResume = async (req, res) => {
 
     resume.analysis = analysis;
     await resume.save();
+    await updateUserCareerStateResume(req.user.id || req.user._id, resume);
 
     res.json({ success: true, data: analysis });
   } catch (err) {

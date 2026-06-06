@@ -5,7 +5,7 @@ import { assessmentService } from '../services/assessmentService';
 import Sidebar from '../components/Sidebar';
 import RadarChart from '../components/RadarChart';
 import ProgressRing from '../components/ProgressRing';
-import { Trophy, DollarSign, Star, Brain, Dna } from 'lucide-react';
+import { Trophy, DollarSign, Star, Brain, Dna, Map, Mic } from 'lucide-react';
 
 const COLORS = ['#0ea5e9', '#a855f7', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -168,6 +168,22 @@ const ResultsPage = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                       {r.skills?.map(s => <span key={s} className="tag" style={{ fontSize: '0.68rem' }}>{s}</span>)}
+                    </div>
+                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        className="btn-primary"
+                        onClick={() => navigate('/roadmaps', { state: { prefillCareer: r.career } })}
+                        style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      >
+                        <Map size={14} /> Generate Roadmap
+                      </button>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => navigate('/mock-interview/setup', { state: { jobRole: r.career } })}
+                        style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      >
+                        <Mic size={14} /> Practice Interview
+                      </button>
                     </div>
                   </motion.div>
                 ))}

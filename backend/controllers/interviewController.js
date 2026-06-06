@@ -166,6 +166,49 @@ Return ONLY the JSON object. No markdown.`;
     interview.completedAt = new Date();
     await interview.save();
 
+    // Update UserCareerState
+    try {
+      const completedInterviews = await Interview.find({ userId: req.user.id, status: 'completed' });
+      const totalCount = completedInterviews.length;
+      let avgOverall = 0;
+      let bestRole = interview.jobRole;
+      let bestScore = 0;
+
+      if (totalCount > 0) {
+        const totalScoreSum = completedInterviews.reduce((sum, inv) => sum + (inv.scores?.overall || 0), 0);
+        avgOverall = Math.round(totalScoreSum / totalCount);
+
+        completedInterviews.forEach(inv => {
+          if ((inv.scores?.overall || 0) > bestScore) {
+            bestScore = inv.scores.overall;
+            bestRole = inv.jobRole;
+          }
+        });
+      }
+
+      let readinessLevel = 'beginner';
+      if (avgOverall >= 85) readinessLevel = 'confident';
+      else if (avgOverall >= 70) readinessLevel = 'ready';
+
+      const UserCareerState = require('../models/UserCareerState');
+      await UserCareerState.findOneAndUpdate(
+        { userId: String(req.user.id) },
+        {
+          $set: {
+            currentStage: 'interview-prep',
+            'interviewState.totalInterviews': totalCount,
+            'interviewState.avgScore': avgOverall,
+            'interviewState.bestRole': bestRole,
+            'interviewState.readinessLevel': readinessLevel,
+            'interviewState.lastInterviewAt': new Date()
+          }
+        },
+        { upsert: true }
+      );
+    } catch (stateErr) {
+      console.warn('Could not update UserCareerState on interview completion:', stateErr.message);
+    }
+
     res.json({ success: true, data: interview });
   } catch (error) {
     console.error('Error finalizing interview:', error);

@@ -8,18 +8,37 @@ import {
   ChevronLeft, ChevronRight, Flame, Briefcase, FileText, Mic, Compass
 } from 'lucide-react';
 
-const navItems = [
-  { to: '/dashboard',          icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/career-dna',         icon: Dna,             label: 'Career DNA' },
-  { to: '/roadmaps',           icon: Map,             label: 'AI Roadmaps' },
-  { to: '/jobs',               icon: Briefcase,       label: 'Job Search' },
-  { to: '/resume-builder',     icon: FileText,        label: 'Resume Builder' },
-  { to: '/mentor',             icon: MessageSquare,    label: 'AI Mentor' },
-  { to: '/mock-interview/setup', icon: Mic,              label: 'Mock Interview' },
-  { to: '/skill-gap',          icon: FileSearch,       label: 'Skill Gap' },
-  { to: '/skill-trends',       icon: TrendingUp,       label: 'Skill Trends' },
-  { to: '/career-simulator',   icon: Play,             label: 'Simulator' },
-  { to: '/profile',            icon: User,             label: 'Profile' },
+const navSections = [
+  {
+    items: [
+      { to: '/dashboard',          icon: LayoutDashboard, label: 'Command Center' },
+      { to: '/career-dna',         icon: Dna,             label: 'Career DNA' },
+    ]
+  },
+  {
+    label: 'MY JOURNEY',
+    items: [
+      { to: '/roadmaps',           icon: Map,             label: 'AI Roadmaps' },
+      { to: '/skill-gap',          icon: FileSearch,       label: 'Skills & Gaps' },
+      { to: '/skill-trends',       icon: TrendingUp,       label: 'Skill Trends' },
+      { to: '/career-simulator',   icon: Play,             label: 'Simulator' },
+    ]
+  },
+  {
+    label: 'JOB HUB',
+    items: [
+      { to: '/jobs',               icon: Briefcase,       label: 'Job Search' },
+      { to: '/resume-builder',     icon: FileText,        label: 'Resume Builder' },
+      { to: '/mock-interview/setup', icon: Mic,              label: 'Mock Interview' },
+    ]
+  },
+  {
+    label: 'SUPPORT',
+    items: [
+      { to: '/mentor',             icon: MessageSquare,    label: 'Sara AI' },
+      { to: '/profile',            icon: User,             label: 'Profile' },
+    ]
+  }
 ];
 
 const mobileNavItems = [
@@ -128,23 +147,27 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
       )}
 
       {/* Nav links */}
-      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-        {!isCollapsed && (
-          <div style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--color-text-muted)', letterSpacing: '0.12em', textTransform: 'uppercase', padding: '0 0.875rem', marginBottom: '0.5rem' }}>
-            Navigation
+      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {navSections.map((section, sIdx) => (
+          <div key={sIdx} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+            {!isCollapsed && section.label && (
+              <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary-light)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.25rem 0.875rem 0.1rem', opacity: 0.8 }}>
+                {section.label}
+              </div>
+            )}
+            {section.items.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                title={isCollapsed ? label : undefined}
+                style={isCollapsed ? { justifyContent: 'center', padding: '0.7rem' } : undefined}
+              >
+                <Icon size={18} />
+                {!isCollapsed && <span>{label}</span>}
+              </NavLink>
+            ))}
           </div>
-        )}
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-            title={isCollapsed ? label : undefined}
-            style={isCollapsed ? { justifyContent: 'center', padding: '0.7rem' } : undefined}
-          >
-            <Icon size={18} />
-            {!isCollapsed && <span>{label}</span>}
-          </NavLink>
         ))}
       </nav>
 

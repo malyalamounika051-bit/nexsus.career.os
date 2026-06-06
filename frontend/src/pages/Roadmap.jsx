@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import { careerService } from '../services/adviceService';
@@ -138,6 +139,7 @@ const PhaseCard = ({ phase, index, onToggleComplete }) => {
 };
 
 const RoadmapPage = () => {
+  const location = useLocation();
   const [sc, setSc] = useState(false);
   const [roadmaps, setRoadmaps] = useState([]);
   const [active, setActive] = useState(null);
@@ -154,6 +156,14 @@ const RoadmapPage = () => {
       .catch(() => {})
       .finally(() => setFetching(false));
   }, []);
+
+  useEffect(() => {
+    if (location.state?.prefillCareer) {
+      setQuery(location.state.prefillCareer);
+      setShowForm(true);
+      setActive(null);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (!loading) return;

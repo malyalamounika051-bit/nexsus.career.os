@@ -119,6 +119,27 @@ exports.analyzeJobFit = async (req, res) => {
 /**
  * Save/Bookmark a Job
  */
+const updateUserCareerStateJob = async (userId) => {
+  try {
+    const UserCareerState = require('../models/UserCareerState');
+    const SavedJob = require('../models/SavedJob');
+    const userUid = String(userId);
+    const count = await SavedJob.countDocuments({ userUid });
+    await UserCareerState.findOneAndUpdate(
+      { userId: userUid },
+      {
+        $set: {
+          currentStage: 'job-hunting',
+          'jobState.savedJobsCount': count
+        }
+      },
+      { upsert: true }
+    );
+  } catch (stateErr) {
+    console.warn('Could not update UserCareerState on job save:', stateErr.message);
+  }
+};
+
 exports.saveJob = async (req, res) => {
   try {
     const userUid = req.user?.uid || req.user?._id || req.user?.id;
@@ -133,6 +154,8 @@ exports.saveJob = async (req, res) => {
       userUid: String(userUid),
       ...jobData
     });
+
+    await updateUserCareerStateJob(userUid);
 
     res.status(201).json({ success: true, data: savedJob });
   } catch (error) {
@@ -162,6 +185,7 @@ exports.removeSavedJob = async (req, res) => {
   try {
     const userUid = req.user?.uid || req.user?._id || req.user?.id;
     await SavedJob.findOneAndDelete({ userUid: String(userUid), jobId: req.params.jobId });
+    await updateUserCareerStateJob(userUid);
     res.status(200).json({ success: true, message: 'Job removed' });
   } catch (error) {
     console.error('Remove Saved Job Error:', error);

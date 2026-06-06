@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { assessmentService } from '../services/assessmentService';
+import api from '../services/api';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import ProgressRing from '../components/ProgressRing';
@@ -63,6 +64,9 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const [suggestionData, setSuggestionData] = useState(null);
+  const [sugLoading, setSugLoading] = useState(true);
+
   useEffect(() => {
     if (refreshUser) {
       refreshUser();
@@ -71,6 +75,17 @@ const DashboardPage = () => {
       .then(({ data }) => setAssessments(data.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    api.get('/mentor/suggestions')
+      .then(({ data }) => {
+        if (data.success) {
+          setSuggestionData(data.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Error fetching proactive suggestions:', err);
+      })
+      .finally(() => setSugLoading(false));
   }, [refreshUser]);
 
   const latest = assessments[0];
@@ -131,37 +146,158 @@ const DashboardPage = () => {
           </div>
         </motion.div>
 
-        {/* ── AI Insight Banner ────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-            padding: '1rem 1.25rem', borderRadius: 14,
-            background: 'var(--gradient-primary-soft)',
-            border: '1px solid rgba(14,165,233,0.12)',
-            marginBottom: '1.75rem',
-          }}
-        >
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'var(--gradient-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-            boxShadow: '0 0 15px rgba(14,165,233,0.3)',
-          }}>
-            <Sparkles size={18} color="white" />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3rem' }}>
-              AI Career Intelligence
+        {/* ── Career Lifecycle Progress Bar ────────────────── */}
+        {!sugLoading && suggestionData && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="glass-card"
+            style={{
+              padding: '1.25rem',
+              borderRadius: 16,
+              marginBottom: '1.5rem',
+              background: 'var(--color-surface-2)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Career Journey Progress</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary-light)' }}>{suggestionData.lifecyclePercent}% Complete</span>
             </div>
-            <p style={{ fontSize: '0.88rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, margin: 0 }}>
-              {latest ? aiInsight : "Take your first Career DNA assessment to unlock personalized AI insights about your career path."}
-            </p>
-          </div>
-        </motion.div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+              {/* Connector line */}
+              <div style={{
+                position: 'absolute',
+                top: 15,
+                left: '5%',
+                right: '5%',
+                height: 3,
+                background: 'rgba(255, 255, 255, 0.1)',
+                zIndex: 1
+              }} />
+              {/* Highlight fill line */}
+              <div style={{
+                position: 'absolute',
+                top: 15,
+                left: '5%',
+                width: `${Math.max(0, Math.min(90, suggestionData.lifecyclePercent * 0.9))}%`,
+                height: 3,
+                background: 'var(--gradient-primary)',
+                zIndex: 1,
+                transition: 'width 0.8s ease'
+              }} />
+
+              {[
+                { key: 'new', label: 'DNA Test' },
+                { key: 'dna-complete', label: 'Roadmap' },
+                { key: 'roadmap-active', label: 'Resume' },
+                { key: 'resume-building', label: 'Interview' },
+                { key: 'interview-prep', label: 'Job Search' }
+              ].map((step, idx) => {
+                const stages = ['new', 'dna-complete', 'roadmap-active', 'resume-building', 'interview-prep', 'job-hunting', 'employed'];
+                const currentStageIdx = stages.indexOf(suggestionData.currentStage);
+                const stepStageIdx = stages.indexOf(step.key);
+                const isCompleted = currentStageIdx > stepStageIdx;
+                const isActive = currentStageIdx === stepStageIdx;
+
+                return (
+                  <div key={step.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, flex: 1, minWidth: 70 }}>
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: isCompleted ? 'var(--gradient-primary)' : isActive ? 'var(--color-surface)' : 'var(--color-bg)',
+                      border: isActive ? '2px solid var(--color-primary)' : isCompleted ? 'none' : '2px solid rgba(255,255,255,0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      color: isCompleted || isActive ? 'white' : 'var(--color-text-muted)',
+                      boxShadow: isActive ? '0 0 15px var(--color-primary-glow)' : 'none',
+                      transition: 'all 0.3s ease'
+                    }}>
+                      {isCompleted ? '✓' : idx + 1}
+                    </div>
+                    <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: isActive ? 700 : 500,
+                      color: isActive ? 'var(--color-primary-light)' : isCompleted ? 'var(--color-text)' : 'var(--color-text-muted)',
+                      marginTop: '0.4rem',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {step.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Sara's Next Action Card ──────────────────────── */}
+        {!sugLoading && suggestionData?.suggestion && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1.25rem',
+              padding: '1.25rem 1.5rem',
+              borderRadius: 16,
+              background: 'var(--gradient-primary-soft)',
+              border: '1px solid rgba(14,165,233,0.18)',
+              marginBottom: '2rem',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flex: 1, minWidth: 280 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'var(--gradient-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 0 15px rgba(14,165,233,0.3)',
+              }}>
+                <Sparkles size={20} color="white" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
+                  Sara AI Next Recommended Action
+                </div>
+                <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem', color: 'var(--color-text)', fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {suggestionData.suggestion.title}
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem', marginBottom: 0, lineHeight: 1.5 }}>
+                  {suggestionData.suggestion.description}
+                </p>
+              </div>
+            </div>
+            <button
+              className="btn-primary"
+              onClick={() => navigate(suggestionData.suggestion.actionRoute)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.6rem 1.25rem',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                boxShadow: '0 4px 12px rgba(14,165,233,0.25)'
+              }}
+            >
+              {suggestionData.suggestion.actionLabel} <ArrowRight size={16} />
+            </button>
+          </motion.div>
+        )}
 
         {loading ? (
           <div className="grid-3" style={{ marginBottom: '2rem' }}>

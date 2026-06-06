@@ -20,6 +20,26 @@ export default function SaraFloatingChat() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const messagesEndRef = useRef(null);
+
+  const getPageContext = () => {
+    const path = location.pathname;
+    const contextMap = {
+      '/dashboard': 'User is on the Command Center dashboard',
+      '/career-dna': 'User is taking the Career DNA assessment',
+      '/results': 'User is viewing Career DNA results',
+      '/roadmaps': 'User is viewing/generating career roadmaps',
+      '/jobs': 'User is searching for jobs',
+      '/resume-builder': 'User is building their resume',
+      '/mock-interview/setup': 'User is setting up a mock interview',
+      '/mock-interview/room': 'User is in a live mock interview',
+      '/mock-interview/report': 'User is reviewing interview results',
+      '/skill-gap': 'User is analyzing skill gaps',
+      '/mentor': 'User is in the full Sara AI mentor chat',
+      '/career-simulator': 'User is exploring career simulations',
+      '/profile': 'User is viewing their profile',
+    };
+    return contextMap[path] || `User is on page: ${path}`;
+  };
   const inputRef = useRef(null);
 
   // Don't show on MentorChat page (it already has full Sara), login, signup, or landing
@@ -78,7 +98,9 @@ export default function SaraFloatingChat() {
 
     try {
       const { data } = await api.post('/mentor/chat', {
-        message: userMessage.content
+        message: userMessage.content,
+        pageContext: getPageContext(),
+        currentRoute: location.pathname
       });
 
       if (data.success) {

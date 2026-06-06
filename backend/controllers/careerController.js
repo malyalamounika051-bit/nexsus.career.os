@@ -203,7 +203,29 @@ const getMarketInsights = async (req, res) => {
   }
 };
 
-/* ── Roadmap generation ──────────────────────────────────── */
+const updateUserCareerStateRoadmap = async (userUid, career) => {
+  try {
+    const UserCareerState = require('../models/UserCareerState');
+    await UserCareerState.findOneAndUpdate(
+      { userId: String(userUid) },
+      {
+        $set: { currentStage: 'roadmap-active' },
+        $addToSet: {
+          activeRoadmaps: {
+            roadmapId: career._id,
+            domain: career.domain,
+            completedPhases: 0,
+            totalPhases: career.roadmap?.length || 7,
+            lastUpdatedAt: new Date()
+          }
+        }
+      },
+      { upsert: true }
+    );
+  } catch (stateErr) {
+    console.warn('Could not update UserCareerState on roadmap creation:', stateErr.message);
+  }
+};
 
 // @desc   Get user's generated roadmaps
 // @route  GET /api/careers/my-roadmaps
@@ -278,6 +300,23 @@ const updateProgress = async (req, res) => {
     };
 
     await career.save();
+
+    // Also update UserCareerState
+    try {
+      const UserCareerState = require('../models/UserCareerState');
+      await UserCareerState.findOneAndUpdate(
+        { userId: String(userUid), 'activeRoadmaps.roadmapId': career._id },
+        {
+          $set: {
+            'activeRoadmaps.$.completedPhases': completedCount,
+            'activeRoadmaps.$.lastUpdatedAt': new Date()
+          }
+        }
+      );
+    } catch (stateErr) {
+      console.warn('Could not update UserCareerState progress:', stateErr.message);
+    }
+
     res.json({ success: true, data: career });
   } catch (error) {
     console.error('Update progress error:', error);
@@ -354,6 +393,7 @@ const generateRoadmap = async (req, res) => {
         });
 
         const clonedCareer = await Career.create(clonedRoadmapData);
+        await updateUserCareerStateRoadmap(userUid, clonedCareer);
         awardXP(userUid, 'ROADMAP_GENERATED').catch(() => {});
         return res.json({ success: true, data: clonedCareer, cached: true });
       }
@@ -490,6 +530,7 @@ Return ONLY valid JSON.`;
                     await Career.findOne({ domain: generatedData.domain, userUid: String(userUid) });
 
         if (!newCareer) throw new Error('Roadmap was generated but could not be retrieved after save.');
+        await updateUserCareerStateRoadmap(userUid, newCareer);
         awardXP(userUid, 'ROADMAP_GENERATED').catch(() => {});
       } catch (dbError) {
         console.error('Career save error:', dbError.message || dbError);
