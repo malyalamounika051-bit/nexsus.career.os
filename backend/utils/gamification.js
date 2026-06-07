@@ -8,6 +8,7 @@ const XP_AWARDS = {
   MENTOR_CHAT: 5,
   SKILL_GAP_ANALYSIS: 40,
   CAREER_SIMULATION: 20,
+  OPPORTUNITY_APPLIED: 50,
 };
 
 // Badge definitions

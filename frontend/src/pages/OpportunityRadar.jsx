@@ -31,22 +31,26 @@ const CATEGORY_COLORS = {
 };
 
 const TABS = [
-  { id: 'all', label: 'All Recommended' },
-  { id: 'closing', label: 'Closing Soon' },
+  { id: 'recommended', label: 'Recommended' },
+  { id: 'high-match', label: 'High Match (90%+)' },
+  { id: 'recent', label: 'Recently Added' },
+  { id: 'closing-soon', label: 'Closing Soon' },
   { id: 'internship', label: 'Internships' },
   { id: 'hackathon', label: 'Hackathons' },
   { id: 'scholarship', label: 'Scholarships' },
   { id: 'competition', label: 'Competitions' },
   { id: 'open-source', label: 'Open Source' },
+  { id: 'research', label: 'Research' },
   { id: 'hiring-drive', label: 'Hiring Drives' },
-  { id: 'saved', label: 'Saved' }
+  { id: 'saved', label: 'Saved' },
+  { id: 'applied', label: 'Applied' }
 ];
 
 const OpportunityRadar = () => {
   const [sc, setSc] = useState(false);
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [openedOpps, setOpenedOpps] = useState(new Set());
@@ -64,7 +68,13 @@ const OpportunityRadar = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      await api.get('/opportunities/seed');
+      // Fetch/seed mock data in dev, failsafe gracefully in prod
+      try {
+        await api.get('/opportunities/seed');
+      } catch (seedErr) {
+        console.warn('Seeder skipped or forbidden:', seedErr.message);
+      }
+      
       const { data } = await api.get('/opportunities');
       if (data.success) {
         setOpportunities(data.data || []);
@@ -92,7 +102,7 @@ const OpportunityRadar = () => {
         showToast(data.bookmarked ? '📌 Added To Bookmarks' : 'Opportunity removed from saved list');
       }
     } catch (err) {
-      console.error(opp);
+      console.error(err);
       showToast('Error saving opportunity.', 'error');
     }
   };
@@ -132,13 +142,17 @@ const OpportunityRadar = () => {
   };
 
   const getDaysLeft = (deadlineStr) => {
+    if (!deadlineStr) return 999;
     const diffTime = new Date(deadlineStr) - new Date();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
-  const getDeadlineConfig = (deadlineStr) => {
-    const days = getDaysLeft(deadlineStr);
+  const getDeadlineConfig = (opp) => {
+    const deadline = opp.registrationDeadline || opp.submissionDeadline;
+    if (!deadline) return { label: 'Open Application', color: '#10b981', bg: 'rgba(16,185,129,0.08)' };
+    
+    const days = getDaysLeft(deadline);
     if (days <= 0) return { label: 'Closed', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' };
     if (days === 1) return { label: 'Closing Tomorrow', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)' };
     if (days <= 3) return { label: `${days} Days Left`, color: '#f87171', bg: 'rgba(239,68,68,0.08)' };
@@ -146,22 +160,38 @@ const OpportunityRadar = () => {
     return { label: `${days} Days Left`, color: '#10b981', bg: 'rgba(16,185,129,0.08)' };
   };
 
+  // Client-side filtering & sorting matching backend logic
   const filteredOpps = opportunities.filter(opp => {
     const matchesSearch = 
       opp.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opp.organization.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      opp.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (opp.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (opp.requiredSkills || []).some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (!matchesSearch) return false;
 
-    if (activeTab === 'all') return true;
-    if (activeTab === 'saved') return opp.bookmarked;
-    if (activeTab === 'closing') {
-      const days = getDaysLeft(opp.deadline);
+    if (activeTab === 'recommended') return true;
+    if (activeTab === 'high-match') return opp.matchScore >= 90;
+    if (activeTab === 'closing-soon') {
+      const deadline = opp.registrationDeadline || opp.submissionDeadline;
+      if (!deadline) return false;
+      const days = getDaysLeft(deadline);
       return days > 0 && days <= 7;
     }
+    if (activeTab === 'saved') return opp.bookmarked;
+    if (activeTab === 'applied') return opp.applied;
     return opp.type === activeTab;
   });
+
+  const displayOpps = [...filteredOpps];
+  if (activeTab === 'recent') {
+    displayOpps.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  } else {
+    displayOpps.sort((a, b) => b.matchScore - a.matchScore);
+  }
+
+  // Dynamic Sara Highlight
+  const topMatch = opportunities.length > 0 ? [...opportunities].sort((a, b) => b.matchScore - a.matchScore)[0] : null;
 
   return (
     <div className="app-shell">
@@ -248,20 +278,20 @@ const OpportunityRadar = () => {
             }} className="custom-scrollbar">
               {TABS.map(tab => (
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '10px',
-                    border: '1px solid ' + (activeTab === tab.id ? 'var(--color-primary-glow)' : 'var(--color-border)'),
-                    background: activeTab === tab.id ? 'var(--color-primary-glow)' : 'var(--color-surface)',
-                    color: activeTab === tab.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.2s ease'
-                  }}
+                   key={tab.id}
+                   onClick={() => setActiveTab(tab.id)}
+                   style={{
+                     padding: '0.5rem 1rem',
+                     borderRadius: '10px',
+                     border: '1px solid ' + (activeTab === tab.id ? 'var(--color-primary-glow)' : 'var(--color-border)'),
+                     background: activeTab === tab.id ? 'var(--color-primary-glow)' : 'var(--color-surface)',
+                     color: activeTab === tab.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
+                     fontSize: '0.82rem',
+                     fontWeight: 600,
+                     cursor: 'pointer',
+                     whiteSpace: 'nowrap',
+                     transition: 'all 0.2s ease'
+                   }}
                 >
                   {tab.label}
                 </button>
@@ -286,7 +316,7 @@ const OpportunityRadar = () => {
                 <div className="roadmap-loading-dots" style={{ margin: '0 auto 1rem' }}><span /><span /><span /></div>
                 Scanning career dimensions for matched roles...
               </div>
-            ) : filteredOpps.length === 0 ? (
+            ) : displayOpps.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '4rem 2rem' }} className="glass-card">
                 <Compass size={48} color="var(--color-text-muted)" style={{ opacity: 0.3, margin: '0 auto 1rem', display: 'block' }} />
                 <h4 style={{ fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>No Opportunities Found</h4>
@@ -294,10 +324,10 @@ const OpportunityRadar = () => {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
-                {filteredOpps.map(opp => {
+                {displayOpps.map(opp => {
                   const Icon = CATEGORY_ICONS[opp.type] || Briefcase;
                   const catColor = CATEGORY_COLORS[opp.type] || '#8899b0';
-                  const deadlineStyle = getDeadlineConfig(opp.deadline);
+                  const deadlineStyle = getDeadlineConfig(opp);
 
                   return (
                     <motion.div
@@ -327,7 +357,6 @@ const OpportunityRadar = () => {
                           <Icon size={12} color={catColor} /> {opp.type}
                         </div>
                         
-                        {/* Match score Radial representation */}
                         <div style={{
                           display: 'flex', alignItems: 'center', gap: '0.2rem',
                           padding: '0.25rem 0.5rem', borderRadius: 8,
@@ -375,7 +404,7 @@ const OpportunityRadar = () => {
                       }}>
                         <div style={{
                           display: 'flex', alignItems: 'center', gap: '0.35rem',
-                          padding: '0.2rem 0.5rem', borderRadius: 6,
+                          padding: '0.2' + 'rem 0.5rem', borderRadius: 6,
                           background: deadlineStyle.bg, color: deadlineStyle.color,
                           border: deadlineStyle.border || 'none',
                           fontSize: '0.72rem', fontWeight: 700
@@ -383,7 +412,6 @@ const OpportunityRadar = () => {
                           <Calendar size={11} /> {deadlineStyle.label}
                         </div>
 
-                        {/* Apply Trigger Panel */}
                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                           <button
                             className="btn-ghost"
@@ -439,7 +467,7 @@ const OpportunityRadar = () => {
           {/* Right Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            {/* AI Prompts */}
+            {/* Sara AI Recommendation Panel */}
             <div style={{
               background: 'var(--gradient-primary-soft)',
               border: '1px solid rgba(14,165,233,0.15)',
@@ -451,18 +479,29 @@ const OpportunityRadar = () => {
                 <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sara Radar Insights</span>
               </div>
               <div style={{ fontSize: '0.84rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                <p style={{ margin: '0 0 0.75rem 0' }}>
-                  Hi! I'm monitoring the global pipelines. Based on your active GPS coordinates, here is what I found:
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                  <div style={{ padding: '0.6rem', background: 'rgba(14,165,233,0.06)', borderRadius: 10, borderLeft: '3px solid var(--color-primary)' }}>
-                    🔥 <strong>Devpost AI Hackathon</strong> aligns with your Python projects. Only 4 days left to join!
+                {topMatch ? (
+                  <div>
+                    <p style={{ margin: '0 0 0.75rem 0' }}>
+                      I found this opportunity because it matches your career profile:
+                    </p>
+                    <div style={{ padding: '0.6rem', background: 'rgba(14,165,233,0.06)', borderRadius: 10, borderLeft: '3px solid var(--color-primary)', marginBottom: '0.75rem' }}>
+                      🔥 <strong>{topMatch.title}</strong> by <strong>{topMatch.organization}</strong>
+                      <div style={{ fontSize: '0.76rem', marginTop: '0.4rem', color: 'var(--color-text-dim)', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        {topMatch.whyRecommended.map((r, idx) => (
+                          <span key={idx}>✓ {r}</span>
+                        ))}
+                        <span>📈 Match Score: {topMatch.matchScore}%</span>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ padding: '0.6rem', background: 'rgba(245,158,11,0.06)', borderRadius: 10, borderLeft: '3px solid #f59e0b' }}>
-                    📦 <strong>Google Summer of Code</strong> matches your open-source path requirements.
-                  </div>
-                  <div style={{ padding: '0.6rem', background: 'rgba(16,185,129,0.06)', borderRadius: 10, borderLeft: '3px solid #10b981' }}>
-                    🏆 Applying to high-match hackathons can boost your job-readiness score by up to <strong>15%</strong>.
+                ) : (
+                  <p style={{ margin: '0 0 0.75rem 0' }}>
+                    Hi! I'm monitoring the global pipelines. Once opportunities are loaded, I will show you high-relevance recommendations here.
+                  </p>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.78rem', opacity: 0.85 }}>
+                  <div style={{ padding: '0.5rem', background: 'rgba(16,185,129,0.06)', borderRadius: 10 }}>
+                    🏆 Applying to high-match opportunities boosts your Career Readiness index.
                   </div>
                 </div>
               </div>
@@ -476,15 +515,11 @@ const OpportunityRadar = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '0.82rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Opportunities Crawled</span>
-                  <span style={{ fontWeight: 700 }}>147</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-text-muted)' }}>Duplicate Matches Merged</span>
-                  <span style={{ fontWeight: 700, color: 'var(--color-primary-light)' }}>23</span>
+                  <span style={{ fontWeight: 700 }}>{opportunities.length}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Global Source Trust Rating</span>
-                  <span style={{ fontWeight: 700, color: '#10b981' }}>98.2%</span>
+                  <span style={{ fontWeight: 700, color: '#10b981' }}>99.8%</span>
                 </div>
                 <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                   <div style={{ fontSize: '0.66rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Discovery Ingestion Pipeline</div>
@@ -564,6 +599,25 @@ const OpportunityRadar = () => {
                   </div>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  {selectedOpp.registrationDeadline && (
+                    <div>
+                      <h5 style={{ margin: '0 0 0.3rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Registration Deadline</h5>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                        🗓️ {new Date(selectedOpp.registrationDeadline).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                  {selectedOpp.submissionDeadline && (
+                    <div>
+                      <h5 style={{ margin: '0 0 0.3rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Submission Deadline</h5>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                        🗓️ {new Date(selectedOpp.submissionDeadline).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {selectedOpp.requiredSkills && selectedOpp.requiredSkills.length > 0 && (
                   <div>
                     <h5 style={{ margin: '0 0 0.4rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Required Skills</h5>
@@ -580,12 +634,29 @@ const OpportunityRadar = () => {
                   </div>
                 )}
 
+                {selectedOpp.benefits && selectedOpp.benefits.length > 0 && (
+                  <div>
+                    <h5 style={{ margin: '0 0 0.4rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Benefits</h5>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      {selectedOpp.benefits.map((b, idx) => (
+                        <span key={idx} style={{
+                          padding: '0.2rem 0.5rem', borderRadius: 8, background: 'rgba(16,185,129,0.06)',
+                          border: '1px solid rgba(16,185,129,0.15)', color: '#10b981', fontSize: '0.72rem'
+                        }}>
+                          {b}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{
                   display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid var(--color-border)',
                   paddingTop: '1rem', marginTop: '0.5rem', fontSize: '0.72rem', color: 'var(--color-text-muted)'
                 }}>
                   <div>🔗 Source: <strong>{selectedOpp.source || 'Verified Partner'}</strong></div>
-                  <div>🗓️ Last Verified: <strong>{new Date(selectedOpp.lastVerified).toLocaleDateString()}</strong></div>
+                  {selectedOpp.difficultyLevel && <div>⚡ Difficulty Level: <strong>{selectedOpp.difficultyLevel}</strong></div>}
+                  {selectedOpp.estimatedCommitment && <div>⏱️ Estimated Commitment: <strong>{selectedOpp.estimatedCommitment}</strong></div>}
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
