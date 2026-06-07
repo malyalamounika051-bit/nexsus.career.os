@@ -116,6 +116,19 @@ const runIngestion = async () => {
   
   for (const opp of rawOpportunities) {
     try {
+      // Normalize type to match schema enum
+      let type = (opp.type || 'job').toLowerCase().trim();
+      if (type.includes('intern')) type = 'internship';
+      else if (type.includes('hack')) type = 'hackathon';
+      else if (type.includes('scholar') || type.includes('fellow')) type = 'scholarship';
+      else if (type.includes('compete') || type.includes('competition') || type.includes('challenge')) type = 'competition';
+      else if (type.includes('open') || type.includes('source')) type = 'open-source';
+      else if (type.includes('hiring') || type.includes('drive')) type = 'hiring-drive';
+      else if (type.includes('research')) type = 'research';
+      else if (type.includes('job') || type.includes('full') || type.includes('work') || type.includes('engineer') || type.includes('developer')) type = 'job';
+      else type = 'job';
+      opp.type = type;
+
       const duplicate = await detectAndMergeDuplicate(opp);
       if (duplicate) {
         console.log(`Merged duplicate opportunity: ${opp.title}`);

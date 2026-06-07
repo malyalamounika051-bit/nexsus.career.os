@@ -183,6 +183,14 @@ const getOpportunitiesForUser = async (userId, filterQuery = {}) => {
 const listOpportunities = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+    
+    // Trigger fallback ingestion if DB cache is empty
+    const count = await OpportunityMaster.countDocuments({ isVerified: true, verificationStatus: 'verified' });
+    if (count === 0) {
+      console.log('No verified opportunities found. Running fallback crawler...');
+      await runIngestion().catch(e => console.error('Fallback Ingestion error:', e.message));
+    }
+
     const data = await getOpportunitiesForUser(userId);
     data.sort((a, b) => b.matchScore - a.matchScore);
     res.status(200).json({ success: true, count: data.length, data });
