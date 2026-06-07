@@ -18,7 +18,14 @@ const opportunitySchema = new mongoose.Schema({
   sourceScore: { type: Number, default: 70 },
   tags: [{ type: String }],
   status: { type: String, enum: ['active', 'expired'], default: 'active' },
-  lastVerified: { type: Date, default: Date.now }
+  isVerified: { type: Boolean, default: false },
+  verificationStatus: {
+    type: String,
+    enum: ['verified', 'pending', 'expired', 'broken'],
+    default: 'pending'
+  },
+  lastVerified: { type: Date, default: Date.now },
+  lastChecked: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 opportunitySchema.index({ title: 'text', organization: 'text', description: 'text', tags: 'text' });

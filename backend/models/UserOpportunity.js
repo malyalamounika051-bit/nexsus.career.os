@@ -9,6 +9,9 @@ const userOpportunitySchema = new mongoose.Schema({
   applied: { type: Boolean, default: false },
   viewed: { type: Boolean, default: false },
   dismissed: { type: Boolean, default: false },
+  applicationProof: { type: String },
+  appliedAt: { type: Date },
+  xpAwarded: { type: Boolean, default: false },
   status: {
     type: String,
     enum: ['recommended', 'viewed', 'saved', 'applied', 'expired', 'dismissed'],

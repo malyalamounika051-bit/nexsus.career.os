@@ -3,50 +3,124 @@ const UserOpportunity = require('../models/UserOpportunity');
 const Resume = require('../models/Resume');
 const CareerGPS = require('../models/CareerGPS');
 const { awardXP } = require('../utils/gamification');
+const axios = require('axios');
 
-// Mock data list for seeding real-world opportunities
+// Escape regex special characters
+const escapeRegex = (str = '') => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Helper to verify URL status
+const verifyUrl = async (url) => {
+  try {
+    const response = await axios.get(url, {
+      timeout: 3000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      validateStatus: () => true // resolve for any status code
+    });
+    
+    const status = response.status;
+    if (status === 200) {
+      return 'verified';
+    }
+    if ([404, 410, 500, 403].includes(status)) {
+      return 'broken';
+    }
+    return 'verified';
+  } catch (err) {
+    return 'broken';
+  }
+};
+
+// Deduplication and Merger Logic
+const detectAndMergeDuplicate = async (oppData) => {
+  // 1. Direct URL match check
+  let existing = await Opportunity.findOne({ applicationUrl: oppData.applicationUrl });
+  if (existing) {
+    return existing;
+  }
+
+  // 2. Check title similarity + organization + type match
+  const matches = await Opportunity.find({
+    organization: { $regex: new RegExp('^' + escapeRegex(oppData.organization) + '$', 'i') },
+    type: oppData.type,
+    status: 'active'
+  });
+
+  for (const match of matches) {
+    const words1 = new Set(match.title.toLowerCase().split(/\s+/));
+    const words2 = new Set(oppData.title.toLowerCase().split(/\s+/));
+    
+    let intersection = 0;
+    words1.forEach(w => {
+      if (words2.has(w)) intersection++;
+    });
+    
+    const maxWords = Math.max(words1.size, words2.size);
+    const similarity = intersection / maxWords;
+
+    if (similarity >= 0.8) {
+      // Merge fields: prefer higher trust score source
+      if (oppData.sourceScore > match.sourceScore) {
+        match.source = oppData.source;
+        match.sourceScore = oppData.sourceScore;
+        match.applicationUrl = oppData.applicationUrl;
+      }
+      
+      const mergedSkills = Array.from(new Set([...match.requiredSkills, ...oppData.requiredSkills]));
+      match.requiredSkills = mergedSkills;
+      match.lastVerified = new Date();
+      await match.save();
+      return match;
+    }
+  }
+
+  return null;
+};
+
+// Seeder MOCK DATA with live official URLs
 const MOCK_OPPORTUNITIES = [
   {
     title: 'Google Summer of Code 2026',
     organization: 'Google Open Source',
     type: 'open-source',
     description: 'A global, online program focused on bringing new contributors into open source software development. Contributors work with an open-source organization on a 12-week programming project.',
-    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days left
+    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
     applicationUrl: 'https://summerofcode.withgoogle.com',
     eligibility: 'Student or open-source newcomer, 18+ years old',
     requiredSkills: ['Git', 'Python', 'JavaScript', 'C++', 'Go', 'Open Source'],
     location: 'Remote',
-    source: 'Official Google Blog',
+    source: 'Official Google Portal',
     sourceScore: 100,
     tags: ['Open Source', 'Mentorship', 'Stipend']
   },
   {
-    title: 'STEP Internship 2026',
+    title: 'Google STEP Internship 2026',
     organization: 'Google',
     type: 'internship',
-    description: 'Student Training in Engineering Program (STEP) is a 10-12 week internship for first and second-year undergraduate students with a passion for computer science.',
-    deadline: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000), // 12 days left
+    description: 'Student Training in Engineering Program (STEP) is a 10-12 week internship for undergraduate students with a passion for computer science.',
+    deadline: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000),
     applicationUrl: 'https://careers.google.com/students',
-    eligibility: '1st or 2nd year CS Undergraduate student',
+    eligibility: 'CS Undergraduate student',
     requiredSkills: ['Python', 'Java', 'Data Structures', 'Algorithms'],
     location: 'Bangalore, India',
     source: 'Google Careers Page',
     sourceScore: 100,
-    tags: ['Internship', 'Diversity', 'CS Fundamentals']
+    tags: ['Internship', 'CS Fundamentals']
   },
   {
     title: 'Smart India Hackathon 2026',
     organization: 'Ministry of Education, India',
     type: 'hackathon',
-    description: 'SIH is a nationwide initiative to provide students with a platform to solve some of the pressing problems we face in our daily lives, thus inculcating a culture of product innovation.',
-    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days left
+    description: 'SIH is a nationwide initiative to provide students with a platform to solve pressing problems, thus inculcating a culture of product innovation.',
+    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
     applicationUrl: 'https://sih.gov.in',
-    eligibility: 'All Indian College Students (teams of 6)',
-    requiredSkills: ['Problem Solving', 'Web Development', 'Mobile App', 'AI/ML', 'Prototyping'],
-    location: 'On-site (Various Nodal Centers)',
-    source: 'Ministry of Education Portal',
+    eligibility: 'All Indian College Students',
+    requiredSkills: ['Problem Solving', 'Web Development', 'Mobile App', 'AI/ML'],
+    location: 'India',
+    source: 'SIH Ministry Portal',
     sourceScore: 100,
-    tags: ['Hackathon', 'National level', 'Government']
+    tags: ['Hackathon', 'National level']
   },
   {
     title: 'Outreachy Internship Cohort',
@@ -55,170 +129,72 @@ const MOCK_OPPORTUNITIES = [
     description: 'Outreachy provides 3-month paid, remote internships for people underrepresented in tech to work on open-source projects.',
     deadline: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000),
     applicationUrl: 'https://www.outreachy.org',
-    eligibility: 'People subject to systemic bias or underrepresented in tech',
-    requiredSkills: ['Git', 'Python', 'JavaScript', 'HTML/CSS', 'Documentation'],
+    eligibility: 'Underrepresented people in tech',
+    requiredSkills: ['Git', 'Python', 'JavaScript', 'HTML/CSS'],
     location: 'Remote',
     source: 'Outreachy Website',
     sourceScore: 98,
-    tags: ['Open Source', 'Diversity', 'Stipend']
+    tags: ['Open Source', 'Diversity']
   },
   {
-    title: 'Devpost Global Generative AI Hackathon',
+    title: 'Devpost Generative AI Hackathon',
     organization: 'Devpost & Microsoft',
     type: 'hackathon',
-    description: 'Build cutting-edge generative AI applications using Azure OpenAI Services and compete for $50,000 in cash prizes and cloud credits.',
-    deadline: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days left
-    applicationUrl: 'https://generativeai.devpost.com',
+    description: 'Build cutting-edge generative AI applications using Azure OpenAI Services and compete for global prizes.',
+    deadline: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+    applicationUrl: 'https://devpost.com',
     eligibility: 'Open to developers worldwide, 18+',
-    requiredSkills: ['Python', 'OpenAI API', 'React', 'Generative AI', 'API Integration'],
+    requiredSkills: ['Python', 'OpenAI API', 'React', 'Generative AI'],
     location: 'Remote',
     source: 'Devpost Platform',
     sourceScore: 95,
-    tags: ['Hackathon', 'AI', 'Prizes']
-  },
-  {
-    title: 'Stanford Knight-Hennessy Scholars Program',
-    organization: 'Stanford University',
-    type: 'scholarship',
-    description: 'Fully funded graduate scholarship for students of any nationality to pursue any graduate degree at Stanford University, with leadership development.',
-    deadline: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://knight-hennessy.stanford.edu',
-    eligibility: 'Applicants to Stanford graduate programs',
-    requiredSkills: ['Leadership', 'Academic Excellence', 'Research', 'Analytical Skills'],
-    location: 'Stanford, California',
-    source: 'Stanford Portal',
-    sourceScore: 100,
-    tags: ['Scholarship', 'Fully Funded', 'Study Abroad']
+    tags: ['Hackathon', 'AI']
   },
   {
     title: 'Kaggle Grand Prix AI Challenge',
     organization: 'Kaggle',
     type: 'competition',
-    description: 'Develop advanced machine learning models to predict climate impact patterns in satellite imagery. Top teams will win cash prizes and Kaggle Grandmaster points.',
+    description: 'Develop advanced machine learning models to predict climate impact patterns. Top teams win prizes.',
     deadline: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://www.kaggle.com/competitions',
+    applicationUrl: 'https://www.kaggle.com',
     eligibility: 'Open to all Kaggle accounts',
-    requiredSkills: ['Machine Learning', 'Python', 'PyTorch', 'TensorFlow', 'Computer Vision'],
+    requiredSkills: ['Machine Learning', 'Python', 'PyTorch', 'TensorFlow'],
     location: 'Remote',
     source: 'Kaggle Competitions Hub',
     sourceScore: 100,
-    tags: ['Competition', 'Data Science', 'AI']
+    tags: ['Competition', 'Data Science']
   },
   {
-    title: 'Reliance Foundation Undergraduate Scholarship',
+    title: 'Reliance Foundation Scholarship',
     organization: 'Reliance Foundation',
     type: 'scholarship',
-    description: 'Scholarship supporting meritorious undergraduate students in India to pursue education in any stream, prioritizing students from underprivileged backgrounds.',
+    description: 'Scholarship supporting meritorious undergraduate students in India to pursue higher education.',
     deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     applicationUrl: 'https://www.reliancefoundation.org',
-    eligibility: 'Indian students enrolled in 1st year UG degree, household income < 15 LPA',
-    requiredSkills: ['Academic Record', 'Need-based Evaluation'],
+    eligibility: 'Indian students, household income < 15 LPA',
+    requiredSkills: ['Academic Record'],
     location: 'India',
     source: 'Reliance Official Portal',
     sourceScore: 98,
-    tags: ['Scholarship', 'Need-based', 'Merit']
-  },
-  {
-    title: 'GitHub Externship Program 2026',
-    organization: 'GitHub India',
-    type: 'open-source',
-    description: 'A 3-month fellowship for college students in India to work on open source projects under the mentorship of industry veterans.',
-    deadline: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://github.com/github-externship',
-    eligibility: 'Undergraduate students in India',
-    requiredSkills: ['Git', 'GitHub Actions', 'JavaScript', 'Node.js', 'Collaboration'],
-    location: 'Remote',
-    source: 'GitHub Developer Blog',
-    sourceScore: 100,
-    tags: ['Fellowship', 'Open Source', 'Mentorship']
-  },
-  {
-    title: 'Wellfound Hot Startups AI Internship',
-    organization: 'CognitiveLabs AI',
-    type: 'internship',
-    description: 'Join a fast-growing startup to build production-grade agentic search tools. You will work directly with the founding engineering team.',
-    deadline: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://wellfound.com/jobs',
-    eligibility: 'Proficient in Python/React, comfortable with fast pacing',
-    requiredSkills: ['Python', 'Node.js', 'React', 'FastAPI', 'MongoDB'],
-    location: 'Remote / hybrid',
-    source: 'Wellfound Platform',
-    sourceScore: 90,
-    tags: ['Internship', 'Startup', 'Generative AI']
-  },
-  {
-    title: 'Microsoft Imagine Cup Global Competition',
-    organization: 'Microsoft',
-    type: 'competition',
-    description: 'The premier global student technology competition. Showcase your innovative startup concept utilizing Azure Cloud services.',
-    deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://imaginecup.microsoft.com',
-    eligibility: 'Students aged 16+ (teams of up to 4)',
-    requiredSkills: ['Azure', 'Cloud Architecture', 'Problem Solving', 'Pitching', 'Business Model'],
-    location: 'Remote / Global Finals',
-    source: 'Microsoft Education',
-    sourceScore: 100,
-    tags: ['Competition', 'Startup', 'Prizes']
+    tags: ['Scholarship', 'Merit']
   },
   {
     title: 'Stripe Software Engineering Internship',
     organization: 'Stripe',
     type: 'internship',
-    description: 'Work alongside Stripe engineers to build billing infrastructures, payment APIs, and fraud detection layers.',
+    description: 'Work alongside Stripe engineers to build billing infrastructures and payment APIs.',
     deadline: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://stripe.com/jobs',
-    eligibility: 'Penultimate year BS/MS student in Computer Science',
-    requiredSkills: ['Java', 'Ruby', 'SQL', 'Data Structures', 'Systems Design'],
-    location: 'Remote (US/Europe) or hybrid',
+    applicationUrl: 'https://stripe.com',
+    eligibility: 'Computer Science student',
+    requiredSkills: ['Java', 'Ruby', 'SQL', 'Algorithms'],
+    location: 'Remote',
     source: 'Stripe Careers',
     sourceScore: 100,
-    tags: ['Internship', 'Fintech', 'High Compensation']
-  },
-  {
-    title: 'Y Combinator Startup School Grants',
-    organization: 'Y Combinator',
-    type: 'research',
-    description: 'Get equity-free grants of $10,000 to jumpstart your prototype, alongside mentorship and access to the YC Founder community.',
-    deadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://www.startupschool.org',
-    eligibility: 'Early-stage founders with a working software prototype',
-    requiredSkills: ['Product Design', 'Coding', 'Marketing', 'Business Pitch'],
-    location: 'Remote',
-    source: 'Y Combinator Portal',
-    sourceScore: 100,
-    tags: ['Equity-free', 'Grants', 'Startup']
-  },
-  {
-    title: 'Outreachy Google Season of Docs',
-    organization: 'Google Open Source',
-    type: 'open-source',
-    description: 'Season of Docs provides support for open source projects to improve their documentation and gives professional technical writers experience.',
-    deadline: new Date(Date.now() + 22 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://developers.google.com/season-of-docs',
-    eligibility: 'Technical writers or documentarians worldwide',
-    requiredSkills: ['Markdown', 'Git', 'Technical Writing', 'Documentation'],
-    location: 'Remote',
-    source: 'Google Open Source Docs',
-    sourceScore: 100,
-    tags: ['Open Source', 'Writing', 'Mentorship']
-  },
-  {
-    title: 'HDFC Badhte Kadam Scholarship Program',
-    organization: 'HDFC Bank',
-    type: 'scholarship',
-    description: 'Financial assistance program for Indian students who are facing financial hardship, helping them complete higher secondary or UG education.',
-    deadline: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
-    applicationUrl: 'https://www.hdfcbank.com/scholarship',
-    eligibility: 'Indian students, family income < 6 LPA, minimum 60% in previous grade',
-    requiredSkills: ['Academic Consistency', 'Financial Need Document'],
-    location: 'India',
-    source: 'HDFC Foundation Portal',
-    sourceScore: 98,
-    tags: ['Scholarship', 'Need-based']
+    tags: ['Internship', 'Fintech']
   }
 ];
 
-// Helper to calculate score and generate whyRecommended notes
+// Helper to calculate score and reasons
 const calculateOpportunityMatch = (opportunity, userSkills, gpsDestination) => {
   let skillMatchCount = 0;
   const matchedSkills = [];
@@ -227,7 +203,6 @@ const calculateOpportunityMatch = (opportunity, userSkills, gpsDestination) => {
   const userSkillsNormalized = userSkills.map(s => s.toLowerCase().trim());
 
   oppSkillsNormalized.forEach(oppSkill => {
-    // Exact or substring match
     const matched = userSkillsNormalized.some(userSkill => 
       userSkill.includes(oppSkill) || oppSkill.includes(userSkill)
     );
@@ -237,11 +212,9 @@ const calculateOpportunityMatch = (opportunity, userSkills, gpsDestination) => {
     }
   });
 
-  // Calculate Skill Score
   const totalOppSkills = oppSkillsNormalized.length;
   const skillScore = totalOppSkills > 0 ? (skillMatchCount / totalOppSkills) * 100 : 75;
 
-  // Calculate GPS Destination Match
   let careerScore = 50;
   const reasons = [];
 
@@ -251,44 +224,36 @@ const calculateOpportunityMatch = (opportunity, userSkills, gpsDestination) => {
     const desc = opportunity.description.toLowerCase();
     const tags = (opportunity.tags || []).map(t => t.toLowerCase());
 
-    // Check matches
-    const isAiDev = dest.includes('ai') || dest.includes('machine learning') || dest.includes('data scientist');
+    const isAiDev = dest.includes('ai') || dest.includes('machine learning') || dest.includes('data');
     const isWebDev = dest.includes('web') || dest.includes('developer') || dest.includes('frontend') || dest.includes('backend') || dest.includes('stack');
-    const isDesigner = dest.includes('design') || dest.includes('ui') || dest.includes('ux');
 
     const oppMatchesCareer = 
       title.includes(dest) || 
       desc.includes(dest) || 
       tags.some(t => dest.includes(t)) ||
       (isAiDev && (title.includes('ai') || title.includes('machine learning') || title.includes('kaggle'))) ||
-      (isWebDev && (title.includes('developer') || title.includes('internship') || title.includes('sih'))) ||
-      (isDesigner && (title.includes('design') || title.includes('ui') || title.includes('ux')));
+      (isWebDev && (title.includes('developer') || title.includes('internship') || title.includes('sih')));
 
     if (oppMatchesCareer) {
       careerScore = 95;
-      reasons.push(`${gpsDestination} Career Path`);
+      reasons.push(`${gpsDestination} Path`);
     } else {
-      reasons.push(`Exploratory Opportunity`);
+      reasons.push(`Exploratory Option`);
     }
   } else {
-    reasons.push('General Career Growth');
+    reasons.push('General Growth');
   }
 
-  // Inject matched skills into reasons
   matchedSkills.slice(0, 2).forEach(sk => {
-    // Capitalize first letter
     const formattedSkill = sk.charAt(0).toUpperCase() + sk.slice(1);
     reasons.push(`${formattedSkill} Skills`);
   });
 
-  // Fallback reasons if empty
   if (reasons.length <= 1) {
     if (opportunity.type === 'open-source') reasons.push('Open Source interest');
-    if (opportunity.type === 'hackathon') reasons.push('Hands-on Collaboration');
-    if (opportunity.type === 'scholarship') reasons.push('Financial support program');
+    if (opportunity.type === 'hackathon') reasons.push('Hands-on Projects');
   }
 
-  // Weightings: 45% Skill Match, 45% Career Path Alignment, 10% source score trust
   const finalScoreRaw = (skillScore * 0.45) + (careerScore * 0.45) + ((opportunity.sourceScore || 70) * 0.1);
   const matchScore = Math.max(50, Math.min(99, Math.round(finalScoreRaw)));
 
@@ -298,44 +263,106 @@ const calculateOpportunityMatch = (opportunity, userSkills, gpsDestination) => {
   };
 };
 
-// @desc    Seed opportunities list (trigger check & populate)
+// Re-verification engine job
+const reVerifyActiveOpportunities = async () => {
+  try {
+    const activeOpps = await Opportunity.find({ status: 'active' });
+    for (const opp of activeOpps) {
+      const isPast = new Date(opp.deadline) < new Date();
+      if (isPast) {
+        opp.status = 'expired';
+        opp.verificationStatus = 'expired';
+        opp.isVerified = false;
+      } else {
+        const urlStatus = await verifyUrl(opp.applicationUrl);
+        opp.verificationStatus = urlStatus;
+        opp.isVerified = urlStatus === 'verified';
+        if (urlStatus === 'broken') {
+          opp.status = 'expired';
+        }
+      }
+      opp.lastChecked = new Date();
+      await opp.save();
+    }
+    console.log('🔄 Opportunity re-verification process complete.');
+  } catch (err) {
+    console.error('Error re-verifying opportunities:', err.message);
+  }
+};
+
+// Track last re-verification run
+let lastVerificationRun = 0;
+
+// @desc    Seed opportunities list
 // @route   GET /api/opportunities/seed
-// @access  Public (mock crawler trigger)
+// @access  Public
 const seedOpportunities = async (req, res) => {
   try {
     const count = await Opportunity.countDocuments({});
-    if (count >= 10) {
-      return res.status(200).json({ success: true, message: 'Opportunities already populated.', count });
+    if (count >= MOCK_OPPORTUNITIES.length) {
+      return res.status(200).json({ success: true, message: 'Opportunities seeded.', count });
     }
 
-    // Insert mock lists
-    const created = await Opportunity.insertMany(MOCK_OPPORTUNITIES);
-    res.status(201).json({ success: true, message: 'Opportunities seeded successfully!', count: created.length });
+    const created = [];
+    for (const oppData of MOCK_OPPORTUNITIES) {
+      const duplicate = await detectAndMergeDuplicate(oppData);
+      if (duplicate) {
+        created.push(duplicate);
+        continue;
+      }
+
+      const isPast = new Date(oppData.deadline) < new Date();
+      let verificationStatus = 'verified';
+      if (isPast) {
+        verificationStatus = 'expired';
+      } else {
+        verificationStatus = await verifyUrl(oppData.applicationUrl);
+      }
+
+      const opp = new Opportunity({
+        ...oppData,
+        verificationStatus,
+        isVerified: verificationStatus === 'verified',
+        status: (isPast || verificationStatus === 'expired' || verificationStatus === 'broken') ? 'expired' : 'active'
+      });
+
+      await opp.save();
+      created.push(opp);
+    }
+
+    res.status(201).json({ success: true, message: 'Opportunities seeded & verified!', count: created.length });
   } catch (err) {
     console.error('Seeder Error:', err);
     res.status(500).json({ success: false, message: 'Seeder failed: ' + err.message });
   }
 };
 
-// @desc    Get recommended opportunities for logged-in user
+// @desc    Get recommended opportunities
 // @route   GET /api/opportunities
 // @access  Private
 const listOpportunities = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
 
-    // Fetch user resume skills
+    // Asynchronously run re-verification job in the background with a 1 hour cooldown
+    if (Date.now() - lastVerificationRun > 1000 * 60 * 60) {
+      lastVerificationRun = Date.now();
+      reVerifyActiveOpportunities().catch(() => {});
+    }
+
     const resume = await Resume.findOne({ user: userId });
     const userSkills = resume?.skills || [];
 
-    // Fetch user active GPS destination
     const gps = await CareerGPS.findOne({ userId }).sort({ updatedAt: -1 });
     const gpsDestination = gps?.destination || '';
 
-    // Fetch all active opportunities
-    const opportunities = await Opportunity.find({ status: 'active', deadline: { $gt: new Date() } });
+    // Only display verified, non-expired opportunities
+    const opportunities = await Opportunity.find({
+      status: 'active',
+      verificationStatus: 'verified',
+      deadline: { $gt: new Date() }
+    });
 
-    // Fetch user interactions (to filter out dismissed or see bookmark/applied status)
     const userMatches = await UserOpportunity.find({ userId });
     const userMatchMap = new Map(userMatches.map(m => [String(m.opportunityId), m]));
 
@@ -344,13 +371,10 @@ const listOpportunities = async (req, res) => {
     for (const opp of opportunities) {
       const interaction = userMatchMap.get(String(opp._id));
 
-      // Skip dismissed
       if (interaction?.dismissed) continue;
 
-      // Calculate matching score dynamically
       const { matchScore, whyRecommended } = calculateOpportunityMatch(opp, userSkills, gpsDestination);
 
-      // Save/cache interaction record in db dynamically
       if (!interaction) {
         await UserOpportunity.create({
           userId,
@@ -374,6 +398,9 @@ const listOpportunities = async (req, res) => {
         location: opp.location,
         source: opp.source,
         tags: opp.tags,
+        isVerified: opp.isVerified,
+        verificationStatus: opp.verificationStatus,
+        lastVerified: opp.lastVerified,
         matchScore: interaction?.matchScore || matchScore,
         whyRecommended: interaction?.whyRecommended || whyRecommended,
         bookmarked: interaction?.bookmarked || false,
@@ -381,7 +408,6 @@ const listOpportunities = async (req, res) => {
       });
     }
 
-    // Sort by Match Score descending, and secondarily by deadline ascending (urgency)
     recommendations.sort((a, b) => b.matchScore - a.matchScore || new Date(a.deadline) - new Date(b.deadline));
 
     res.status(200).json({ success: true, count: recommendations.length, data: recommendations });
@@ -391,7 +417,7 @@ const listOpportunities = async (req, res) => {
   }
 };
 
-// @desc    Toggle bookmark/save opportunity
+// @desc    Toggle bookmark/save opportunity (No XP awarded)
 // @route   POST /api/opportunities/:id/bookmark
 // @access  Private
 const toggleBookmark = async (req, res) => {
@@ -401,7 +427,6 @@ const toggleBookmark = async (req, res) => {
 
     let interaction = await UserOpportunity.findOne({ userId, opportunityId });
     if (!interaction) {
-      // Find opportunity to calculate defaults
       const opp = await Opportunity.findById(opportunityId);
       if (!opp) {
         return res.status(404).json({ success: false, message: 'Opportunity not found' });
@@ -413,11 +438,6 @@ const toggleBookmark = async (req, res) => {
     interaction.status = interaction.bookmarked ? 'saved' : 'recommended';
     await interaction.save();
 
-    // Award minor XP on bookmarking
-    if (interaction.bookmarked) {
-      awardXP(userId, 'OPPORTUNITY_BOOKMARKED').catch(() => {});
-    }
-
     res.status(200).json({ success: true, bookmarked: interaction.bookmarked });
   } catch (err) {
     console.error('Bookmark Error:', err);
@@ -425,7 +445,7 @@ const toggleBookmark = async (req, res) => {
   }
 };
 
-// @desc    Mark opportunity as applied
+// @desc    Mark opportunity as applied (Strict one-time XP verification)
 // @route   POST /api/opportunities/:id/apply
 // @access  Private
 const applyOpportunity = async (req, res) => {
@@ -438,18 +458,28 @@ const applyOpportunity = async (req, res) => {
       interaction = new UserOpportunity({ userId, opportunityId });
     }
 
-    const alreadyApplied = interaction.applied;
-    interaction.applied = true;
-    interaction.status = 'applied';
-    await interaction.save();
+    const wasXpAwarded = interaction.xpAwarded;
 
-    // Award +200 XP for applying & log audit
-    if (!alreadyApplied) {
-      // Gamification call
+    interaction.applied = true;
+    interaction.appliedAt = new Date();
+    interaction.status = 'applied';
+
+    let xpEarned = false;
+
+    // Grant +50 XP exactly once per opportunity
+    if (!wasXpAwarded) {
+      interaction.xpAwarded = true;
+      xpEarned = true;
       await awardXP(userId, 'OPPORTUNITY_APPLIED').catch(() => {});
     }
 
-    res.status(200).json({ success: true, message: 'Opportunity marked as applied! +200 XP awarded.' });
+    await interaction.save();
+
+    res.status(200).json({ 
+      success: true, 
+      xpAwarded: xpEarned, 
+      message: xpEarned ? 'Opportunity marked as applied! +50 XP earned.' : 'Opportunity marked as applied!'
+    });
   } catch (err) {
     console.error('Apply Opportunity Error:', err);
     res.status(500).json({ success: false, message: err.message });

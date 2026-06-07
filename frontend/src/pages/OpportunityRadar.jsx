@@ -5,7 +5,7 @@ import api from '../services/api';
 import {
   Compass, Search, Bookmark, BookmarkCheck, ExternalLink, Calendar, Check,
   X, AlertTriangle, ShieldCheck, Award, Zap, RefreshCw, Sparkles, GraduationCap,
-  Flame, Briefcase, HelpCircle, Code, Users, FileText, ChevronRight, CheckCircle2
+  Briefcase, Users, Code, CheckCircle2, ShieldAlert
 } from 'lucide-react';
 
 const CATEGORY_ICONS = {
@@ -43,34 +43,35 @@ const TABS = [
 ];
 
 const OpportunityRadar = () => {
-  const [sc, setSc] = useState(false); // Sidebar collapse
+  const [sc, setSc] = useState(false);
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [selectedOpp, setSelectedOpp] = useState(null); // Detail modal
+  const [selectedOpp, setSelectedOpp] = useState(null);
+  const [openedOpps, setOpenedOpps] = useState(new Set());
+  const [toasts, setToasts] = useState([]);
 
-  // Gamification & badge alerts
-  const [showBadgeUnlock, setShowBadgeUnlock] = useState(false);
-  const [unlockedBadge, setUnlockedBadge] = useState(null);
+  // Toast Helper
+  const showToast = (message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
 
   const loadData = async () => {
     setLoading(true);
-    setError('');
     try {
-      // Trigger seed check first to populate if database empty
       await api.get('/opportunities/seed');
-
       const { data } = await api.get('/opportunities');
       if (data.success) {
         setOpportunities(data.data || []);
       }
     } catch (err) {
       console.error('Failed to load opportunities:', err);
-      setError('Could not connect to the Opportunity engine.');
+      showToast('Could not load career recommendations.', 'error');
     } finally {
       setLoading(false);
     }
@@ -88,15 +89,15 @@ const OpportunityRadar = () => {
         setOpportunities(prev => prev.map(opp => 
           opp._id === id ? { ...opp, bookmarked: data.bookmarked } : opp
         ));
-        setSuccessMsg(data.bookmarked ? 'Opportunity added to bookmarks!' : 'Opportunity removed from bookmarks');
-        setTimeout(() => setSuccessMsg(''), 3000);
+        showToast(data.bookmarked ? '📌 Added To Bookmarks' : 'Opportunity removed from saved list');
       }
     } catch (err) {
-      console.error(err);
+      console.error(opp);
+      showToast('Error saving opportunity.', 'error');
     }
   };
 
-  const handleApply = async (id, url, e) => {
+  const handleApply = async (id, e) => {
     e.stopPropagation();
     try {
       const { data } = await api.post(`/opportunities/${id}/apply`);
@@ -105,19 +106,14 @@ const OpportunityRadar = () => {
           opp._id === id ? { ...opp, applied: true } : opp
         ));
         
-        // Show application success badge unlock
-        setUnlockedBadge({
-          name: 'Opportunity Hunter',
-          desc: 'Uncovered your first matched career opportunity!',
-          icon: ShieldCheck
-        });
-        setShowBadgeUnlock(true);
-
-        // Open application url in new tab
-        window.open(url, '_blank');
+        showToast('🎉 Application Submitted');
+        if (data.xpAwarded) {
+          showToast('⭐ +50 XP Earned!');
+        }
       }
     } catch (err) {
       console.error(err);
+      showToast('Failed to record application.', 'error');
     }
   };
 
@@ -128,20 +124,19 @@ const OpportunityRadar = () => {
       if (data.success) {
         setOpportunities(prev => prev.filter(opp => opp._id !== id));
         if (selectedOpp?._id === id) setSelectedOpp(null);
+        showToast('Opportunity dismissed');
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Get days left helper
   const getDaysLeft = (deadlineStr) => {
     const diffTime = new Date(deadlineStr) - new Date();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
-  // Get deadline label / style
   const getDeadlineConfig = (deadlineStr) => {
     const days = getDaysLeft(deadlineStr);
     if (days <= 0) return { label: 'Closed', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' };
@@ -151,9 +146,7 @@ const OpportunityRadar = () => {
     return { label: `${days} Days Left`, color: '#10b981', bg: 'rgba(16,185,129,0.08)' };
   };
 
-  // Filter opportunities
   const filteredOpps = opportunities.filter(opp => {
-    // Search query match
     const matchesSearch = 
       opp.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opp.organization.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -161,7 +154,6 @@ const OpportunityRadar = () => {
 
     if (!matchesSearch) return false;
 
-    // Tab filter match
     if (activeTab === 'all') return true;
     if (activeTab === 'saved') return opp.bookmarked;
     if (activeTab === 'closing') {
@@ -173,83 +165,52 @@ const OpportunityRadar = () => {
 
   return (
     <div className="app-shell">
-      {/* Toast Alert */}
-      <AnimatePresence>
-        {successMsg && (
-          <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
-            exit={{ opacity: 0, y: -20, scale: 0.9, x: '-50%' }}
-            style={{
-              position: 'fixed',
-              top: '2.5rem',
-              left: '50%',
-              zIndex: 9999,
-              background: 'rgba(16, 185, 129, 0.16)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              backdropFilter: 'blur(12px)',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '12px',
-              color: '#a7f3d0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-              fontWeight: 500
-            }}
-          >
-            <CheckCircle2 size={18} color="#a7f3d0" />
-            <span>{successMsg}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Gamification Badge Popup */}
-      <AnimatePresence>
-        {showBadgeUnlock && unlockedBadge && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10000
-          }}>
+      
+      {/* Toast Notification Container */}
+      <div style={{
+        position: 'fixed',
+        bottom: '1.5rem',
+        right: '1.5rem',
+        zIndex: 10000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.6rem',
+        pointerEvents: 'none'
+      }}>
+        <AnimatePresence>
+          {toasts.map(t => (
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="glass-card"
+              key={t.id}
+              initial={{ opacity: 0, x: 80, y: 15 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: 50, scale: 0.9 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 250 }}
               style={{
-                padding: '2.5rem', maxWidth: 420, textAlign: 'center',
-                border: '1px solid rgba(251,191,36,0.3)',
-                boxShadow: '0 0 40px rgba(251,191,36,0.15)'
+                background: 'rgba(18, 18, 20, 0.92)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(16px)',
+                padding: '0.8rem 1.25rem',
+                borderRadius: '12px',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                fontWeight: 600,
+                fontSize: '0.84rem',
+                pointerEvents: 'auto'
               }}
             >
-              <div style={{
-                width: 72, height: 72, borderRadius: '50%',
-                background: 'rgba(251,191,36,0.1)',
-                border: '2px solid #fbbf24',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 1.5rem'
-              }}>
-                <Award size={36} color="#fbbf24" className="pulse-slow" />
-              </div>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white', marginBottom: '0.5rem', fontFamily: "'Space Grotesk', sans-serif" }}>Badge Unlocked!</h3>
-              <p style={{ fontSize: '1.05rem', color: '#fbbf24', fontWeight: 700 }}>{unlockedBadge.name}</p>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.86rem', margin: '0.75rem 0 1.5rem', lineHeight: 1.5 }}>
-                {unlockedBadge.desc}
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                <span style={{ padding: '0.35rem 0.75rem', borderRadius: 10, background: 'var(--color-surface-2)', fontSize: '0.76rem', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                  🎉 +200 XP Awarded
-                </span>
-              </div>
-              <button className="btn-primary" onClick={() => setShowBadgeUnlock(false)} style={{ width: '100%', marginTop: '1.5rem' }}>
-                Awesome!
-              </button>
+              {t.type === 'error' ? (
+                <ShieldAlert size={15} color="#ef4444" />
+              ) : (
+                <CheckCircle2 size={15} color="#10b981" />
+              )}
+              <span>{t.message}</span>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+          ))}
+        </AnimatePresence>
+      </div>
 
       <Sidebar collapsed={sc} onToggleCollapse={() => setSc(c => !c)} />
       
@@ -274,13 +235,13 @@ const OpportunityRadar = () => {
           </div>
         </motion.div>
 
-        {/* Dashboard Grid */}
+        {/* Dashboard Layout */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.75rem', alignItems: 'start' }} className="gps-grid">
           
-          {/* Left Column: Switcher & Cards */}
+          {/* Left Feed */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            {/* Filter Switcher Menu */}
+            {/* Filter Navigation */}
             <div style={{
               display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem',
               borderBottom: '1px solid var(--color-border)'
@@ -307,7 +268,7 @@ const OpportunityRadar = () => {
               ))}
             </div>
 
-            {/* Search Input */}
+            {/* Search */}
             <div style={{ position: 'relative' }}>
               <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
               <input
@@ -319,7 +280,7 @@ const OpportunityRadar = () => {
               />
             </div>
 
-            {/* Main Cards Feed */}
+            {/* Cards Feed */}
             {loading ? (
               <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--color-text-muted)' }}>
                 <div className="roadmap-loading-dots" style={{ margin: '0 auto 1rem' }}><span /><span /><span /></div>
@@ -355,7 +316,7 @@ const OpportunityRadar = () => {
                         overflow: 'hidden'
                       }}
                     >
-                      {/* Top Row: Category badge & Match score */}
+                      {/* Top elements */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                         <div style={{
                           display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -366,7 +327,7 @@ const OpportunityRadar = () => {
                           <Icon size={12} color={catColor} /> {opp.type}
                         </div>
                         
-                        {/* Radial match badge */}
+                        {/* Match score Radial representation */}
                         <div style={{
                           display: 'flex', alignItems: 'center', gap: '0.2rem',
                           padding: '0.25rem 0.5rem', borderRadius: 8,
@@ -377,12 +338,21 @@ const OpportunityRadar = () => {
                         </div>
                       </div>
 
-                      {/* Opportunity Title & Organization */}
+                      {/* Info & Badges */}
                       <div>
-                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'white', lineHeight: 1.4 }}>{opp.title}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.3rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'white', lineHeight: 1.4 }}>{opp.title}</h4>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center',
+                            fontSize: '0.62rem', fontWeight: 700, color: '#10b981',
+                            background: 'rgba(16,185,129,0.06)', padding: '0.1rem 0.35rem', borderRadius: 4
+                          }}>
+                            🟢 Verified
+                          </span>
+                        </div>
+                        
                         <p style={{ margin: '0.15rem 0 0.75rem 0', fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{opp.organization}</p>
                         
-                        {/* Why recommended reasons */}
                         {opp.whyRecommended && opp.whyRecommended.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
                             {opp.whyRecommended.map((reason, rIdx) => (
@@ -398,7 +368,7 @@ const OpportunityRadar = () => {
                         )}
                       </div>
 
-                      {/* Bottom Row: Deadline & action icons */}
+                      {/* Footer Actions */}
                       <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem', marginTop: '0.5rem'
@@ -413,8 +383,8 @@ const OpportunityRadar = () => {
                           <Calendar size={11} /> {deadlineStyle.label}
                         </div>
 
-                        {/* Interactive Buttons */}
-                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        {/* Apply Trigger Panel */}
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                           <button
                             className="btn-ghost"
                             onClick={(e) => handleToggleBookmark(opp._id, e)}
@@ -428,16 +398,34 @@ const OpportunityRadar = () => {
                             )}
                           </button>
                           
-                          <button
-                            className="btn-primary"
-                            onClick={(e) => handleApply(opp._id, opp.applicationUrl, e)}
-                            style={{
-                              padding: '0.35rem 0.75rem', borderRadius: 8, fontSize: '0.74rem',
-                              display: 'flex', alignItems: 'center', gap: '0.25rem'
-                            }}
-                          >
-                            {opp.applied ? 'Applied' : <><ExternalLink size={12} /> Apply</>}
-                          </button>
+                          {!opp.applied ? (
+                            <div style={{ display: 'flex', gap: '0.3rem' }} onClick={e => e.stopPropagation()}>
+                              <button
+                                className="btn-ghost"
+                                onClick={() => {
+                                  window.open(opp.applicationUrl, '_blank');
+                                  setOpenedOpps(prev => new Set([...prev, opp._id]));
+                                }}
+                                style={{ padding: '0.35rem 0.6rem', borderRadius: 8, fontSize: '0.72rem', border: '1px solid var(--color-border)' }}
+                              >
+                                <ExternalLink size={11} /> Apply
+                              </button>
+                              
+                              {openedOpps.has(opp._id) && (
+                                <button
+                                  className="btn-primary"
+                                  onClick={(e) => handleApply(opp._id, e)}
+                                  style={{ padding: '0.35rem 0.6rem', borderRadius: 8, fontSize: '0.72rem' }}
+                                >
+                                  Mark Applied
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.35rem 0.6rem' }}>
+                              <Check size={12} /> Applied
+                            </span>
+                          )}
                         </div>
                       </div>
                     </motion.div>
@@ -448,10 +436,10 @@ const OpportunityRadar = () => {
 
           </div>
 
-          {/* Right Column: Sara AI Assistant Sidebar Box */}
+          {/* Right Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
-            {/* Sara Career Navigator */}
+            {/* AI Prompts */}
             <div style={{
               background: 'var(--gradient-primary-soft)',
               border: '1px solid rgba(14,165,233,0.15)',
@@ -480,7 +468,7 @@ const OpportunityRadar = () => {
               </div>
             </div>
 
-            {/* Radar Audit & Stats Box */}
+            {/* System Status */}
             <div className="glass-card" style={{ padding: '1.25rem' }}>
               <h4 style={{ fontWeight: 800, fontSize: '0.82rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '1rem', letterSpacing: '0.04em' }}>
                 Radar Performance
@@ -533,10 +521,18 @@ const OpportunityRadar = () => {
                   maxHeight: '90vh', overflowY: 'auto'
                 }}
               >
-                {/* Header title */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--color-border)', paddingBottom: '1rem' }}>
                   <div>
-                    <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.25rem', color: 'white', fontFamily: "'Space Grotesk', sans-serif" }}>{selectedOpp.title}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.25rem', color: 'white', fontFamily: "'Space Grotesk', sans-serif" }}>{selectedOpp.title}</h3>
+                      <span style={{
+                        fontSize: '0.62rem', fontWeight: 700, color: '#10b981',
+                        background: 'rgba(16,185,129,0.06)', padding: '0.1rem 0.35rem', borderRadius: 4
+                      }}>
+                        🟢 Verified
+                      </span>
+                    </div>
+                    
                     <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{selectedOpp.organization}</p>
                   </div>
                   <button className="btn-ghost" onClick={() => setSelectedOpp(null)} style={{ padding: '0.25rem', borderRadius: 8 }}>
@@ -544,7 +540,6 @@ const OpportunityRadar = () => {
                   </button>
                 </div>
 
-                {/* Match score bar */}
                 <div style={{
                   background: 'rgba(14,165,233,0.05)', border: '1px solid rgba(14,165,233,0.12)',
                   borderRadius: 12, padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -553,13 +548,11 @@ const OpportunityRadar = () => {
                   <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'white' }}>{selectedOpp.matchScore}% Score</span>
                 </div>
 
-                {/* Description */}
                 <div>
                   <h5 style={{ margin: '0 0 0.4rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Description</h5>
                   <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--color-text-dim)', lineHeight: 1.5 }}>{selectedOpp.description}</p>
                 </div>
 
-                {/* Details layout */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <h5 style={{ margin: '0 0 0.3rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Eligibility</h5>
@@ -571,7 +564,6 @@ const OpportunityRadar = () => {
                   </div>
                 </div>
 
-                {/* Required Skills */}
                 {selectedOpp.requiredSkills && selectedOpp.requiredSkills.length > 0 && (
                   <div>
                     <h5 style={{ margin: '0 0 0.4rem 0', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Required Skills</h5>
@@ -588,32 +580,45 @@ const OpportunityRadar = () => {
                   </div>
                 )}
 
-                {/* Source validation */}
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem', borderTop: '1px solid var(--color-border)',
+                  display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid var(--color-border)',
                   paddingTop: '1rem', marginTop: '0.5rem', fontSize: '0.72rem', color: 'var(--color-text-muted)'
                 }}>
-                  <ShieldCheck size={14} color="#10b981" /> 
-                  <span>Source: <strong>{selectedOpp.source || 'Verified Partner'}</strong> (Reliability Score: 100/100)</span>
+                  <div>🔗 Source: <strong>{selectedOpp.source || 'Verified Partner'}</strong></div>
+                  <div>🗓️ Last Verified: <strong>{new Date(selectedOpp.lastVerified).toLocaleDateString()}</strong></div>
                 </div>
 
-                {/* Modal actions */}
                 <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                   <button
                     className="btn-ghost"
                     onClick={(e) => handleDismiss(selectedOpp._id, e)}
                     style={{ flex: 1, color: 'var(--color-error)', border: '1px solid rgba(239,68,68,0.2)' }}
                   >
-                    Hide/Dismiss Recommendation
+                    Hide Recommendation
                   </button>
                   
-                  <button
-                    className="btn-primary"
-                    onClick={(e) => handleApply(selectedOpp._id, selectedOpp.applicationUrl, e)}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
-                  >
-                    <ExternalLink size={14} /> {selectedOpp.applied ? 'Apply Again' : 'Apply Now'}
-                  </button>
+                  {!selectedOpp.applied ? (
+                    <button
+                      className="btn-primary"
+                      onClick={() => {
+                        window.open(selectedOpp.applicationUrl, '_blank');
+                        setOpenedOpps(prev => new Set([...prev, selectedOpp._id]));
+                        setSelectedOpp(null);
+                        showToast('Redirected to official page. Click Mark Applied when finished!');
+                      }}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                    >
+                      <ExternalLink size={14} /> Apply Now
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-primary"
+                      disabled
+                      style={{ flex: 1, opacity: 0.6 }}
+                    >
+                      ✓ Already Applied
+                    </button>
+                  )}
                 </div>
               </motion.div>
             </div>
