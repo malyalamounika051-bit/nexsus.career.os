@@ -48,6 +48,7 @@ app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/resumes', require('./routes/resumeRoutes'));
 app.use('/api/interview', require('./routes/interviewRoutes'));
 app.use('/api/gps', require('./routes/gpsRoutes'));
+app.use('/api/opportunities', require('./routes/opportunityRoutes'));
 
 // Root welcome endpoint
 app.get('/', (req, res) => {

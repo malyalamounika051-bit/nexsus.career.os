@@ -23,6 +23,7 @@ import PublicResume from './pages/PublicResume';
 import MockInterviewSetup from './pages/MockInterviewSetup';
 import InterviewRoom from './pages/InterviewRoom';
 import InterviewReport from './pages/InterviewReport';
+import OpportunityRadar from './pages/OpportunityRadar';
 function App() {
   return (
     <BrowserRouter>
@@ -41,6 +42,7 @@ function App() {
           <Route path="/career-predictor" element={<Navigate to="/career-dna" replace />} />
           <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
           <Route path="/roadmaps" element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
+          <Route path="/opportunities" element={<ProtectedRoute><OpportunityRadar /></ProtectedRoute>} />
           <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
 
           <Route path="/mentor" element={<ProtectedRoute><MentorChat /></ProtectedRoute>} />

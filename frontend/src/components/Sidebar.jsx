@@ -27,6 +27,7 @@ const navSections = [
   {
     label: 'JOB HUB',
     items: [
+      { to: '/opportunities',      icon: Compass,         label: 'Opportunity Radar' },
       { to: '/jobs',               icon: Briefcase,       label: 'Job Search' },
       { to: '/resume-builder',     icon: FileText,        label: 'Resume Builder' },
       { to: '/mock-interview/setup', icon: Mic,              label: 'Mock Interview' },
