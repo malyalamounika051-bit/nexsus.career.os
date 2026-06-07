@@ -1,5 +1,7 @@
-const OpportunityMaster = require('../models/OpportunityMaster');
-const axios = require('axios');
+const Opportunity = require('../models/Opportunity');
+const OpportunitySource = require('../models/OpportunitySource');
+const { verifyUrl } = require('./verificationService');
+const crypto = require('crypto');
 
 // Import connectors
 const linkedin = require('./connectors/linkedin');
@@ -11,43 +13,32 @@ const scholarship = require('./connectors/scholarship');
 const escapeRegex = (str = '') => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Verify if the application URL works
+ * Generate a URL friendly slug
  */
-const verifyUrl = async (url) => {
-  try {
-    const response = await axios.get(url, {
-      timeout: 4000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      },
-      validateStatus: () => true
-    });
-    if (response.status === 200) {
-      return 'verified';
-    }
-    if ([404, 410, 500].includes(response.status)) {
-      return 'broken';
-    }
-    return 'verified'; // Default to verified if some rate limits or blocks like 403 happen but not structural 404/500
-  } catch (err) {
-    return 'broken';
-  }
+const slugify = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '') + '-' + crypto.randomBytes(3).toString('hex');
 };
 
 /**
- * Intelligent Deduplication & Merging against DB
+ * Deduplicate & fuzzy merging
  */
 const detectAndMergeDuplicate = async (oppData) => {
   // 1. Direct URL check
-  let existing = await OpportunityMaster.findOne({ applicationUrl: oppData.applicationUrl });
+  let existing = await Opportunity.findOne({ applicationUrl: oppData.applicationUrl });
   if (existing) {
     return existing;
   }
 
-  // 2. Similarity search
-  const matches = await OpportunityMaster.find({
-    organization: { $regex: new RegExp('^' + escapeRegex(oppData.organization) + '$', 'i') },
-    type: oppData.type
+  // 2. Fuzzy checks (same org, high similarity in title)
+  const matches = await Opportunity.find({
+    organization: { $regex: new RegExp('^' + escapeRegex(oppData.organization) + '$', 'i') }
   });
 
   for (const match of matches) {
@@ -62,21 +53,16 @@ const detectAndMergeDuplicate = async (oppData) => {
     const maxWords = Math.max(words1.size, words2.size);
     const similarity = intersection / maxWords;
 
-    if (similarity >= 0.8) {
-      // Merge: prefer higher trust score source
+    if (similarity >= 0.75) {
       if ((oppData.sourceScore || 70) > (match.sourceScore || 70)) {
         match.source = oppData.source;
         match.sourceScore = oppData.sourceScore;
         match.applicationUrl = oppData.applicationUrl;
       }
       
-      const mergedSkills = Array.from(new Set([...(match.requiredSkills || []), ...(oppData.requiredSkills || [])]));
-      match.requiredSkills = mergedSkills;
-      
-      const mergedTags = Array.from(new Set([...(match.tags || []), ...(oppData.tags || [])]));
-      match.tags = mergedTags;
-      
-      match.lastVerified = new Date();
+      match.requiredSkills = Array.from(new Set([...(match.requiredSkills || []), ...(oppData.requiredSkills || [])]));
+      match.tags = Array.from(new Set([...(match.tags || []), ...(oppData.tags || [])]));
+      match.lastChecked = new Date();
       await match.save();
       return match;
     }
@@ -86,97 +72,118 @@ const detectAndMergeDuplicate = async (oppData) => {
 };
 
 /**
- * Ingestion pipeline coordinator
+ * Sync Source log update helper
+ */
+const updateSourceSync = async (sourceName, fetchedCount) => {
+  try {
+    await OpportunitySource.findOneAndUpdate(
+      { name: sourceName },
+      {
+        $set: { lastSync: new Date(), status: 'active', sourceUrl: 'https://careers.google.com' },
+        $inc: { opportunitiesFetched: fetchedCount }
+      },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error(`Error updating source sync for ${sourceName}:`, err.message);
+  }
+};
+
+/**
+ * Ingestion pipe manager
  */
 const runIngestion = async () => {
-  console.log('🚀 Starting Opportunity Radar Ingestion Pipeline...');
+  console.log('🚀 Ingesting Opportunity Radar sources...');
   
-  const fetchers = [
-    linkedin.fetchOpportunities(),
-    devpost.fetchOpportunities(),
-    kaggle.fetchOpportunities(),
-    openSource.fetchOpportunities(),
-    scholarship.fetchOpportunities()
+  const sources = [
+    { name: 'LinkedIn', fetcher: linkedin.fetchOpportunities },
+    { name: 'Devpost', fetcher: devpost.fetchOpportunities },
+    { name: 'Kaggle', fetcher: kaggle.fetchOpportunities },
+    { name: 'OpenSource', fetcher: openSource.fetchOpportunities },
+    { name: 'Scholarship', fetcher: scholarship.fetchOpportunities }
   ];
-  
-  const settled = await Promise.allSettled(fetchers);
-  let rawOpportunities = [];
-  
-  settled.forEach((res, idx) => {
-    if (res.status === 'fulfilled' && Array.isArray(res.value)) {
-      rawOpportunities = rawOpportunities.concat(res.value);
-    } else {
-      console.error(`Fetcher ${idx} failed to load:`, res.reason);
-    }
-  });
 
-  console.log(`Aggregated ${rawOpportunities.length} raw opportunities. Processing & verifying...`);
-  
-  let savedCount = 0;
-  
-  for (const opp of rawOpportunities) {
+  let totalSaved = 0;
+
+  for (const src of sources) {
     try {
-      // Normalize type to match schema enum
-      let type = (opp.type || 'job').toLowerCase().trim();
-      if (type.includes('intern')) type = 'internship';
-      else if (type.includes('hack')) type = 'hackathon';
-      else if (type.includes('scholar') || type.includes('fellow')) type = 'scholarship';
-      else if (type.includes('compete') || type.includes('competition') || type.includes('challenge')) type = 'competition';
-      else if (type.includes('open') || type.includes('source')) type = 'open-source';
-      else if (type.includes('hiring') || type.includes('drive')) type = 'hiring-drive';
-      else if (type.includes('research')) type = 'research';
-      else if (type.includes('job') || type.includes('full') || type.includes('work') || type.includes('engineer') || type.includes('developer')) type = 'job';
-      else type = 'job';
-      opp.type = type;
+      console.log(`Running crawler for: ${src.name}`);
+      const rawOpps = await src.fetcher();
+      let savedForSource = 0;
+      
+      for (const opp of rawOpps) {
+        // Normalization
+        let type = (opp.type || 'job').toLowerCase().trim();
+        if (type.includes('intern')) type = 'internship';
+        else if (type.includes('hack')) type = 'hackathon';
+        else if (type.includes('scholar') || type.includes('fellow')) type = 'scholarship';
+        else if (type.includes('compete') || type.includes('competition') || type.includes('challenge')) type = 'competition';
+        else if (type.includes('open') || type.includes('source')) type = 'open-source';
+        else if (type.includes('hiring') || type.includes('drive')) type = 'hiring-drive';
+        else if (type.includes('research')) type = 'research';
+        else if (type.includes('job') || type.includes('full') || type.includes('work') || type.includes('engineer') || type.includes('developer')) type = 'job';
+        else type = 'job';
+        opp.type = type;
 
-      const duplicate = await detectAndMergeDuplicate(opp);
-      if (duplicate) {
-        console.log(`Merged duplicate opportunity: ${opp.title}`);
-        continue;
-      }
+        const duplicate = await detectAndMergeDuplicate(opp);
+        if (duplicate) {
+          continue;
+        }
 
-      // Live verification of URL
-      const verificationStatus = await verifyUrl(opp.applicationUrl);
-      const isVerified = verificationStatus === 'verified';
-      
-      const registrationDeadline = opp.registrationDeadline ? new Date(opp.registrationDeadline) : null;
-      const submissionDeadline = opp.submissionDeadline ? new Date(opp.submissionDeadline) : null;
-      
-      // Compute default popularityScore and difficultyLevel
-      const popularityScore = Math.floor(Math.random() * 40) + 60; // 60-100
-      
-      // Calculate freshnessScore
-      let freshnessScore = 100;
-      if (registrationDeadline) {
-        const daysToDeadline = (registrationDeadline - new Date()) / (1000 * 60 * 60 * 24);
-        if (daysToDeadline < 0) freshnessScore = 0;
-        else if (daysToDeadline < 3) freshnessScore = 50;
-        else if (daysToDeadline < 7) freshnessScore = 80;
+        // URL Check
+        const verificationStatus = await verifyUrl(opp.applicationUrl);
+        const isVerified = verificationStatus === 'verified';
+        
+        // Deadlines mapping
+        const deadline = opp.registrationDeadline ? new Date(opp.registrationDeadline) : (opp.deadline ? new Date(opp.deadline) : null);
+        let daysRemaining = 0;
+        if (deadline) {
+          daysRemaining = Math.max(0, Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24)));
+        }
+
+        const newOpp = new Opportunity({
+          title: opp.title,
+          organization: opp.organization,
+          type: opp.type,
+          description: opp.description,
+          deadline,
+          applicationUrl: opp.applicationUrl,
+          eligibility: opp.eligibility,
+          requiredSkills: opp.requiredSkills || [],
+          preferredSkills: opp.preferredSkills || [],
+          location: opp.location || 'Remote',
+          remote: opp.remote !== undefined ? opp.remote : true,
+          tags: opp.tags || [],
+          source: opp.source || src.name,
+          sourceType: opp.sourceType || 'api',
+          sourceScore: opp.sourceScore || 80,
+          verificationStatus,
+          isVerified,
+          lastChecked: new Date(),
+          careerTracks: opp.careerTracks || [opp.type],
+          difficulty: opp.difficultyLevel || opp.difficulty || 'Medium',
+          daysRemaining,
+          isFeatured: opp.isFeatured || false,
+          slug: slugify(opp.title),
+          opportunityStatus: (deadline && deadline < new Date()) ? 'expired' : 'active'
+        });
+
+        await newOpp.save();
+        savedForSource++;
+        totalSaved++;
       }
       
-      const newOpp = new OpportunityMaster({
-        ...opp,
-        registrationDeadline,
-        submissionDeadline,
-        isVerified,
-        verificationStatus,
-        freshnessScore,
-        popularityScore,
-        lastVerified: new Date()
-      });
-      
-      await newOpp.save();
-      savedCount++;
+      await updateSourceSync(src.name, savedForSource);
+      console.log(`Crawler complete for ${src.name}: Synced ${savedForSource} new opportunities.`);
     } catch (err) {
-      console.error(`Failed to process opportunity ${opp.title}:`, err.message);
+      console.error(`Error ingesting source ${src.name}:`, err.message);
     }
   }
 
-  console.log(`✅ Ingestion process complete. Saved ${savedCount} new opportunities.`);
-  return { success: true, processed: rawOpportunities.length, saved: savedCount };
+  console.log(`✅ Global Ingestion finished. Saved ${totalSaved} opportunities overall.`);
+  return { success: true, saved: totalSaved };
 };
 
 module.exports = {
-  runIngestion,
-  verifyUrl
+  runIngestion
 };
