@@ -12,7 +12,7 @@ const completedCheckpointSchema = new mongoose.Schema({
 }, { _id: false });
 
 const CareerGPSSchema = new mongoose.Schema({
-  userId: { type: String, required: true, unique: true, index: true },
+  userId: { type: String, required: true, index: true },
   templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'CareerTemplate', required: true },
   destination: { type: String, required: true },
   currentLevel: { type: Number, default: 1 },
@@ -38,5 +38,7 @@ const CareerGPSSchema = new mongoose.Schema({
     }
   ]
 }, { timestamps: true });
+
+CareerGPSSchema.index({ userId: 1, templateId: 1 }, { unique: true });
 
 module.exports = mongoose.model('CareerGPS', CareerGPSSchema);

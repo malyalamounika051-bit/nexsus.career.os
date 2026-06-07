@@ -28,6 +28,7 @@ const RoadmapPage = () => {
   const [sc, setSc] = useState(false);
   const [roadmaps, setRoadmaps] = useState([]);
   const [gps, setGps] = useState(null);
+  const [gpsList, setGpsList] = useState([]);
   const [activeCheckpoint, setActiveCheckpoint] = useState(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,20 +44,34 @@ const RoadmapPage = () => {
   const [projSubmitting, setProjSubmitting] = useState(false);
   const [projSuccess, setProjSuccess] = useState(false);
 
-  const loadData = async () => {
+  const loadData = async (selectedTemplateId = null) => {
     setFetching(true);
     try {
       const { data: roadRes } = await careerService.getMyRoadmaps();
       setRoadmaps(roadRes.data || []);
 
-      const { data: gpsRes } = await api.get('/gps/current');
-      if (gpsRes.success && gpsRes.data) {
-        setGps(gpsRes.data);
-        // Set first incomplete checkpoint or first checkpoint as active by default
-        const activeCp = gpsRes.data.checkpoints.find(c => !c.completed) || gpsRes.data.checkpoints[0];
+      const { data: gpsListRes } = await api.get('/gps/list');
+      const list = gpsListRes.data || [];
+      setGpsList(list);
+
+      if (list.length > 0) {
+        let activeGps = null;
+        if (selectedTemplateId) {
+          activeGps = list.find(g => g.templateId === selectedTemplateId);
+        } else if (gps) {
+          activeGps = list.find(g => g.templateId === gps.templateId);
+        }
+        
+        if (!activeGps) {
+          activeGps = list[0];
+        }
+
+        setGps(activeGps);
+        const activeCp = activeGps.checkpoints.find(c => !c.completed) || activeGps.checkpoints[0];
         setActiveCheckpoint(activeCp);
       } else {
         setGps(null);
+        setActiveCheckpoint(null);
       }
     } catch (err) {
       console.error('Error loading roadmap/GPS data:', err);
@@ -82,6 +97,15 @@ const RoadmapPage = () => {
     return () => clearInterval(iv);
   }, [loading]);
 
+  const handleSwitchGPS = (templateId) => {
+    const targetGps = gpsList.find(g => g.templateId === templateId);
+    if (targetGps) {
+      setGps(targetGps);
+      const activeCp = targetGps.checkpoints.find(c => !c.completed) || targetGps.checkpoints[0];
+      setActiveCheckpoint(activeCp);
+    }
+  };
+
   const handleGenerateGPS = async (careerTitle) => {
     setLoading(true);
     setError('');
@@ -93,12 +117,9 @@ const RoadmapPage = () => {
         // Then generate GPS route based on the roadmap
         const { data: gpsData } = await api.post('/gps/generate', { destination: rdData.data.domain });
         if (gpsData.success) {
-          setGps(gpsData.data);
-          const activeCp = gpsData.data.checkpoints.find(c => !c.completed) || gpsData.data.checkpoints[0];
-          setActiveCheckpoint(activeCp);
           setShowForm(false);
           setQuery('');
-          await loadData();
+          await loadData(gpsData.data.templateId);
         }
       }
     } catch (err) {
@@ -113,10 +134,12 @@ const RoadmapPage = () => {
       const { data } = await api.patch('/gps/task', {
         checkpointLevel,
         taskTitle,
-        completed: !currentStatus
+        completed: !currentStatus,
+        templateId: gps?.templateId
       });
       if (data.success) {
         setGps(data.data);
+        setGpsList(prev => prev.map(g => g.templateId === data.data.templateId ? data.data : g));
         // Keep active checkpoint in sync
         const updatedCp = data.data.checkpoints.find(c => c.level === checkpointLevel);
         setActiveCheckpoint(updatedCp);
@@ -135,10 +158,12 @@ const RoadmapPage = () => {
       const { data } = await api.post('/gps/project', {
         projectName: projName,
         githubUrl: projUrl,
-        description: projDesc
+        description: projDesc,
+        templateId: gps?.templateId
       });
       if (data.success) {
         setGps(data.data);
+        setGpsList(prev => prev.map(g => g.templateId === data.data.templateId ? data.data : g));
         setProjSuccess(true);
         setProjName('');
         setProjUrl('');
@@ -153,21 +178,22 @@ const RoadmapPage = () => {
   };
 
   const handleDeleteGPS = async () => {
-    if (!confirm('Are you sure you want to reset your Career GPS? Your progress will be lost.')) return;
+    if (!gps) return;
+    if (!confirm(`Are you sure you want to delete the GPS route for "${gps.destination}"? Your progress will be lost.`)) return;
     try {
-      // Find matching roadmap and delete it
-      if (gps) {
-        const matchingRoadmap = roadmaps.find(r => r.domain.toLowerCase() === gps.destination.toLowerCase());
-        if (matchingRoadmap) {
-          await careerService.deleteRoadmap(matchingRoadmap._id);
-        }
+      // Delete the GPS record on backend
+      await api.delete(`/gps/${gps._id}`);
+
+      // Find matching roadmap and delete it if it exists
+      const matchingRoadmap = roadmaps.find(r => r.domain.toLowerCase() === gps.destination.toLowerCase());
+      if (matchingRoadmap) {
+        await careerService.deleteRoadmap(matchingRoadmap._id);
       }
-      // Delete/clear current GPS in local state
-      setGps(null);
-      setActiveCheckpoint(null);
+      
+      // Reload lists
       await loadData();
     } catch (err) {
-      console.error('Reset failed:', err);
+      console.error('Delete failed:', err);
     }
   };
 
@@ -218,21 +244,53 @@ const RoadmapPage = () => {
                 <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Navigate your learning segments like a game progression map</p>
               </div>
             </div>
-            {!gps && !showForm && (
-              <button className="btn-primary" onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Plus size={16} /> New GPS Route
-              </button>
-            )}
-            {gps && (
-              <button className="btn-ghost" onClick={handleDeleteGPS} style={{ color: 'var(--color-error)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                Reset Route
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {gpsList.length > 0 && (
+                <div style={{ position: 'relative' }}>
+                  <select 
+                    value={gps?.templateId || ''} 
+                    onChange={e => handleSwitchGPS(e.target.value)}
+                    style={{
+                      background: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '10px',
+                      padding: '0.5rem 2.25rem 0.5rem 1rem',
+                      color: 'var(--color-text)',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      minWidth: '200px'
+                    }}
+                  >
+                    {gpsList.map(g => (
+                      <option key={g.templateId} value={g.templateId}>
+                        📍 {g.destination} ({g.progress}%)
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-muted)' }} />
+                </div>
+              )}
+              
+              {!showForm && (
+                <button className="btn-primary" onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Plus size={16} /> New Route
+                </button>
+              )}
+              
+              {gps && (
+                <button className="btn-ghost" onClick={handleDeleteGPS} style={{ color: 'var(--color-error)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Trash2 size={14} /> Delete Route
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
 
         {/* Dynamic Route Form */}
-        {showForm && !gps && (
+        {showForm && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: '2rem', maxWidth: 600, margin: '0 auto 2rem' }}>
             <h3 style={{ fontWeight: 700, marginBottom: '0.25rem', fontFamily: "'Space Grotesk', sans-serif" }}>Choose Career Destination</h3>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>Where do you want to arrive? e.g. Full Stack Developer, AI Engineer, UI/UX Designer</p>
@@ -247,6 +305,11 @@ const RoadmapPage = () => {
                 <><Sparkles size={16} /> Generate GPS Route</>
               )}
             </button>
+            {gpsList.length > 0 && (
+              <button className="btn-ghost" onClick={() => setShowForm(false)} disabled={loading} style={{ width: '100%', marginTop: '0.5rem' }}>
+                Cancel
+              </button>
+            )}
           </motion.div>
         )}
 

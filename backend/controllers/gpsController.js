@@ -413,9 +413,8 @@ CRITICAL REQUIREMENTS:
 
     // Save user state progress
     const gps = await CareerGPS.findOneAndUpdate(
-      { userId },
+      { userId, templateId: template._id },
       {
-        templateId: template._id,
         destination: template.title,
         currentLevel: 1,
         xp: completedCriteriaCount * 50, // award XP for personalized pre-completed items
@@ -463,7 +462,14 @@ CRITICAL REQUIREMENTS:
 const getCurrentGPS = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
-    const gps = await CareerGPS.findOne({ userId });
+    const { templateId } = req.query;
+    
+    let gps;
+    if (templateId) {
+      gps = await CareerGPS.findOne({ userId, templateId });
+    } else {
+      gps = await CareerGPS.findOne({ userId }).sort({ updatedAt: -1 });
+    }
     
     if (!gps) {
       return res.status(200).json({ success: true, data: null });
@@ -488,13 +494,18 @@ const getCurrentGPS = async (req, res) => {
 const updateTaskProgress = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
-    const { checkpointLevel, taskTitle, completed } = req.body;
+    const { checkpointLevel, taskTitle, completed, templateId } = req.body;
 
     if (checkpointLevel == null || !taskTitle) {
       return res.status(400).json({ success: false, message: 'Checkpoint level and criteria title are required.' });
     }
 
-    const gps = await CareerGPS.findOne({ userId });
+    let gps;
+    if (templateId) {
+      gps = await CareerGPS.findOne({ userId, templateId });
+    } else {
+      gps = await CareerGPS.findOne({ userId }).sort({ updatedAt: -1 });
+    }
     if (!gps) {
       return res.status(404).json({ success: false, message: 'GPS journey not found' });
     }
@@ -643,13 +654,18 @@ const updateTaskProgress = async (req, res) => {
 const submitProject = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
-    const { projectName, githubUrl, description } = req.body;
+    const { projectName, githubUrl, description, templateId } = req.body;
 
     if (!projectName || !githubUrl) {
       return res.status(400).json({ success: false, message: 'Project name and GitHub URL are required.' });
     }
 
-    const gps = await CareerGPS.findOne({ userId });
+    let gps;
+    if (templateId) {
+      gps = await CareerGPS.findOne({ userId, templateId });
+    } else {
+      gps = await CareerGPS.findOne({ userId }).sort({ updatedAt: -1 });
+    }
     if (!gps) {
       return res.status(404).json({ success: false, message: 'GPS journey not found' });
     }
@@ -756,10 +772,68 @@ const getTemplateBySlug = async (req, res) => {
   }
 };
 
+// @desc    List all GPS journeys for user
+// @route   GET /api/gps/list
+// @access  Private
+const listGPS = async (req, res) => {
+  try {
+    const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+    const gpsJourneys = await CareerGPS.find({ userId }).sort({ updatedAt: -1 });
+    
+    // Format each journey with its template
+    const formatted = [];
+    for (const gps of gpsJourneys) {
+      const template = await CareerTemplate.findById(gps.templateId);
+      if (template) {
+        formatted.push(formatGpsResponse(gps, template));
+      }
+    }
+    
+    res.status(200).json({ success: true, data: formatted });
+  } catch (err) {
+    console.error('GPS List Error:', err);
+    res.status(500).json({ success: false, message: 'Failed to list GPS journeys: ' + err.message });
+  }
+};
+
+// @desc    Delete a GPS journey
+// @route   DELETE /api/gps/:id
+// @access  Private
+const deleteGPS = async (req, res) => {
+  try {
+    const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+    const { id } = req.params;
+
+    // Delete the GPS record
+    const gps = await CareerGPS.findOneAndDelete({ _id: id, userId });
+    if (!gps) {
+      return res.status(404).json({ success: false, message: 'GPS journey not found' });
+    }
+
+    // Also remove it from UserCareerState activeRoadmaps
+    const UserCareerState = require('../models/UserCareerState');
+    await UserCareerState.findOneAndUpdate(
+      { userId },
+      {
+        $pull: {
+          activeRoadmaps: { roadmapId: gps.templateId }
+        }
+      }
+    );
+
+    res.status(200).json({ success: true, message: 'GPS route deleted successfully' });
+  } catch (err) {
+    console.error('GPS Delete Error:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete GPS journey: ' + err.message });
+  }
+};
+
 module.exports = {
   generateRoute,
   getCurrentGPS,
   updateTaskProgress,
   submitProject,
-  getTemplateBySlug
+  getTemplateBySlug,
+  listGPS,
+  deleteGPS
 };
