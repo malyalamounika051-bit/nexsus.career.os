@@ -323,4 +323,89 @@ RULES:
   }
 };
 
-module.exports = { generateSkillGraph, getSalaryIntelligence, getLearnNextRecommendations, getTrendingSkills };
+// @desc   Compare two skills side-by-side
+// @route  POST /api/skill-intelligence/compare
+// @access Private
+const compareSkills = async (req, res) => {
+  try {
+    const { skill1, skill2 } = req.body;
+
+    if (!skill1 || !skill2) {
+      return res.status(400).json({ success: false, message: 'Both skill1 and skill2 are required' });
+    }
+
+    if (!process.env.OPENROUTER_API_KEY) {
+      return res.status(500).json({ success: false, message: 'AI service is not configured.' });
+    }
+
+    const prompt = `You are an expert career analyst. Compare these two tech skills side-by-side: "${skill1}" vs "${skill2}".
+
+Respond in this EXACT JSON format:
+{
+  "skill1": {
+    "name": "${skill1}",
+    "demandScore": <number 0-100>,
+    "avgSalaryLpa": <number>,
+    "difficulty": "Beginner|Intermediate|Advanced",
+    "timeToLearn": "<estimated time>",
+    "futureRelevance": "Low|Medium|High|Very High",
+    "jobOpenings": "<approximate count e.g. 25,000+>",
+    "topUseCase": "<primary use case>",
+    "ecosystem": "<primary ecosystem/framework>"
+  },
+  "skill2": {
+    "name": "${skill2}",
+    "demandScore": <number 0-100>,
+    "avgSalaryLpa": <number>,
+    "difficulty": "Beginner|Intermediate|Advanced",
+    "timeToLearn": "<estimated time>",
+    "futureRelevance": "Low|Medium|High|Very High",
+    "jobOpenings": "<approximate count e.g. 25,000+>",
+    "topUseCase": "<primary use case>",
+    "ecosystem": "<primary ecosystem/framework>"
+  },
+  "verdict": "<1-2 sentence recommendation on which to learn first and why>",
+  "synergy": "<1 sentence on how these skills complement each other>",
+  "commonCareers": ["Career 1", "Career 2", "Career 3"]
+}
+
+RULES:
+- All salary figures in Indian LPA (lakhs per annum)
+- Provide realistic and data-informed comparisons
+- Be objective and balanced in the verdict
+- Return ONLY the JSON object. No conversational text.`;
+
+    const responseData = await callGeminiREST({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.5,
+        topP: 0.9,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const responseText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!responseText) {
+      return res.status(500).json({ success: false, message: 'AI returned empty response.' });
+    }
+
+    let comparison;
+    try {
+      comparison = parseStructuredJson(responseText);
+    } catch (parseErr) {
+      console.error('JSON Parse Error:', parseErr.message, 'Raw text:', responseText);
+      return res.status(500).json({ success: false, message: 'Failed to parse AI response. Please try again.' });
+    }
+
+    awardXP(req.user.id, 'SKILL_COMPARE').catch(() => {});
+
+    res.json({ success: true, data: comparison });
+
+  } catch (error) {
+    console.error('Skill Comparison Error:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to compare skills: ' + error.message });
+  }
+};
+
+module.exports = { generateSkillGraph, getSalaryIntelligence, getLearnNextRecommendations, getTrendingSkills, compareSkills };

@@ -9,6 +9,11 @@ const XP_AWARDS = {
   SKILL_GAP_ANALYSIS: 40,
   CAREER_SIMULATION: 20,
   OPPORTUNITY_APPLIED: 50,
+  SKILL_GRAPH_EXPLORE: 15,
+  SALARY_LOOKUP: 10,
+  LEARN_NEXT: 15,
+  TRENDING_BROWSE: 5,
+  SKILL_COMPARE: 20,
 };
 
 // Badge definitions
@@ -23,6 +28,12 @@ const BADGE_DEFS = {
   XP_1000: { name: 'Nexus Legend', icon: '👑' },
   MENTOR_FAN: { name: 'Wisdom Seeker', icon: '🧠' },
   SKILL_ANALYST: { name: 'Skill Analyst', icon: '🔍' },
+  SKILL_EXPLORER: { name: 'Skill Explorer', icon: '🔬' },
+  AI_ENTHUSIAST: { name: 'AI Enthusiast', icon: '🤖' },
+  CLOUD_EXPLORER: { name: 'Cloud Explorer', icon: '☁️' },
+  FRONTEND_MASTER: { name: 'Frontend Master', icon: '🎨' },
+  DATA_SCIENTIST: { name: 'Data Scientist', icon: '📊' },
+  TREND_WATCHER: { name: 'Trend Watcher', icon: '📈' },
 };
 
 /**

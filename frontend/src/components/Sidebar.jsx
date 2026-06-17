@@ -5,7 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Dna, Map, MessageSquare, TrendingUp,
   FileSearch, Play, User, LogOut, Zap, Menu, X,
-  ChevronLeft, ChevronRight, Flame, Briefcase, FileText, Mic, Compass
+  ChevronLeft, ChevronRight, Flame, Briefcase, FileText, Mic, Compass,
+  GitCompareArrows
 } from 'lucide-react';
 
 const navSections = [

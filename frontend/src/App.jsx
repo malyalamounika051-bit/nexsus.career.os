@@ -24,6 +24,7 @@ import MockInterviewSetup from './pages/MockInterviewSetup';
 import InterviewRoom from './pages/InterviewRoom';
 import InterviewReport from './pages/InterviewReport';
 import OpportunityRadar from './pages/OpportunityRadar';
+import SkillCompare from './pages/SkillCompare';
 function App() {
   return (
     <BrowserRouter>
@@ -49,6 +50,7 @@ function App() {
            <Route path="/skill-gap" element={<ProtectedRoute><SkillGap /></ProtectedRoute>} />
           <Route path="/skill-trends" element={<ProtectedRoute><SkillTrends /></ProtectedRoute>} />
           <Route path="/career-simulator" element={<ProtectedRoute><CareerSimulator /></ProtectedRoute>} />
+          <Route path="/skill-compare" element={<ProtectedRoute><SkillCompare /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
           <Route path="/mock-interview/setup" element={<ProtectedRoute><MockInterviewSetup /></ProtectedRoute>} />
