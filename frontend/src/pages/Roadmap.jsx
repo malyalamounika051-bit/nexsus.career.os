@@ -36,6 +36,7 @@ const RoadmapPage = () => {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [loadMsg, setLoadMsg] = useState(0);
+  const [viewMode, setViewMode] = useState('tree'); // 'tree' or 'timeline'
 
   // Project submission state
   const [projName, setProjName] = useState('');
@@ -417,89 +418,228 @@ const RoadmapPage = () => {
 
               {/* Section 2: Journey Map */}
               <div className="glass-card" style={{ padding: '1.75rem' }}>
-                <h3 style={{ fontWeight: 700, fontSize: '1.05rem', fontFamily: "'Space Grotesk', sans-serif", marginBottom: '1.5rem', color: 'var(--color-text-dim)' }}>GPS Route Checkpoints</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <h3 style={{ fontWeight: 700, fontSize: '1.05rem', fontFamily: "'Space Grotesk', sans-serif", color: 'var(--color-text-dim)', margin: 0 }}>GPS Route Checkpoints</h3>
+                  <div style={{ display: 'flex', background: 'var(--color-surface-3)', padding: '2px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                    <button
+                      onClick={() => setViewMode('tree')}
+                      style={{
+                        padding: '0.35rem 0.85rem',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        background: viewMode === 'tree' ? 'var(--gradient-primary)' : 'transparent',
+                        color: viewMode === 'tree' ? 'white' : 'var(--color-text-dim)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}
+                    >
+                      <Map size={13} /> Interactive Map
+                    </button>
+                    <button
+                      onClick={() => setViewMode('timeline')}
+                      style={{
+                        padding: '0.35rem 0.85rem',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        background: viewMode === 'timeline' ? 'var(--gradient-primary)' : 'transparent',
+                        color: viewMode === 'timeline' ? 'white' : 'var(--color-text-dim)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem'
+                      }}
+                    >
+                      <Clock size={13} /> Timeline
+                    </button>
+                  </div>
+                </div>
                 
-                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingLeft: '2rem' }}>
-                  {/* Vertical Line Connector */}
-                  <div style={{
-                    position: 'absolute',
-                    top: 15,
-                    bottom: 15,
-                    left: 21,
-                    width: 3,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    zIndex: 1
-                  }} />
+                {viewMode === 'tree' ? (
+                  /* Interactive Branching Skill Tree Layout (roadmap.sh inspired) */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', position: 'relative', padding: '1rem 0' }}>
+                    {gps.checkpoints.map((cp, idx) => {
+                      const isActive = activeCheckpoint?.level === cp.level;
+                      const isCurrentGoal = gps.currentCheckpoint === cp.title;
+                      const isEven = idx % 2 === 0;
 
-                  {gps.checkpoints.map((cp, idx) => {
-                    // Check completion states
-                    const isActive = activeCheckpoint?.level === cp.level;
-                    const isCurrentGoal = gps.currentCheckpoint === cp.title;
-                    
-                    return (
-                      <motion.div
-                        key={cp._id || cp.level}
-                        whileHover={{ x: 4 }}
-                        onClick={() => setActiveCheckpoint(cp)}
-                        style={{
-                          display: 'flex',
-                          gap: '1.25rem',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          zIndex: 2
-                        }}
-                      >
-                        {/* Bullet indicator */}
-                        <div style={{
-                          width: 26,
-                          height: 26,
-                          borderRadius: '50%',
-                          background: cp.completed ? 'var(--gradient-primary)' : isCurrentGoal ? 'var(--color-surface)' : 'var(--color-bg)',
-                          border: isCurrentGoal ? '2px solid var(--color-primary)' : cp.completed ? 'none' : '2px solid rgba(255,255,255,0.12)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: cp.completed || isCurrentGoal ? 'white' : 'var(--color-text-muted)',
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          position: 'absolute',
-                          left: -22,
-                          top: 4,
-                          boxShadow: isCurrentGoal ? '0 0 12px var(--color-primary-glow)' : 'none'
-                        }}>
-                          {cp.completed ? '✓' : cp.level}
-                        </div>
-
-                        {/* Text details */}
-                        <div style={{
-                          flex: 1,
-                          padding: '0.8rem 1.25rem',
-                          borderRadius: 12,
-                          background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
-                          border: isActive ? '1px solid rgba(14,165,233,0.25)' : '1px solid var(--color-border)',
-                          transition: 'all 0.2s ease'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.92rem', color: cp.completed ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
-                              {cp.title}
-                            </h4>
-                            {cp.completed && (
-                              <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                                <CheckCircle2 size={12} /> Completed
-                              </span>
-                            )}
-                            {isCurrentGoal && !cp.completed && (
-                              <span style={{ fontSize: '0.68rem', color: 'var(--color-primary-light)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Next Checkpoint
-                              </span>
+                      return (
+                        <div key={cp._id || cp.level} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 1fr', alignItems: 'center', width: '100%' }}>
+                          
+                          {/* Left Branch Node */}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', opacity: isEven ? 1 : 0.05, pointerEvents: isEven ? 'auto' : 'none' }}>
+                            {isEven && (
+                              <motion.div
+                                whileHover={{ scale: 1.04, y: -2 }}
+                                onClick={() => setActiveCheckpoint(cp)}
+                                style={{
+                                  background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
+                                  border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                  borderRadius: '12px',
+                                  padding: '0.9rem 1.1rem',
+                                  cursor: 'pointer',
+                                  maxWidth: '220px',
+                                  width: '100%',
+                                  textAlign: 'right',
+                                  boxShadow: isActive ? '0 0 15px var(--color-primary-glow-strong)' : 'none',
+                                  position: 'relative'
+                                }}
+                              >
+                                <span style={{ fontSize: '0.62rem', color: cp.completed ? 'var(--color-success)' : 'var(--color-text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>
+                                  {cp.completed ? '✓ COMPLETED' : `LEVEL ${cp.level}`}
+                                </span>
+                                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text)', lineHeight: 1.3 }}>{cp.title}</h4>
+                                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.7rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cp.description}</p>
+                              </motion.div>
                             )}
                           </div>
-                          <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{cp.description}</p>
+
+                          {/* Center Node / Bullet Connector */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', height: '100%' }}>
+                            <div
+                              onClick={() => setActiveCheckpoint(cp)}
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '50%',
+                                background: cp.completed ? 'var(--color-success)' : isCurrentGoal ? 'var(--gradient-primary)' : 'var(--color-bg)',
+                                border: isCurrentGoal ? '2px solid #fff' : cp.completed ? 'none' : '2px solid var(--color-border)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontWeight: 800,
+                                fontSize: '0.78rem',
+                                zIndex: 2,
+                                cursor: 'pointer',
+                                boxShadow: isCurrentGoal ? '0 0 15px var(--color-primary)' : 'none',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {cp.completed ? '✓' : cp.level}
+                            </div>
+                          </div>
+
+                          {/* Right Branch Node */}
+                          <div style={{ display: 'flex', justifyContent: 'flex-start', opacity: !isEven ? 1 : 0.05, pointerEvents: !isEven ? 'auto' : 'none' }}>
+                            {!isEven && (
+                              <motion.div
+                                whileHover={{ scale: 1.04, y: -2 }}
+                                onClick={() => setActiveCheckpoint(cp)}
+                                style={{
+                                  background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
+                                  border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                  borderRadius: '12px',
+                                  padding: '0.9rem 1.1rem',
+                                  cursor: 'pointer',
+                                  maxWidth: '220px',
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  boxShadow: isActive ? '0 0 15px var(--color-primary-glow-strong)' : 'none',
+                                  position: 'relative'
+                                }}
+                              >
+                                <span style={{ fontSize: '0.62rem', color: cp.completed ? 'var(--color-success)' : 'var(--color-text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>
+                                  {cp.completed ? '✓ COMPLETED' : `LEVEL ${cp.level}`}
+                                </span>
+                                <h4 style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text)', lineHeight: 1.3 }}>{cp.title}</h4>
+                                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.7rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cp.description}</p>
+                              </motion.div>
+                            )}
+                          </div>
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                    {/* Vertical Connecting Line */}
+                    <div style={{ position: 'absolute', top: '24px', bottom: '24px', left: '50%', transform: 'translateX(-50%)', width: '3px', background: 'var(--gradient-primary)', opacity: 0.18, zIndex: 1 }} />
+                  </div>
+                ) : (
+                  /* Standard Timeline List Layout */
+                  <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingLeft: '2rem' }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: 15,
+                      bottom: 15,
+                      left: 21,
+                      width: 3,
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      zIndex: 1
+                    }} />
+
+                    {gps.checkpoints.map((cp, idx) => {
+                      const isActive = activeCheckpoint?.level === cp.level;
+                      const isCurrentGoal = gps.currentCheckpoint === cp.title;
+                      
+                      return (
+                        <motion.div
+                          key={cp._id || cp.level}
+                          whileHover={{ x: 4 }}
+                          onClick={() => setActiveCheckpoint(cp)}
+                          style={{
+                            display: 'flex',
+                            gap: '1.25rem',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            zIndex: 2
+                          }}
+                        >
+                          <div style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: '50%',
+                            background: cp.completed ? 'var(--gradient-primary)' : isCurrentGoal ? 'var(--color-surface)' : 'var(--color-bg)',
+                            border: isCurrentGoal ? '2px solid var(--color-primary)' : cp.completed ? 'none' : '2px solid rgba(255,255,255,0.12)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: cp.completed || isCurrentGoal ? 'white' : 'var(--color-text-muted)',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            position: 'absolute',
+                            left: -22,
+                            top: 4,
+                            boxShadow: isCurrentGoal ? '0 0 12px var(--color-primary-glow)' : 'none'
+                          }}>
+                            {cp.completed ? '✓' : cp.level}
+                          </div>
+
+                          <div style={{
+                            flex: 1,
+                            padding: '0.8rem 1.25rem',
+                            borderRadius: 12,
+                            background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
+                            border: isActive ? '1px solid rgba(14,165,233,0.25)' : '1px solid var(--color-border)',
+                            transition: 'all 0.2s ease'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.92rem', color: cp.completed ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
+                                {cp.title}
+                              </h4>
+                              {cp.completed && (
+                                <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                  <CheckCircle2 size={12} /> Completed
+                                </span>
+                              )}
+                              {isCurrentGoal && !cp.completed && (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--color-primary-light)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  Next Checkpoint
+                                </span>
+                              )}
+                            </div>
+                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{cp.description}</p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

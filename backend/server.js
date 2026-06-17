@@ -34,6 +34,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ensure Database Connection Middleware
+const mongoose = require('mongoose');
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    console.log('🔄 MongoDB not connected. Attempting connection...');
+    try {
+      await connectDB();
+    } catch (err) {
+      console.error('❌ Database connection middleware error:', err);
+      if (req.path === '/api/health' || req.path === '/') {
+        return next();
+      }
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Database connection failed', 
+        error: err.message 
+      });
+    }
+  }
+  next();
+});
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/assessments', require('./routes/assessmentRoutes'));
