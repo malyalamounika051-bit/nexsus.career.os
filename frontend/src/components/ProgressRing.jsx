@@ -1,69 +1,130 @@
-import { motion } from 'framer-motion';
+import { useEffect, useState, useRef } from 'react';
 
-const ProgressRing = ({ value = 0, size = 80, strokeWidth = 6, color = 'url(#gradient)', label, sublabel }) => {
+const ProgressRing = ({
+  value = 0,
+  size = 160,
+  strokeWidth = 10,
+  label = '',
+  sublabel = '',
+  gradientFrom = '#0ea5e9',
+  gradientTo = '#a855f7',
+  bgStroke = 'rgba(255,255,255,0.06)',
+  duration = 1500,
+  fontSize,
+  showGlow = true,
+}) => {
+  const [animatedValue, setAnimatedValue] = useState(0);
+  const animRef = useRef(null);
+  const startTime = useRef(null);
+
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(value, 100) / 100) * circumference;
+  const center = size / 2;
+
+  useEffect(() => {
+    startTime.current = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime.current;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutExpo for premium feel
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setAnimatedValue(Math.round(eased * value));
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(animate);
+      }
+    };
+    animRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [value, duration]);
+
+  const offset = circumference - (animatedValue / 100) * circumference;
+  const gradientId = `ring-grad-${size}-${value}`;
+  const glowId = `ring-glow-${size}-${value}`;
+  const computedFontSize = fontSize || size * 0.22;
 
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
-          <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#0ea5e9" />
-            <stop offset="100%" stopColor="#a855f7" />
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={gradientFrom} />
+            <stop offset="100%" stopColor={gradientTo} />
           </linearGradient>
-          <filter id="ring-glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
+          {showGlow && (
+            <filter id={glowId}>
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          )}
         </defs>
-        {/* Background ring */}
+        {/* Background track */}
         <circle
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none"
-          stroke="var(--color-surface-3)"
-          strokeWidth={strokeWidth}
+          cx={center} cy={center} r={radius}
+          fill="none" stroke={bgStroke} strokeWidth={strokeWidth}
         />
-        {/* Progress ring */}
-        <motion.circle
-          cx={size / 2} cy={size / 2} r={radius}
+        {/* Animated progress arc */}
+        <circle
+          cx={center} cy={center} r={radius}
           fill="none"
-          stroke={color === 'url(#gradient)' ? 'url(#ring-gradient)' : color}
+          stroke={`url(#${gradientId})`}
           strokeWidth={strokeWidth}
-          strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.5, ease: 'easeOut', delay: 0.2 }}
-          filter="url(#ring-glow)"
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${center} ${center})`}
+          style={{ transition: 'stroke-dashoffset 0.1s ease-out' }}
+          filter={showGlow ? `url(#${glowId})` : undefined}
         />
+        {/* Dot at the end of the progress arc */}
+        {animatedValue > 2 && (
+          <circle
+            cx={center + radius * Math.cos(((animatedValue / 100) * 360 - 90) * Math.PI / 180)}
+            cy={center + radius * Math.sin(((animatedValue / 100) * 360 - 90) * Math.PI / 180)}
+            r={strokeWidth / 2 + 1}
+            fill={gradientTo}
+            style={{ filter: showGlow ? `drop-shadow(0 0 4px ${gradientTo})` : undefined }}
+          />
+        )}
       </svg>
       {/* Center content */}
       <div style={{
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none',
       }}>
-        <motion.span
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-          style={{
-            fontSize: size * 0.25,
-            fontWeight: 800,
-            fontFamily: "'Space Grotesk', sans-serif",
-            color: 'var(--color-text)',
-            lineHeight: 1,
-          }}
-        >
-          {label ?? `${Math.round(value)}%`}
-        </motion.span>
+        <span style={{
+          fontSize: computedFontSize,
+          fontWeight: 800,
+          fontFamily: "'Space Grotesk', sans-serif",
+          background: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          lineHeight: 1.1,
+        }}>
+          {animatedValue}%
+        </span>
+        {label && (
+          <span style={{
+            fontSize: computedFontSize * 0.36,
+            fontWeight: 600,
+            color: 'var(--color-text-dim)',
+            marginTop: '0.15rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}>
+            {label}
+          </span>
+        )}
         {sublabel && (
-          <span style={{ fontSize: size * 0.1, color: 'var(--color-text-muted)', marginTop: 2 }}>
+          <span style={{
+            fontSize: computedFontSize * 0.3,
+            color: 'var(--color-text-muted)',
+            marginTop: '0.1rem',
+          }}>
             {sublabel}
           </span>
         )}

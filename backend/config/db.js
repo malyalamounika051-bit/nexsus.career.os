@@ -1,8 +1,15 @@
 const mongoose = require('mongoose');
 const dns = require('dns');
 
-// Force Google DNS — system resolver blocks SRV queries (ECONNREFUSED on Windows)
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+// Force Google DNS only on local Windows environments where system resolver blocks SRV queries (ECONNREFUSED on Windows)
+if (process.platform === 'win32' && !process.env.VERCEL) {
+  try {
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+    console.log('🔧 Forced Google DNS for local Windows compatibility');
+  } catch (dnsErr) {
+    console.warn('⚠️ Could not set DNS servers:', dnsErr.message);
+  }
+}
 
 const connectDB = async () => {
   try {

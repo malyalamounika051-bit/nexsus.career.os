@@ -46,7 +46,24 @@ Respond in this EXACT JSON format:
   "improvementAreas": [
     {"area": "Area Name", "priority": "High|Medium|Low", "description": "Brief description"},
     ...
-  ]
+  ],
+  "estimatedTimeToReady": "e.g. 4 months",
+  "salaryImpact": {
+    "currentRange": "e.g. ₹4-8 LPA",
+    "potentialRange": "e.g. ₹12-20 LPA",
+    "increase": "e.g. +150%"
+  },
+  "careerPathsUnlocked": ["Full Stack Developer", "Tech Lead", ...],
+  "learningPlan": [
+    {"week": "Week 1-2", "focus": "Topic or skill focus area", "resources": <number of recommended resources>},
+    ...
+  ],
+  "skillCategoryBreakdown": {
+    "frontend": <number 0-100>,
+    "backend": <number 0-100>,
+    "devops": <number 0-100>,
+    "softSkills": <number 0-100>
+  }
 }
 
 RULES:
@@ -55,6 +72,11 @@ RULES:
 - missingSkills: critical skills missing for the target role
 - recommendedProjects: 3-4 specific portfolio-worthy project ideas
 - improvementAreas: 3-5 areas ranked by priority
+- estimatedTimeToReady: realistic time estimate to become interview-ready for the target role
+- salaryImpact: current vs potential salary ranges and percentage increase after closing the skill gap
+- careerPathsUnlocked: 3-5 career roles that become accessible after closing the skill gap
+- learningPlan: 4-6 week-based learning milestones with focus areas and number of recommended resources
+- skillCategoryBreakdown: percentage proficiency scores (0-100) across key skill categories
 - Return ONLY the JSON object. No conversational text.`;
 
     const responseData = await callGeminiREST({

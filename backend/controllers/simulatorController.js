@@ -43,7 +43,26 @@ Respond in this EXACT JSON format:
   "growthPath": ["Junior", "Mid-Level", "Senior", "Lead", "Staff/Manager"],
   "salaryProgression": ["₹4-8 LPA", "₹8-15 LPA", ...],
   "requiredTraits": ["trait1", "trait2", "trait3", "trait4"],
-  "futureOpportunities": ["opportunity1", "opportunity2", "opportunity3", "opportunity4", "opportunity5"]
+  "futureOpportunities": ["opportunity1", "opportunity2", "opportunity3", "opportunity4", "opportunity5"],
+  "toolsUsed": [
+    {"name": "Tool Name", "category": "IDE|DevOps|Design|Communication|Database|Cloud|Testing|Other"},
+    ...
+  ],
+  "challengeScenarios": [
+    {"title": "Scenario Title", "description": "Brief description of the challenge", "difficulty": "Easy|Medium|Hard"},
+    ...
+  ],
+  "industryDemand": {
+    "level": "Very High|High|Medium|Low",
+    "openings": "estimated number of openings e.g. 50,000+",
+    "growthRate": "e.g. +25%"
+  },
+  "weeklyView": {
+    "codingHours": <number>,
+    "meetingHours": <number>,
+    "learningHours": <number>,
+    "otherHours": <number>
+  }
 }
 
 RULES:
@@ -56,6 +75,10 @@ RULES:
 - salaryProgression: corresponding salary ranges in Indian LPA for each level
 - requiredTraits: 4-5 personality traits needed
 - futureOpportunities: 4-5 career transitions possible from this role
+- toolsUsed: 5-8 tools commonly used in this career with their categories
+- challengeScenarios: 3-4 realistic workplace challenge scenarios with difficulty levels
+- industryDemand: current market demand level, estimated job openings in India, and year-over-year growth rate
+- weeklyView: realistic breakdown of weekly hours spent on coding, meetings, learning, and other activities (should total ~40 hours)
 - Return ONLY the JSON object. No conversational text.`;
 
     const responseData = await callGeminiREST({

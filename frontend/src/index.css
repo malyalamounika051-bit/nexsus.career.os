@@ -1516,3 +1516,237 @@ div:hover > .dropdown-menu {
     font-size: 16px !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   SKILL INTELLIGENCE HUB — PREMIUM STYLES
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Trend Leaderboard ──────────────────────────────────────── */
+.trend-lb-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+.trend-lb-item:hover {
+  border-color: var(--color-primary);
+  background: rgba(14, 165, 233, 0.06);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.1);
+}
+.trend-lb-rank {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.82rem;
+  font-family: 'Space Grotesk', sans-serif;
+  flex-shrink: 0;
+}
+.trend-lb-rank.gold { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.trend-lb-rank.silver { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.trend-lb-rank.bronze { background: rgba(180,83,9,0.15); color: #d97706; }
+.trend-lb-rank.default { background: var(--color-surface-3); color: var(--color-text-muted); }
+.trend-lb-bar {
+  flex: 1; height: 6px; border-radius: 99px;
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+.trend-lb-bar-fill {
+  height: 100%; border-radius: 99px;
+  background: var(--gradient-primary);
+  transition: width 1s ease-out;
+}
+
+/* ── Vertical Timeline ───────────────────────────────────────── */
+.v-timeline {
+  position: relative;
+  padding-left: 2rem;
+}
+.v-timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--color-primary), var(--color-accent), transparent);
+  border-radius: 99px;
+}
+.v-timeline-item {
+  position: relative;
+  padding: 0.6rem 0 0.6rem 1rem;
+  margin-bottom: 0.25rem;
+}
+.v-timeline-dot {
+  position: absolute;
+  left: -1.55rem; top: 0.85rem;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+}
+
+/* ── Skill Input ─────────────────────────────────────────────── */
+.skill-input-container {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  min-height: 48px;
+  cursor: text;
+  transition: border-color 0.2s;
+}
+.skill-input-container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+.skill-input-field {
+  flex: 1; min-width: 120px;
+  background: none; border: none; outline: none;
+  color: var(--color-text); font-size: 0.88rem;
+  font-family: 'Inter', sans-serif;
+}
+.skill-input-field::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ── Category Filter Tabs ────────────────────────────────────── */
+.cat-tabs {
+  display: flex; gap: 0.35rem;
+  flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.cat-tab {
+  padding: 0.4rem 0.9rem; border-radius: var(--radius-pill);
+  font-size: 0.75rem; font-weight: 600;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+.cat-tab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+}
+.cat-tab.active {
+  background: var(--color-primary-glow);
+  border-color: rgba(14,165,233,0.3);
+  color: var(--color-primary-light);
+  box-shadow: 0 0 10px rgba(14,165,233,0.1);
+}
+
+/* ── Skeleton Pulse ──────────────────────────────────────────── */
+@keyframes skeletonPulse {
+  0% { opacity: 0.08; }
+  50% { opacity: 0.15; }
+  100% { opacity: 0.08; }
+}
+.skel-pulse {
+  background: var(--color-surface-3);
+  border-radius: var(--radius-sm);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+.skel-circle {
+  border-radius: 50%;
+}
+
+/* ── Score Animations ────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(14,165,233,0.15); }
+  50% { box-shadow: 0 0 25px rgba(14,165,233,0.3), 0 0 50px rgba(168,85,247,0.1); }
+}
+.anim-glow-pulse {
+  animation: glowPulse 3s ease-in-out infinite;
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.anim-count {
+  animation: countUp 0.6s ease-out forwards;
+}
+
+/* ── Challenge Card ──────────────────────────────────────────── */
+.challenge-card {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  transition: all 0.25s ease;
+}
+.challenge-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 20px rgba(168,85,247,0.08);
+}
+.difficulty-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.difficulty-badge.easy {
+  background: var(--color-success-glow);
+  color: #6ee7b7;
+  border: 1px solid rgba(16,185,129,0.2);
+}
+.difficulty-badge.medium {
+  background: var(--color-warning-glow);
+  color: #fcd34d;
+  border: 1px solid rgba(245,158,11,0.2);
+}
+.difficulty-badge.hard {
+  background: var(--color-danger-glow);
+  color: #fca5a5;
+  border: 1px solid rgba(239,68,68,0.2);
+}
+
+/* ── Hub Section ─────────────────────────────────────────────── */
+.hub-section {
+  margin-bottom: 2rem;
+}
+.hub-section-title {
+  font-size: 1rem; font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Comparison Grid ─────────────────────────────────────────── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+@media (max-width: 768px) {
+  .compare-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Week-by-week Plan ───────────────────────────────────────── */
+.week-card {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  transition: border-color 0.2s;
+}
+.week-card:hover {
+  border-color: var(--color-primary);
+}
+.week-badge {
+  padding: 0.2rem 0.6rem; border-radius: var(--radius-sm);
+  font-size: 0.65rem; font-weight: 700;
+  background: var(--color-primary-glow);
+  border: 1px solid rgba(14,165,233,0.2);
+  color: var(--color-primary-light);
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+}
