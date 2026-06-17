@@ -34,10 +34,13 @@ export default function SkillTrends() {
       setTrendingLoading(true);
       try {
         const { data } = await api.get('/skill-intelligence/trending');
-        if (data.success && data.data?.skills) {
+        if (data.success && data.data?.skills && Array.isArray(data.data.skills) && data.data.skills.length > 0) {
           setTrendingSkills(data.data.skills);
+        } else {
+          throw new Error('API returned empty or invalid skills array');
         }
-      } catch {
+      } catch (err) {
+        console.warn('Failed to fetch trending skills, using fallback data:', err);
         // Fallback trending data
         setTrendingSkills([
           { rank: 1, name: 'AI Agents', trendScore: 97, futureRelevance: 'Very High', marketGrowth: '+180%', avgSalaryLpa: 25, category: 'ai', description: 'Building autonomous AI systems and multi-agent frameworks' },
