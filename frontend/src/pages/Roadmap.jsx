@@ -37,6 +37,8 @@ const RoadmapPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [loadMsg, setLoadMsg] = useState(0);
   const [viewMode, setViewMode] = useState('tree'); // 'tree' or 'timeline'
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('resources'); // 'resources' or 'ai'
 
   // Project submission state
   const [projName, setProjName] = useState('');
@@ -338,10 +340,7 @@ const RoadmapPage = () => {
 
         {/* Active GPS Dashboard */}
         {gps && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1.75rem', alignItems: 'start' }} className="gps-grid">
-            
-            {/* Left Column: Journey Map + Details */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '800px', margin: '0 auto' }}>
               
               {/* Section 1: Career Overview Card */}
               <motion.div
@@ -478,7 +477,7 @@ const RoadmapPage = () => {
                             {isEven && (
                               <motion.div
                                 whileHover={{ scale: 1.04, y: -2 }}
-                                onClick={() => setActiveCheckpoint(cp)}
+                                onClick={() => { setActiveCheckpoint(cp); setDrawerOpen(true); }}
                                 style={{
                                   background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
                                   border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
@@ -504,7 +503,7 @@ const RoadmapPage = () => {
                           {/* Center Node / Bullet Connector */}
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', height: '100%' }}>
                             <div
-                              onClick={() => setActiveCheckpoint(cp)}
+                              onClick={() => { setActiveCheckpoint(cp); setDrawerOpen(true); }}
                               style={{
                                 width: '32px',
                                 height: '32px',
@@ -532,7 +531,7 @@ const RoadmapPage = () => {
                             {!isEven && (
                               <motion.div
                                 whileHover={{ scale: 1.04, y: -2 }}
-                                onClick={() => setActiveCheckpoint(cp)}
+                                onClick={() => { setActiveCheckpoint(cp); setDrawerOpen(true); }}
                                 style={{
                                   background: isActive ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
                                   border: isActive ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
@@ -581,7 +580,7 @@ const RoadmapPage = () => {
                         <motion.div
                           key={cp._id || cp.level}
                           whileHover={{ x: 4 }}
-                          onClick={() => setActiveCheckpoint(cp)}
+                          onClick={() => { setActiveCheckpoint(cp); setDrawerOpen(true); }}
                           style={{
                             display: 'flex',
                             gap: '1.25rem',
@@ -642,282 +641,405 @@ const RoadmapPage = () => {
                 )}
               </div>
             </div>
+          )
+        }
 
-            {/* Right Column: Mission Control + Sara Navigator */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              
-              {/* Section 4: Sara AI Guidance Box */}
-              {(() => {
-                const nextIncomplete = gps.checkpoints.find(c => !c.completed) || gps.checkpoints[0];
-                const recommendedCourse = nextIncomplete?.resources?.find(r => r.type === 'course' || r.type === 'youtube');
-                const recommendedProject = nextIncomplete?.projects?.[0];
+        {/* Sliding Side Drawer Overlay & Panel (roadmap.sh style) */}
+        <AnimatePresence>
+          {drawerOpen && activeCheckpoint && (
+            <>
+              {/* Dim/Blur Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  background: 'rgba(3, 5, 12, 0.6)',
+                  backdropFilter: 'blur(5px)',
+                  zIndex: 9998
+                }}
+              />
 
-                return (
-                  <div style={{
-                    background: 'var(--gradient-primary-soft)',
-                    border: '1px solid rgba(14,165,233,0.15)',
-                    padding: '1.25rem',
-                    borderRadius: 16
-                  }}>
-                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: '0.6rem' }}>
-                      <Sparkles size={16} color="var(--color-primary-light)" />
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sara Navigator Guidance</span>
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                      {gps.progress === 100 ? (
-                        <p style={{ margin: 0 }}>Incredible achievement! You have fully completed the GPS route for {gps.destination}. Practice mock interviews to ensure job readiness!</p>
-                      ) : (
-                        <div>
-                          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 700, color: 'var(--color-text)' }}>
-                            Your next checkpoint is <span style={{ color: 'var(--color-primary-light)' }}>{nextIncomplete?.title}</span>.
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.76rem', color: 'var(--color-text-dim)' }}>
-                            <div>⏱️ <strong>Estimated Time:</strong> {nextIncomplete?.estimatedTime || '2 Weeks'}</div>
-                            {recommendedCourse && (
-                              <div>🎓 <strong>Recommended Course:</strong> <span style={{ color: 'var(--color-primary-light)' }}>{recommendedCourse.title}</span></div>
-                            )}
-                            {recommendedProject && (
-                              <div>🛠️ <strong>Project:</strong> <span style={{ color: 'var(--color-accent-light)' }}>{recommendedProject.title}</span></div>
-                            )}
-                            <div>🏆 <strong>Completion Reward:</strong> +{nextIncomplete?.xpReward || 250} XP</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+              {/* Slide-in Drawer */}
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: 'min(500px, 100vw)',
+                  background: 'var(--color-surface)',
+                  borderLeft: '1px solid var(--color-border)',
+                  boxShadow: '-10px 0 40px rgba(0,0,0,0.6)',
+                  zIndex: 9999,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Drawer Header */}
+                <div style={{
+                  padding: '1.25rem 1.5rem',
+                  borderBottom: '1px solid var(--color-border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'var(--color-bg-secondary)'
+                }}>
+                  {/* Tab Selector */}
+                  <div style={{ display: 'flex', background: 'var(--color-surface-3)', padding: '2px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                    <button
+                      onClick={() => setActiveTab('resources')}
+                      style={{
+                        padding: '0.4rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        background: activeTab === 'resources' ? 'var(--gradient-primary)' : 'transparent',
+                        color: activeTab === 'resources' ? 'white' : 'var(--color-text-dim)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      📚 Resources
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('ai')}
+                      style={{
+                        padding: '0.4rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        background: activeTab === 'ai' ? 'var(--gradient-primary)' : 'transparent',
+                        color: activeTab === 'ai' ? 'white' : 'var(--color-text-dim)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      🤖 AI Guide
+                    </button>
                   </div>
-                );
-              })()}
 
-              {/* Section 3: Current Mission Details */}
-              {activeCheckpoint && (
-                <div className="glass-card" style={{ padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.6rem' }}>
-                    <div>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Current Mission</span>
-                      <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem', fontFamily: "'Space Grotesk', sans-serif" }}>{activeCheckpoint.title}</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {/* Completion Status Badge */}
+                    <div style={{
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: '8px',
+                      background: activeCheckpoint.completed ? 'var(--color-success-glow)' : 'rgba(245,158,11,0.08)',
+                      border: activeCheckpoint.completed ? '1px solid var(--color-success)' : '1px solid var(--color-warning)',
+                      color: activeCheckpoint.completed ? 'var(--color-success)' : 'var(--color-warning)',
+                      fontSize: '0.74rem',
+                      fontWeight: 700
+                    }}>
+                      {activeCheckpoint.completed ? 'Completed' : 'In Progress'}
                     </div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--color-primary-light)', fontWeight: 700 }}>+{activeCheckpoint.xpReward || activeCheckpoint.rewardXP || 250} XP</span>
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => setDrawerOpen(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-text-dim)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.25rem',
+                        borderRadius: '50%',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-surface-2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                    >
+                      <Plus size={22} style={{ transform: 'rotate(45deg)' }} />
+                    </button>
                   </div>
-
-                  {/* Skills To Learn */}
-                  {activeCheckpoint.skills && activeCheckpoint.skills.length > 0 && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>Skills to Master</span>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                        {activeCheckpoint.skills.map((skill, idx) => (
-                          <span key={idx} style={{ padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Learning Resources */}
-                  {activeCheckpoint.resources && activeCheckpoint.resources.length > 0 && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>Learning Resources</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        {activeCheckpoint.resources.map((res, idx) => {
-                          const Icon = CATEGORY_ICONS[res.type] || BookOpen;
-                          const iconColor = CATEGORY_COLORS[res.type] || '#0ea5e9';
-                          return (
-                            <a key={idx} href={res.url} target="_blank" rel="noopener noreferrer" style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '0.45rem 0.6rem',
-                              borderRadius: 6,
-                              background: 'var(--color-surface-2)',
-                              border: '1px solid var(--color-border)',
-                              textDecoration: 'none',
-                              fontSize: '0.76rem',
-                              transition: 'transform 0.15s ease'
-                            }} className="resource-item-hover">
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <Icon size={12} color={iconColor} />
-                                <span style={{ color: 'var(--color-text-dim)', fontWeight: 500 }}>{res.title}</span>
-                              </div>
-                              <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.04)', padding: '0.1rem 0.3rem', borderRadius: 4 }}>
-                                {res.provider}
-                              </span>
-                            </a>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Certifications */}
-                  {activeCheckpoint.certifications && activeCheckpoint.certifications.length > 0 && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>Certifications</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        {activeCheckpoint.certifications.map((cert, idx) => (
-                          <div key={idx} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
-                            padding: '0.45rem 0.6rem',
-                            borderRadius: 6,
-                            background: 'rgba(251, 191, 36, 0.03)',
-                            border: '1px solid rgba(251, 191, 36, 0.1)',
-                            fontSize: '0.76rem',
-                            color: 'var(--color-text-dim)'
-                          }}>
-                            <Award size={12} color="#fbbf24" />
-                            <span style={{ fontWeight: 500 }}>{cert}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mini Projects */}
-                  {activeCheckpoint.projects && activeCheckpoint.projects.length > 0 && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>Checkpoint Projects</span>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {activeCheckpoint.projects.map((proj, idx) => (
-                          <div key={idx} style={{
-                            padding: '0.6rem',
-                            borderRadius: 6,
-                            background: 'var(--color-surface-2)',
-                            border: '1px solid var(--color-border)',
-                            fontSize: '0.76rem'
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                              <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{proj.title}</span>
-                              <span style={{ fontSize: '0.6rem', color: '#10b981', background: 'rgba(16,185,129,0.08)', padding: '0.05rem 0.25rem', borderRadius: 4, fontWeight: 600 }}>{proj.difficulty}</span>
-                            </div>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.72rem', margin: '0 0 0.3rem 0', lineHeight: 1.3 }}>{proj.description}</p>
-                            {proj.expectedOutcome && (
-                              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-dim)' }}>
-                                <strong>Outcome:</strong> {proj.expectedOutcome}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Completion Criteria List */}
-                  {activeCheckpoint.completionCriteria && activeCheckpoint.completionCriteria.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1.25rem', borderTop: '1px solid var(--color-border)', paddingTop: '0.8rem' }}>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completion Criteria</span>
-                      {activeCheckpoint.completionCriteria.map((task, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => handleToggleTask(activeCheckpoint.level, task.title, task.completed)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.6rem',
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: 8,
-                            background: 'var(--color-surface-2)',
-                            border: '1px solid var(--color-border)',
-                            cursor: 'pointer',
-                            fontSize: '0.82rem',
-                            color: task.completed ? 'var(--color-text-muted)' : 'var(--color-text-dim)'
-                          }}
-                        >
-                          <span style={{ color: task.completed ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-                            {task.completed ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-                          </span>
-                          <span style={{ textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Section 6: Project Submission Form */}
-                  <form onSubmit={handleProjectSubmit} style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.5rem' }}>
-                      Submit Checkpoint Project (+500 XP)
-                    </span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      <input
-                        className="input"
-                        placeholder="Project Name"
-                        value={projName}
-                        onChange={e => setProjName(e.target.value)}
-                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem' }}
-                        required
-                      />
-                      <input
-                        className="input"
-                        placeholder="GitHub URL"
-                        value={projUrl}
-                        onChange={e => setProjUrl(e.target.value)}
-                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem' }}
-                        required
-                      />
-                      <textarea
-                        className="input"
-                        placeholder="Short description"
-                        value={projDesc}
-                        onChange={e => setProjDesc(e.target.value)}
-                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.78rem', height: 44, resize: 'none' }}
-                      />
-                      <button
-                        type="submit"
-                        disabled={projSubmitting || !projName || !projUrl}
-                        className="btn-primary"
-                        style={{ padding: '0.4rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', width: '100%' }}
-                      >
-                        {projSubmitting ? 'Submitting...' : <><Link size={12} /> Submit Project</>}
-                      </button>
-                      {projSuccess && (
-                        <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, textAlign: 'center', display: 'block', marginTop: '0.2rem' }}>
-                          ✓ Project saved! +500 XP Earned
-                        </span>
-                      )}
-                    </div>
-                  </form>
                 </div>
-              )}
 
-              {/* Section 5: Achievements & Badges */}
-              <div className="glass-card" style={{ padding: '1.25rem' }}>
-                <h4 style={{ fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '1rem', letterSpacing: '0.04em' }}>
-                  Achievements & Badges
-                </h4>
-                {gps.badges.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '1rem 0', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>
-                    Complete checkpoints or submit projects to unlock badges!
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                    {gps.badges.map((b, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '0.6rem',
-                          borderRadius: 10,
-                          background: 'var(--color-surface-2)',
-                          border: '1px solid var(--color-border)',
-                          textAlign: 'center',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '0.3rem'
-                        }}
-                      >
-                        <Award size={20} color="#fbbf24" />
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text)' }}>{b.name}</span>
-                        <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)' }}>{new Date(b.unlockedAt).toLocaleDateString()}</span>
+                {/* Drawer Body */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  {activeTab === 'resources' ? (
+                    <>
+                      {/* Title & Description */}
+                      <div>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Current Checkpoint</span>
+                        <h2 style={{ margin: '0.1rem 0 0.4rem 0', fontWeight: 800, fontSize: '1.4rem', fontFamily: "'Space Grotesk', sans-serif" }}>{activeCheckpoint.title}</h2>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{activeCheckpoint.description}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-            </div>
+                      {/* Skills to Learn */}
+                      {activeCheckpoint.skills && activeCheckpoint.skills.length > 0 && (
+                        <div>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.45rem' }}>Skills to Master</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                            {activeCheckpoint.skills.map((skill, idx) => (
+                              <span key={idx} style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.72rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
-          </div>
-        )}
+                      {/* Learning Resources */}
+                      {activeCheckpoint.resources && activeCheckpoint.resources.length > 0 && (
+                        <div>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.45rem' }}>Learning Resources</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                            {activeCheckpoint.resources.map((res, idx) => {
+                              const Icon = CATEGORY_ICONS[res.type] || BookOpen;
+                              const iconColor = CATEGORY_COLORS[res.type] || '#0ea5e9';
+                              return (
+                                <a key={idx} href={res.url} target="_blank" rel="noopener noreferrer" style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '0.6rem 0.75rem',
+                                  borderRadius: 8,
+                                  background: 'var(--color-surface-2)',
+                                  border: '1px solid var(--color-border)',
+                                  textDecoration: 'none',
+                                  fontSize: '0.82rem',
+                                  transition: 'transform 0.15s ease'
+                                }} className="resource-item-hover">
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Icon size={14} color={iconColor} />
+                                    <span style={{ color: 'var(--color-text-dim)', fontWeight: 500 }}>{res.title}</span>
+                                  </div>
+                                  <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.04)', padding: '0.15rem 0.4rem', borderRadius: 4 }}>
+                                    {res.provider}
+                                  </span>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Certifications */}
+                      {activeCheckpoint.certifications && activeCheckpoint.certifications.length > 0 && (
+                        <div>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.45rem' }}>Certifications</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                            {activeCheckpoint.certifications.map((cert, idx) => (
+                              <div key={idx} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.6rem 0.75rem',
+                                borderRadius: 8,
+                                background: 'rgba(251, 191, 36, 0.03)',
+                                border: '1px solid rgba(251, 191, 36, 0.1)',
+                                fontSize: '0.82rem',
+                                color: 'var(--color-text-dim)'
+                              }}>
+                                <Award size={14} color="#fbbf24" />
+                                <span style={{ fontWeight: 500 }}>{cert}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mini Projects */}
+                      {activeCheckpoint.projects && activeCheckpoint.projects.length > 0 && (
+                        <div>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.45rem' }}>Checkpoint Projects</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            {activeCheckpoint.projects.map((proj, idx) => (
+                              <div key={idx} style={{
+                                padding: '0.75rem',
+                                borderRadius: 8,
+                                background: 'var(--color-surface-2)',
+                                border: '1px solid var(--color-border)',
+                                fontSize: '0.82rem'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                  <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{proj.title}</span>
+                                  <span style={{ fontSize: '0.62rem', color: '#10b981', background: 'rgba(16,185,129,0.08)', padding: '0.05rem 0.3rem', borderRadius: 4, fontWeight: 600 }}>{proj.difficulty}</span>
+                                </div>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.78rem', margin: '0 0 0.4rem 0', lineHeight: 1.4 }}>{proj.description}</p>
+                                {proj.expectedOutcome && (
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)' }}>
+                                    <strong>Outcome:</strong> {proj.expectedOutcome}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Completion Criteria List */}
+                      {activeCheckpoint.completionCriteria && activeCheckpoint.completionCriteria.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Completion Criteria</span>
+                          {activeCheckpoint.completionCriteria.map((task, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => handleToggleTask(activeCheckpoint.level, task.title, task.completed)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.6rem',
+                                padding: '0.6rem 0.8rem',
+                                borderRadius: 8,
+                                background: 'var(--color-surface-2)',
+                                border: '1px solid var(--color-border)',
+                                cursor: 'pointer',
+                                fontSize: '0.82rem',
+                                color: task.completed ? 'var(--color-text-muted)' : 'var(--color-text-dim)'
+                              }}
+                            >
+                              <span style={{ color: task.completed ? 'var(--color-success)' : 'var(--color-text-muted)', display: 'flex', alignItems: 'center' }}>
+                                {task.completed ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                              </span>
+                              <span style={{ textDecoration: task.completed ? 'line-through' : 'none' }}>{task.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Project Submission Form */}
+                      <form onSubmit={handleProjectSubmit} style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.25rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.6rem' }}>
+                          Submit Checkpoint Project (+500 XP)
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <input
+                            className="input"
+                            placeholder="Project Name"
+                            value={projName}
+                            onChange={e => setProjName(e.target.value)}
+                            style={{ padding: '0.5rem 0.75rem', fontSize: '0.82rem' }}
+                            required
+                          />
+                          <input
+                            className="input"
+                            placeholder="GitHub URL"
+                            value={projUrl}
+                            onChange={e => setProjUrl(e.target.value)}
+                            style={{ padding: '0.5rem 0.75rem', fontSize: '0.82rem' }}
+                            required
+                          />
+                          <textarea
+                            className="input"
+                            placeholder="Short description"
+                            value={projDesc}
+                            onChange={e => setProjDesc(e.target.value)}
+                            style={{ padding: '0.5rem 0.75rem', fontSize: '0.82rem', height: 50, resize: 'none' }}
+                          />
+                          <button
+                            type="submit"
+                            disabled={projSubmitting || !projName || !projUrl}
+                            className="btn-primary"
+                            style={{ padding: '0.5rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%' }}
+                          >
+                            {projSubmitting ? 'Submitting...' : <><Link size={14} /> Submit Project</>}
+                          </button>
+                          {projSuccess && (
+                            <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600, textAlign: 'center', display: 'block', marginTop: '0.25rem' }}>
+                              ✓ Project saved! +500 XP Earned
+                            </span>
+                          )}
+                        </div>
+                      </form>
+                    </>
+                  ) : (
+                    <>
+                      {/* AI guidance navigator */}
+                      {(() => {
+                        const nextIncomplete = gps.checkpoints.find(c => !c.completed) || gps.checkpoints[0];
+                        const recommendedCourse = nextIncomplete?.resources?.find(r => r.type === 'course' || r.type === 'youtube');
+                        const recommendedProject = nextIncomplete?.projects?.[0];
+
+                        return (
+                          <div style={{
+                            background: 'var(--gradient-primary-soft)',
+                            border: '1px solid rgba(14,165,233,0.15)',
+                            padding: '1.25rem',
+                            borderRadius: 16
+                          }}>
+                            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: '0.6rem' }}>
+                              <Sparkles size={16} color="var(--color-primary-light)" />
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sara Navigator Guidance</span>
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                              {gps.progress === 100 ? (
+                                <p style={{ margin: 0 }}>Incredible achievement! You have fully completed the GPS route for {gps.destination}. Practice mock interviews to ensure job readiness!</p>
+                              ) : (
+                                <div>
+                                  <p style={{ margin: '0 0 0.5rem 0', fontWeight: 700, color: 'var(--color-text)' }}>
+                                    Your next checkpoint is <span style={{ color: 'var(--color-primary-light)' }}>{nextIncomplete?.title}</span>.
+                                  </p>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--color-text-dim)' }}>
+                                    <div>⏱️ <strong>Estimated Time:</strong> {nextIncomplete?.estimatedTime || '2 Weeks'}</div>
+                                    {recommendedCourse && (
+                                      <div>🎓 <strong>Recommended Course:</strong> <span style={{ color: 'var(--color-primary-light)' }}>{recommendedCourse.title}</span></div>
+                                    )}
+                                    {recommendedProject && (
+                                      <div>🛠️ <strong>Project:</strong> <span style={{ color: 'var(--color-accent-light)' }}>{recommendedProject.title}</span></div>
+                                    )}
+                                    <div>🏆 <strong>Completion Reward:</strong> +{nextIncomplete?.xpReward || 250} XP</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Achievements */}
+                      <div className="glass-card" style={{ padding: '1.25rem' }}>
+                        <h4 style={{ fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '1rem', letterSpacing: '0.04em' }}>
+                          Achievements & Badges
+                        </h4>
+                        {gps.badges.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '1rem 0', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>
+                            Complete checkpoints or submit projects to unlock badges!
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                            {gps.badges.map((b, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  padding: '0.6rem',
+                                  borderRadius: 10,
+                                  background: 'var(--color-surface-2)',
+                                  border: '1px solid var(--color-border)',
+                                  textAlign: 'center',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  gap: '0.3rem'
+                                }}
+                              >
+                                <Award size={20} color="#fbbf24" />
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text)' }}>{b.name}</span>
+                                <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)' }}>{new Date(b.unlockedAt).toLocaleDateString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
       </main>
     </div>
