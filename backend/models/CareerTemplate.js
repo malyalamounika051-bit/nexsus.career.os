@@ -12,7 +12,10 @@ const resourceSchema = new mongoose.Schema({
   qualityScore: { type: Number, default: 0 },
   estimatedHours: { type: Number, default: 0 },
   channel: String,
-  duration: String
+  duration: String,
+  verified: { type: Boolean, default: false },
+  lastChecked: { type: Date, default: Date.now },
+  sourceType: { type: String }
 }, { _id: false });
 
 const projectSchema = new mongoose.Schema({

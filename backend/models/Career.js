@@ -14,6 +14,10 @@ const resourceSchema = new mongoose.Schema({
     enum: ['youtube', 'course', 'blog', 'docs', 'platform', 'community', 'book', 'other'],
     default: 'other',
   },
+  verified: { type: Boolean, default: false },
+  qualityScore: { type: Number, default: 70 },
+  lastChecked: { type: Date, default: Date.now },
+  sourceType: { type: String },
 }, { _id: false });
 
 /* ── Roadmap Phase sub-schema ──────────────────────────── */

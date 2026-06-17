@@ -8,6 +8,7 @@ const {
   getGeneratedRoadmaps,
   deleteRoadmap,
   updateProgress,
+  triggerResourceVerification,
 } = require('../controllers/careerController');
 const { getSkillCorrelation } = require('../controllers/skillCorrelationController');
 const { protect } = require('../middleware/authMiddleware');
@@ -22,6 +23,7 @@ router.post('/generate-roadmap', protect, generateRoadmap);
 router.get('/my-roadmaps', protect, getGeneratedRoadmaps);
 router.delete('/roadmap/:id', protect, deleteRoadmap);
 router.patch('/roadmap/:id/progress', protect, updateProgress);
+router.post('/verify-resources', triggerResourceVerification);
 
 // Public — must be last (catches :id)
 router.get('/:id', getCareerById);
