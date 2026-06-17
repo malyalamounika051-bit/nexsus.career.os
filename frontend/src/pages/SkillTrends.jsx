@@ -8,7 +8,8 @@ import api from '../services/api';
 import {
   TrendingUp, Search, Sparkles, Briefcase, Award,
   DollarSign, BarChart2, BookOpen, HelpCircle, Flame,
-  Zap, ArrowUpRight, ChevronRight, Brain, Layers
+  Zap, ArrowUpRight, ChevronRight, Brain, Layers,
+  GitCompareArrows
 } from 'lucide-react';
 
 const CATEGORIES = ['All', 'AI/ML', 'Cloud', 'Frontend', 'Backend', 'DevOps', 'Data'];
@@ -27,44 +28,11 @@ export default function SkillTrends() {
   const [learnNextData, setLearnNextData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
-
-  // Fetch trending skills on mount
-  useEffect(() => {
-    const fetchTrending = async () => {
-      setTrendingLoading(true);
-      try {
-        const { data } = await api.get('/skill-intelligence/trending');
-        if (data.success && data.data?.skills && Array.isArray(data.data.skills) && data.data.skills.length > 0) {
-          setTrendingSkills(data.data.skills);
-        } else {
-          throw new Error('API returned empty or invalid skills array');
-        }
-      } catch (err) {
-        console.warn('Failed to fetch trending skills, using fallback data:', err);
-        // Fallback trending data
-        setTrendingSkills([
-          { rank: 1, name: 'AI Agents', trendScore: 97, futureRelevance: 'Very High', marketGrowth: '+180%', avgSalaryLpa: 25, category: 'ai', description: 'Building autonomous AI systems and multi-agent frameworks' },
-          { rank: 2, name: 'RAG Systems', trendScore: 94, futureRelevance: 'Very High', marketGrowth: '+160%', avgSalaryLpa: 22, category: 'ai', description: 'Retrieval-Augmented Generation for enterprise AI' },
-          { rank: 3, name: 'Kubernetes', trendScore: 91, futureRelevance: 'High', marketGrowth: '+85%', avgSalaryLpa: 20, category: 'devops', description: 'Container orchestration at scale' },
-          { rank: 4, name: 'Next.js', trendScore: 89, futureRelevance: 'High', marketGrowth: '+95%', avgSalaryLpa: 18, category: 'frontend', description: 'Full-stack React framework for production' },
-          { rank: 5, name: 'LangChain', trendScore: 88, futureRelevance: 'Very High', marketGrowth: '+200%', avgSalaryLpa: 24, category: 'ai', description: 'LLM application development framework' },
-          { rank: 6, name: 'Rust', trendScore: 86, futureRelevance: 'High', marketGrowth: '+120%', avgSalaryLpa: 22, category: 'backend', description: 'High-performance systems programming' },
-          { rank: 7, name: 'Terraform', trendScore: 84, futureRelevance: 'High', marketGrowth: '+75%', avgSalaryLpa: 19, category: 'devops', description: 'Infrastructure as Code for cloud' },
-          { rank: 8, name: 'GraphQL', trendScore: 82, futureRelevance: 'High', marketGrowth: '+65%', avgSalaryLpa: 17, category: 'backend', description: 'Efficient API query language' },
-          { rank: 9, name: 'Apache Kafka', trendScore: 80, futureRelevance: 'High', marketGrowth: '+55%', avgSalaryLpa: 21, category: 'data', description: 'Event streaming platform for real-time data' },
-          { rank: 10, name: 'Edge Computing', trendScore: 78, futureRelevance: 'Very High', marketGrowth: '+140%', avgSalaryLpa: 20, category: 'cloud', description: 'Processing data at network edge' },
-          { rank: 11, name: 'Cybersecurity AI', trendScore: 77, futureRelevance: 'Very High', marketGrowth: '+130%', avgSalaryLpa: 23, category: 'ai', description: 'AI-powered threat detection and response' },
-          { rank: 12, name: 'Flutter', trendScore: 75, futureRelevance: 'High', marketGrowth: '+70%', avgSalaryLpa: 15, category: 'frontend', description: 'Cross-platform mobile development' },
-        ]);
-      } finally {
-        setTrendingLoading(false);
-      }
-    };
-    fetchTrending();
-  }, []);
+  const [addedToTargets, setAddedToTargets] = useState(false);
 
   const handleSelectSkill = async (skill) => {
     setSelectedSkill(skill);
+    setAddedToTargets(false);
     setDeepDiveLoading(true);
     setError('');
 
@@ -134,6 +102,56 @@ export default function SkillTrends() {
     }
   };
 
+  const handleAddToTargets = () => {
+    if (!selectedSkill) return;
+    const currentTargets = JSON.parse(localStorage.getItem('target_skills') || '[]');
+    if (!currentTargets.includes(selectedSkill.name)) {
+      currentTargets.push(selectedSkill.name);
+      localStorage.setItem('target_skills', JSON.stringify(currentTargets));
+    }
+    setAddedToTargets(true);
+  };
+
+  // Fetch trending skills on mount
+  useEffect(() => {
+    const fetchTrending = async () => {
+      setTrendingLoading(true);
+      let loadedSkills = [];
+      try {
+        const { data } = await api.get('/skill-intelligence/trending');
+        if (data.success && data.data?.skills && Array.isArray(data.data.skills) && data.data.skills.length > 0) {
+          loadedSkills = data.data.skills;
+        } else {
+          throw new Error('API returned empty or invalid skills array');
+        }
+      } catch (err) {
+        console.warn('Failed to fetch trending skills, using fallback data:', err);
+        // Fallback trending data
+        loadedSkills = [
+          { rank: 1, name: 'AI Agents', trendScore: 97, futureRelevance: 'Very High', marketGrowth: '+180%', avgSalaryLpa: 25, category: 'ai', description: 'Building autonomous AI systems and multi-agent frameworks' },
+          { rank: 2, name: 'RAG Systems', trendScore: 94, futureRelevance: 'Very High', marketGrowth: '+160%', avgSalaryLpa: 22, category: 'ai', description: 'Retrieval-Augmented Generation for enterprise AI' },
+          { rank: 3, name: 'Kubernetes', trendScore: 91, futureRelevance: 'High', marketGrowth: '+85%', avgSalaryLpa: 20, category: 'devops', description: 'Container orchestration at scale' },
+          { rank: 4, name: 'Next.js', trendScore: 89, futureRelevance: 'High', marketGrowth: '+95%', avgSalaryLpa: 18, category: 'frontend', description: 'Full-stack React framework for production' },
+          { rank: 5, name: 'LangChain', trendScore: 88, futureRelevance: 'Very High', marketGrowth: '+200%', avgSalaryLpa: 24, category: 'ai', description: 'LLM application development framework' },
+          { rank: 6, name: 'Rust', trendScore: 86, futureRelevance: 'High', marketGrowth: '+120%', avgSalaryLpa: 22, category: 'backend', description: 'High-performance systems programming' },
+          { rank: 7, name: 'Terraform', trendScore: 84, futureRelevance: 'High', marketGrowth: '+75%', avgSalaryLpa: 19, category: 'devops', description: 'Infrastructure as Code for cloud' },
+          { rank: 8, name: 'GraphQL', trendScore: 82, futureRelevance: 'High', marketGrowth: '+65%', avgSalaryLpa: 17, category: 'backend', description: 'Efficient API query language' },
+          { rank: 9, name: 'Apache Kafka', trendScore: 80, futureRelevance: 'High', marketGrowth: '+55%', avgSalaryLpa: 21, category: 'data', description: 'Event streaming platform for real-time data' },
+          { rank: 10, name: 'Edge Computing', trendScore: 78, futureRelevance: 'Very High', marketGrowth: '+140%', avgSalaryLpa: 20, category: 'cloud', description: 'Processing data at network edge' },
+          { rank: 11, name: 'Cybersecurity AI', trendScore: 77, futureRelevance: 'Very High', marketGrowth: '+130%', avgSalaryLpa: 23, category: 'ai', description: 'AI-powered threat detection and response' },
+          { rank: 12, name: 'Flutter', trendScore: 75, futureRelevance: 'High', marketGrowth: '+70%', avgSalaryLpa: 15, category: 'frontend', description: 'Cross-platform mobile development' },
+        ];
+      } finally {
+        setTrendingSkills(loadedSkills);
+        setTrendingLoading(false);
+        if (loadedSkills.length > 0) {
+          handleSelectSkill(loadedSkills[0]);
+        }
+      }
+    };
+    fetchTrending();
+  }, []);
+
   const getRankClass = (rank) => rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : 'default';
 
   const categoryMap = {
@@ -162,7 +180,7 @@ export default function SkillTrends() {
       <main className={`app-main ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
 
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2rem' }}>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
             <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
               <TrendingUp size={22} color="white" />
@@ -175,6 +193,26 @@ export default function SkillTrends() {
                 Discover trending skills, salary insights, and your next learning path
               </p>
             </div>
+          </div>
+
+          {/* User Guidance Banner */}
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.85rem 1.25rem',
+            borderRadius: '12px',
+            background: 'rgba(14, 165, 233, 0.06)',
+            border: '1px solid rgba(14, 165, 233, 0.15)',
+            fontSize: '0.85rem',
+            color: '#38bdf8',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            lineHeight: 1.4
+          }}>
+            <Sparkles size={16} style={{ flexShrink: 0, color: '#f59e0b' }} />
+            <span>
+              <strong>💡 Actionable Intelligence:</strong> Select any skill from the leaderboard on the left to inspect its demand curve, salary brackets, paired tools, and generate a learning roadmap.
+            </span>
           </div>
         </motion.div>
 
@@ -268,7 +306,7 @@ export default function SkillTrends() {
                     </div>
 
                     {/* Metric row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
                       {[
                         { label: 'Future Demand', value: selectedSkill.futureRelevance, color: selectedSkill.futureRelevance === 'Very High' ? '#10b981' : '#0ea5e9', icon: ArrowUpRight },
                         { label: 'Market Growth', value: selectedSkill.marketGrowth, color: '#10b981', icon: TrendingUp },
@@ -281,6 +319,55 @@ export default function SkillTrends() {
                           <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{m.label}</div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Action Bar */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.6rem',
+                      flexWrap: 'wrap',
+                      paddingTop: '1rem',
+                      borderTop: '1px solid var(--color-border)',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+                        QUICK ACTIONS
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-secondary" 
+                          onClick={() => window.location.href = `/skill-compare?skill1=${encodeURIComponent(selectedSkill.name)}`}
+                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(255,255,255,0.03)' }}
+                        >
+                          <GitCompareArrows size={13} /> Compare
+                        </button>
+                        <button className="btn btn-secondary" 
+                          onClick={() => window.location.href = `/roadmaps?generate=${encodeURIComponent(selectedSkill.name)}`}
+                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(255,255,255,0.03)' }}
+                        >
+                          <BookOpen size={13} /> Generate Roadmap
+                        </button>
+                        <button className="btn btn-secondary" 
+                          onClick={() => window.location.href = `/jobs?search=${encodeURIComponent(selectedSkill.name)}`}
+                          style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(255,255,255,0.03)' }}
+                        >
+                          <Briefcase size={13} /> Find Jobs
+                        </button>
+                        <button className={`btn ${addedToTargets ? 'btn-success' : 'btn-primary'}`} 
+                          onClick={handleAddToTargets}
+                          style={{
+                            padding: '0.4rem 0.75rem',
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            background: addedToTargets ? '#10b981' : 'var(--gradient-primary)',
+                            borderColor: addedToTargets ? '#10b981' : ''
+                          }}
+                        >
+                          <Zap size={13} /> {addedToTargets ? 'Saved to Targets!' : 'Add to Targets'}
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
 

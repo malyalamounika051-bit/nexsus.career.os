@@ -159,22 +159,27 @@ const SkillGraph = ({
       const pos = positions[i];
       if (!pos) return;
 
-      const baseSize = (node.size || 1) * 8 + 12;
+      // Normalize size: Gemini uses 10-50, mock data uses 1-5. Normalize to radius 12-32
+      let sizeVal = node.size || 3;
+      if (sizeVal > 6) {
+        sizeVal = 1 + ((sizeVal - 10) / 40) * 4; // Map 10-50 -> 1-5
+      }
+      const r = sizeVal * 5 + 8; // Radius will be 13 to 33
+
       const isHovered = hoveredNode === node.id;
       const isSelected = selectedNodeId === node.id;
       const color = CATEGORY_COLORS[node.category] || CATEGORY_COLORS.default;
-      const r = isHovered || isSelected ? baseSize + 4 : baseSize;
 
-      // Glow
+      // Glow effect for selected/hovered nodes
       if (isHovered || isSelected) {
         ctx.shadowColor = color;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 15;
       }
 
-      // Node circle
+      // Node circle background
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = isHovered || isSelected ? color : `${color}33`;
+      ctx.fillStyle = isHovered || isSelected ? color : `${color}25`;
       ctx.fill();
       ctx.strokeStyle = color;
       ctx.lineWidth = isHovered || isSelected ? 2.5 : 1.5;
@@ -183,13 +188,24 @@ const SkillGraph = ({
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
 
-      // Label
-      ctx.fillStyle = isHovered || isSelected ? '#fff' : 'var(--color-text-dim, #8899b0)';
-      ctx.font = `${isHovered || isSelected ? 'bold ' : ''}${Math.max(10, baseSize * 0.55)}px Inter, sans-serif`;
+      // Label below the circle
+      const labelY = pos.x; // for centering
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = isHovered || isSelected ? '#ffffff' : '#8899b0';
-      ctx.fillText(node.label, pos.x, pos.y);
+      ctx.textBaseline = 'top';
+      
+      // Draw a subtle background behind the text if selected or hovered
+      if (isHovered || isSelected) {
+        ctx.font = '600 11px Inter, sans-serif';
+        const textWidth = ctx.measureText(node.label).width;
+        ctx.fillStyle = 'rgba(6, 9, 26, 0.85)';
+        ctx.fillRect(pos.x - textWidth / 2 - 4, pos.y + r + 3, textWidth + 8, 16);
+        ctx.fillStyle = '#ffffff';
+      } else {
+        ctx.font = '400 10px Inter, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+      }
+      
+      ctx.fillText(node.label, pos.x, pos.y + r + 5);
     });
   }, [positions, nodes, edges, hoveredNode, selectedNodeId, width, height]);
 
