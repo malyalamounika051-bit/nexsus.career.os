@@ -94,7 +94,7 @@ const DashboardPage = () => {
     // 6. Fetch Trending Skills
     api.get('/skill-intelligence/trending')
       .then(({ data }) => {
-        if (data.success) setTrendingSkills(data.data || []);
+        if (data.success) setTrendingSkills(data.data?.skills || data.data || []);
       })
       .catch((err) => console.error('Error trending skills:', err))
       .finally(() => setTrendingLoading(false));
@@ -102,7 +102,7 @@ const DashboardPage = () => {
     // 7. Fetch Opportunities
     api.get('/opportunities')
       .then(({ data }) => {
-        if (data.success) setOpportunities(data.opportunities?.slice(0, 3) || []);
+        if (data.success) setOpportunities(data.data?.slice(0, 3) || []);
       })
       .catch((err) => console.error('Error opportunities:', err))
       .finally(() => setOppLoading(false));
