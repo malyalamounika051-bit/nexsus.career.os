@@ -1,5 +1,4 @@
 const axios = require('axios');
-const xml2js = require('xml2js');
 
 // In-memory caches with 1-hour TTL
 let newsCache = {
@@ -167,26 +166,42 @@ exports.getNewsPulse = async (req, res) => {
     // Attempt RSS fetch
     try {
       const response = await axios.get('https://news.ycombinator.com/rss', { timeout: 3000 });
-      const parser = new xml2js.Parser({ explicitArray: false });
-      const result = await parser.parseStringPromise(response.data);
+      const xmlData = response.data || '';
       
-      const items = result.rss.channel.item || [];
-      const formattedItems = items.slice(0, 8).map((item, idx) => {
-        // Map Hacker News stories to structure
-        return {
-          title: item.title,
-          summary: `Discussion and latest feedback regarding "${item.title}". Check out community comments on Hacker News.`,
-          whyItMatters: "Direct pulse on developer trends, technologies, and framework preferences.",
-          source: "Hacker News",
-          url: item.link || "https://news.ycombinator.com",
-          category: idx % 2 === 0 ? "Tech Trends" : "Hiring & Startups",
-          timestamp: "Recently published"
-        };
-      });
+      const items = [];
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+      let match;
+      let idx = 0;
+      
+      while ((match = itemRegex.exec(xmlData)) !== null && items.length < 8) {
+        const itemContent = match[1];
+        const titleMatch = itemContent.match(/<title>([\s\S]*?)<\/title>/);
+        const linkMatch = itemContent.match(/<link>([\s\S]*?)<\/link>/);
+        
+        if (titleMatch) {
+          const title = titleMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
+          const link = linkMatch ? linkMatch[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : 'https://news.ycombinator.com';
+          
+          items.push({
+            title: title,
+            summary: `Discussion and latest feedback regarding "${title}". Check out community comments on Hacker News.`,
+            whyItMatters: "Direct pulse on developer trends, technologies, and framework preferences.",
+            source: "Hacker News",
+            url: link,
+            category: idx % 2 === 0 ? "Tech Trends" : "Hiring & Startups",
+            timestamp: "Recently published"
+          });
+          idx++;
+        }
+      }
 
-      newsCache.data = formattedItems;
+      if (items.length === 0) {
+        throw new Error('No RSS items parsed');
+      }
+
+      newsCache.data = items;
       newsCache.timestamp = now;
-      return res.status(200).json({ success: true, source: 'rss', data: formattedItems });
+      return res.status(200).json({ success: true, source: 'rss', data: items });
     } catch (err) {
       console.warn('RSS News Fetch Failed, using Fallbacks:', err.message);
       // fallback
