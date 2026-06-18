@@ -6,7 +6,8 @@ import {
   Compass, Search, Bookmark, BookmarkCheck, ExternalLink, Calendar, Check,
   X, AlertTriangle, ShieldCheck, Award, Zap, RefreshCw, Sparkles, GraduationCap,
   Users, Code, CheckCircle2, ShieldAlert, ChevronLeft, ChevronRight,
-  TrendingUp, Activity, Eye, CheckSquare, BookOpen, FileText, Clock, Sparkle
+  TrendingUp, Activity, Eye, CheckSquare, BookOpen, FileText, Clock, Sparkle,
+  Loader2
 } from 'lucide-react';
 
 const CATEGORY_ICONS = {
