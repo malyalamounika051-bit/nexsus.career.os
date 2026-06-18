@@ -5,40 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { assessmentService } from '../services/assessmentService';
 import api from '../services/api';
 import Sidebar from '../components/Sidebar';
-import StatCard from '../components/StatCard';
 import ProgressRing from '../components/ProgressRing';
-import ScoreGauge from '../components/ScoreGauge';
-import RadarChart from '../components/RadarChart';
 import { SkeletonCard } from '../components/SkeletonLoader';
 import {
-  Dna, Trophy, Shield, Zap, ArrowRight,
+  Dna, Trophy, Zap, ArrowRight,
   Brain, Map, MessageSquare, FileSearch, Play,
-  Flame, Star, CheckCircle2, Sparkles, Clock, Mic
+  Flame, CheckCircle2, Sparkles, Clock, Mic, Briefcase, TrendingUp, Sparkle, Quote, ChevronRight
 } from 'lucide-react';
-
-/* ── Career DNA Archetypes ────────────────────────────── */
-const ARCHETYPES = {
-  analytical_builder: { label: 'Analytical Builder', emoji: '🔧', color: '#0ea5e9' },
-  visual_creator: { label: 'Visual Creator', emoji: '🎨', color: '#a855f7' },
-  strategic_thinker: { label: 'Strategic Thinker', emoji: '♟️', color: '#f59e0b' },
-  product_innovator: { label: 'Product Innovator', emoji: '💡', color: '#10b981' },
-  tech_leader: { label: 'Tech Leader', emoji: '🚀', color: '#0ea5e9' },
-  people_connector: { label: 'People Connector', emoji: '🤝', color: '#ec4899' },
-  data_scientist: { label: 'Data Scientist', emoji: '📊', color: '#06b6d4' },
-  creative_engineer: { label: 'Creative Engineer', emoji: '⚡', color: '#8b5cf6' },
-};
-
-const getArchetype = (scores) => {
-  if (!scores) return ARCHETYPES.analytical_builder;
-  const { technical = 0, creative = 0, analytical = 0, leadership = 0, communication = 0 } = scores;
-  if (technical >= analytical && technical >= creative && analytical >= creative) return ARCHETYPES.analytical_builder;
-  if (creative >= technical && creative >= analytical) return ARCHETYPES.visual_creator;
-  if (leadership >= analytical && leadership >= communication) return ARCHETYPES.strategic_thinker;
-  if (creative >= communication && technical >= analytical) return ARCHETYPES.creative_engineer;
-  if (communication >= leadership) return ARCHETYPES.people_connector;
-  if (analytical >= technical) return ARCHETYPES.data_scientist;
-  return ARCHETYPES.product_innovator;
-};
 
 /* ── Greeting ─────────────────────────────────────────── */
 const getGreeting = () => {
@@ -47,14 +20,6 @@ const getGreeting = () => {
   if (h < 17) return 'Good afternoon';
   return 'Good evening';
 };
-
-const AI_INSIGHTS = [
-  "Your design creativity score has been trending up. Frontend Engineering is becoming a stronger match.",
-  "Based on your profile, Full Stack Development offers the best growth-to-income ratio for your skill set.",
-  "You're in the top 15% for analytical thinking. Consider exploring Data Science roles.",
-  "Your communication skills are a hidden strength — Product Management could be a great fit.",
-  "The AI/ML job market grew 34% this quarter. Your technical scores make you a strong candidate.",
-];
 
 /* ── Dashboard ────────────────────────────────────────── */
 const DashboardPage = () => {
@@ -67,48 +32,101 @@ const DashboardPage = () => {
   const [suggestionData, setSuggestionData] = useState(null);
   const [sugLoading, setSugLoading] = useState(true);
 
+  // New features state
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [news, setNews] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [hiring, setHiring] = useState([]);
+  const [hiringLoading, setHiringLoading] = useState(true);
+  const [trendingSkills, setTrendingSkills] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [opportunities, setOpportunities] = useState([]);
+  const [oppLoading, setOppLoading] = useState(true);
+  const [gpsData, setGpsData] = useState(null);
+  const [gpsLoading, setGpsLoading] = useState(true);
+
   useEffect(() => {
     if (refreshUser) {
       refreshUser();
     }
+
+    // 1. Fetch Assessments
     assessmentService.getAll()
       .then(({ data }) => setAssessments(data.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
 
+    // 2. Fetch AI Suggestions / Journey progress
     api.get('/mentor/suggestions')
       .then(({ data }) => {
         if (data.success) {
           setSuggestionData(data.data);
         }
       })
-      .catch((err) => {
-        console.error('Error fetching proactive suggestions:', err);
-      })
+      .catch((err) => console.error('Error suggestions:', err))
       .finally(() => setSugLoading(false));
+
+    // 3. Fetch Quote
+    api.get('/dashboard/quote')
+      .then(({ data }) => {
+        if (data.success) setQuote(data.data);
+      })
+      .catch((err) => console.error('Error quote:', err))
+      .finally(() => setQuoteLoading(false));
+
+    // 4. Fetch News
+    api.get('/dashboard/news')
+      .then(({ data }) => {
+        if (data.success) setNews(data.data);
+      })
+      .catch((err) => console.error('Error news:', err))
+      .finally(() => setNewsLoading(false));
+
+    // 5. Fetch Hiring Pulse
+    api.get('/dashboard/hiring')
+      .then(({ data }) => {
+        if (data.success) setHiring(data.data);
+      })
+      .catch((err) => console.error('Error hiring:', err))
+      .finally(() => setHiringLoading(false));
+
+    // 6. Fetch Trending Skills
+    api.get('/skill-intelligence/trending')
+      .then(({ data }) => {
+        if (data.success) setTrendingSkills(data.data || []);
+      })
+      .catch((err) => console.error('Error trending skills:', err))
+      .finally(() => setTrendingLoading(false));
+
+    // 7. Fetch Opportunities
+    api.get('/opportunities')
+      .then(({ data }) => {
+        if (data.success) setOpportunities(data.opportunities?.slice(0, 3) || []);
+      })
+      .catch((err) => console.error('Error opportunities:', err))
+      .finally(() => setOppLoading(false));
+
+    // 8. Fetch Career GPS
+    api.get('/gps')
+      .then(({ data }) => {
+        if (data.success) setGpsData(data.data || data.gps);
+      })
+      .catch((err) => console.error('Error GPS:', err))
+      .finally(() => setGpsLoading(false));
+
   }, [refreshUser]);
 
   const latest = assessments[0];
-  const archetype = getArchetype(latest?.scores);
-  const topMatch = latest?.result?.[0]?.match || 0;
-  const futureProofScore = latest ? Math.round(topMatch * 0.85 + (latest.scores?.technical || 0) * 2) : 0;
-  const aiInsight = AI_INSIGHTS[Math.floor(Math.random() * AI_INSIGHTS.length)];
-
-  const traitData = latest?.scores ? [
-    { trait: 'Technical', value: latest.scores.technical || 0, fullMark: 15 },
-    { trait: 'Creative', value: latest.scores.creative || 0, fullMark: 15 },
-    { trait: 'Analytical', value: latest.scores.analytical || 0, fullMark: 15 },
-    { trait: 'Leadership', value: latest.scores.leadership || 0, fullMark: 15 },
-    { trait: 'Communication', value: latest.scores.communication || 0, fullMark: 15 },
-  ] : [];
+  const topMatchTitle = latest?.result?.[0]?.career?.title || (suggestionData?.suggestion?.actionRoute?.includes('roadmaps') ? 'Software Engineering' : 'Set Your Goal');
 
   const quickActions = [
-    { label: 'Career DNA', desc: 'Discover your career identity', icon: Dna, to: '/career-dna', color: '#0ea5e9' },
-    { label: 'AI Roadmaps', desc: 'Generate learning paths', icon: Map, to: '/roadmaps', color: '#a855f7' },
-    { label: 'AI Mentor', desc: 'Get personalized advice', icon: MessageSquare, to: '/mentor', color: '#10b981' },
-    { label: 'Mock Interview', desc: 'Practice with AI feedback', icon: Mic, to: '/mock-interview/setup', color: '#f59e0b' },
-    { label: 'Skill Gap', desc: 'Analyze your resume', icon: FileSearch, to: '/skill-gap', color: '#06b6d4' },
-    { label: 'Simulator', desc: 'A day in the life', icon: Play, to: '/career-simulator', color: '#ec4899' },
+    { label: 'Career DNA', desc: 'Discover your career identity', icon: Dna, to: '/career-dna', color: 'var(--color-primary)' },
+    { label: 'AI Roadmaps', desc: 'Generate learning paths', icon: Map, to: '/roadmaps', color: 'var(--color-accent)' },
+    { label: 'AI Mentor', desc: 'Get personalized advice', icon: MessageSquare, to: '/mentor', color: 'var(--color-success)' },
+    { label: 'Mock Interview', desc: 'Practice with AI feedback', icon: Mic, to: '/mock-interview/setup', color: 'var(--color-warning)' },
+    { label: 'Skill Gap', desc: 'Analyze your resume', icon: FileSearch, to: '/skill-gap', color: 'var(--color-secondary)' },
+    { label: 'Simulator', desc: 'A day in the life', icon: Play, to: '/career-simulator', color: 'var(--color-danger)' },
   ];
 
   return (
@@ -116,132 +134,157 @@ const DashboardPage = () => {
       <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} />
       <main className={`app-main ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
 
-        {/* ── Hero Section ────────────────────────────────── */}
+        {/* ── SECTION 1: Daily Motivation Banner ────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          style={{ marginBottom: '2rem' }}
+          className="glass-card motivation-banner"
+          style={{ padding: '1.5rem', borderRadius: 16, marginBottom: '2rem' }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h1 className="page-title" style={{ fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.75rem' }}>
-                {getGreeting()}, <span className="gradient-text">{user?.name?.split(' ')[0] || 'Explorer'}</span> 👋
-              </h1>
-              <p style={{ color: 'var(--color-text-muted)', marginTop: '0.35rem', fontSize: '0.9rem' }}>
-                Your career intelligence overview
-              </p>
+          {quoteLoading ? (
+            <div className="shimmer" style={{ height: 60, borderRadius: 8 }} />
+          ) : (
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{
+                background: 'var(--color-primary-glow)',
+                padding: '0.75rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-primary-light)'
+              }}>
+                <Quote size={20} />
+              </div>
+              <div>
+                <p style={{
+                  fontSize: '1rem',
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  color: 'var(--color-text)',
+                  lineHeight: 1.4,
+                  margin: 0
+                }}>
+                  "{quote?.text}"
+                </p>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  — {quote?.author || 'Unknown'}
+                </span>
+              </div>
             </div>
+          )}
+        </motion.div>
+
+        {/* ── SECTION 2: Welcome Back Dashboard (KPI Row) ────────────────── */}
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+            <h1 className="page-title" style={{ fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif", fontSize: '1.6rem', margin: 0 }}>
+              {getGreeting()}, <span className="gradient-text">{user?.name?.split(' ')[0] || 'Explorer'}</span> 👋
+            </h1>
             {(user?.streak || 0) > 0 && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '0.5rem',
-                padding: '0.5rem 1rem', borderRadius: 99,
+                padding: '0.4rem 0.85rem', borderRadius: 99,
                 background: 'var(--color-warning-glow)',
                 border: '1px solid rgba(245,158,11,0.25)',
               }}>
-                <Flame size={16} color="#f59e0b" />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fbbf24' }}>{user.streak} day streak</span>
+                <Flame size={14} color="var(--color-warning)" />
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#fbbf24' }}>{user.streak} day streak</span>
               </div>
             )}
           </div>
-        </motion.div>
 
-        {/* ── Career Lifecycle Progress Bar ────────────────── */}
-        {!sugLoading && suggestionData && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="glass-card"
-            style={{
-              padding: '1.25rem',
-              borderRadius: 16,
-              marginBottom: '1.5rem',
-              background: 'var(--color-surface-2)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Career Journey Progress</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-primary-light)' }}>{suggestionData.lifecyclePercent}% Complete</span>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '1rem'
+          }}>
+            {/* KPI 1: Current Goal */}
+            <div className="glass-card kpi-card" style={{ padding: '1.25rem', borderRadius: 12 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Target Goal</span>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0.5rem 0 0.25rem 0', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Briefcase size={18} className="text-primary" /> {topMatchTitle}
+              </h3>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Based on profile fit</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-              {/* Connector line */}
-              <div style={{
-                position: 'absolute',
-                top: 15,
-                left: '5%',
-                right: '5%',
-                height: 3,
-                background: 'rgba(255, 255, 255, 0.1)',
-                zIndex: 1
-              }} />
-              {/* Highlight fill line */}
-              <div style={{
-                position: 'absolute',
-                top: 15,
-                left: '5%',
-                width: `${Math.max(0, Math.min(90, suggestionData.lifecyclePercent * 0.9))}%`,
-                height: 3,
-                background: 'var(--gradient-primary)',
-                zIndex: 1,
-                transition: 'width 0.8s ease'
-              }} />
 
-              {[
-                { key: 'new', label: 'DNA Test' },
-                { key: 'dna-complete', label: 'Roadmap' },
-                { key: 'roadmap-active', label: 'Resume' },
-                { key: 'resume-building', label: 'Interview' },
-                { key: 'interview-prep', label: 'Job Search' }
-              ].map((step, idx) => {
-                const stages = ['new', 'dna-complete', 'roadmap-active', 'resume-building', 'interview-prep', 'job-hunting', 'employed'];
-                const currentStageIdx = stages.indexOf(suggestionData.currentStage);
-                const stepStageIdx = stages.indexOf(step.key);
-                const isCompleted = currentStageIdx > stepStageIdx;
-                const isActive = currentStageIdx === stepStageIdx;
+            {/* KPI 2: Career Progress */}
+            <div className="glass-card kpi-card" style={{ padding: '1.25rem', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Journey Progress</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0.5rem 0 0 0', color: 'var(--color-text)' }}>
+                  {sugLoading ? '...' : `${suggestionData?.lifecyclePercent || 0}%`}
+                </h3>
+              </div>
+              <div style={{ width: 44, height: 44 }}>
+                <ProgressRing percent={suggestionData?.lifecyclePercent || 0} strokeWidth={4} size={44} />
+              </div>
+            </div>
 
-                return (
-                  <div key={step.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, flex: 1, minWidth: 70 }}>
-                    <div style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      background: isCompleted ? 'var(--gradient-primary)' : isActive ? 'var(--color-surface)' : 'var(--color-bg)',
-                      border: isActive ? '2px solid var(--color-primary)' : isCompleted ? 'none' : '2px solid rgba(255,255,255,0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      color: isCompleted || isActive ? 'white' : 'var(--color-text-muted)',
-                      boxShadow: isActive ? '0 0 15px var(--color-primary-glow)' : 'none',
-                      transition: 'all 0.3s ease'
-                    }}>
-                      {isCompleted ? '✓' : idx + 1}
+            {/* KPI 3: Experience (XP) */}
+            <div className="glass-card kpi-card" style={{ padding: '1.25rem', borderRadius: 12 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Experience</span>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0.5rem 0 0.25rem 0', color: 'var(--color-xp)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Zap size={18} fill="var(--color-xp)" color="var(--color-xp)" /> {user?.xp || 0} XP
+              </h3>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Level {Math.floor((user?.xp || 0) / 100) + 1} Pioneer</span>
+            </div>
+
+            {/* KPI 4: Streak & Assessment */}
+            <div className="glass-card kpi-card" style={{ padding: '1.25rem', borderRadius: 12 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Assessment</span>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0.5rem 0 0.25rem 0', color: 'var(--color-text)' }}>
+                {latest ? new Date(latest.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'None taken'}
+              </h3>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                {latest ? `${latest.result?.length || 0} matches generated` : 'Start assessment below'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── SECTION 3: AI Market Pulse (News Feed Carousel) ────────────────── */}
+        <div style={{ marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <TrendingUp size={20} style={{ color: 'var(--color-accent)' }} />
+            <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "'Space Grotesk', sans-serif" }}>AI Market Pulse</h2>
+            <span style={{ background: 'var(--color-accent-glow)', color: 'var(--color-accent-light)', fontSize: '0.65rem', padding: '0.2rem 0.5rem', borderRadius: 4, fontWeight: 700, textTransform: 'uppercase' }}>Live</span>
+          </div>
+
+          <div className="news-carousel">
+            {newsLoading ? (
+              [1, 2, 3].map(i => (
+                <div key={i} className="glass-card news-card shimmer" style={{ flex: '0 0 350px', height: 180, borderRadius: 12 }} />
+              ))
+            ) : (
+              news.map((item, idx) => (
+                <div key={idx} className="glass-card news-card dashboard-card" style={{ padding: '1.25rem', borderRadius: 12 }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <span style={{ fontSize: '0.65rem', padding: '0.15rem 0.5rem', borderRadius: 4, background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-dim)', fontWeight: 600 }}>{item.category}</span>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{item.timestamp}</span>
                     </div>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      fontWeight: isActive ? 700 : 500,
-                      color: isActive ? 'var(--color-primary-light)' : isCompleted ? 'var(--color-text)' : 'var(--color-text-muted)',
-                      marginTop: '0.4rem',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {step.label}
-                    </span>
+                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.summary}</p>
                   </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
+                  <div style={{ marginTop: '1rem', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--color-accent-light)', fontWeight: 600 }}>{item.source}</span>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--color-text-dim)', textDecoration: 'none' }}>
+                      Read Story <ArrowRight size={12} />
+                    </a>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
-        {/* ── Sara's Next Action Card ──────────────────────── */}
+        {/* ── SECTION 8: Sara AI Recommendation (Prominent placement) ────────────────── */}
         {!sugLoading && suggestionData?.suggestion && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            className="sara-card-enhanced"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -249,9 +292,7 @@ const DashboardPage = () => {
               gap: '1.25rem',
               padding: '1.25rem 1.5rem',
               borderRadius: 16,
-              background: 'var(--gradient-primary-soft)',
-              border: '1px solid rgba(14,165,233,0.18)',
-              marginBottom: '2rem',
+              marginBottom: '2.5rem',
               flexWrap: 'wrap'
             }}
           >
@@ -265,13 +306,13 @@ const DashboardPage = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: '0 0 15px rgba(14,165,233,0.3)',
+                boxShadow: 'var(--shadow-glow-purple)',
               }}>
                 <Sparkles size={20} color="white" />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
-                  Sara AI Next Recommended Action
+                  AI Copilot Suggestion
                 </div>
                 <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem', color: 'var(--color-text)', fontFamily: "'Space Grotesk', sans-serif" }}>
                   {suggestionData.suggestion.title}
@@ -291,7 +332,9 @@ const DashboardPage = () => {
                 padding: '0.6rem 1.25rem',
                 fontSize: '0.85rem',
                 fontWeight: 600,
-                boxShadow: '0 4px 12px rgba(14,165,233,0.25)'
+                background: 'var(--color-primary)',
+                border: 'none',
+                boxShadow: 'var(--shadow-glow-purple)'
               }}
             >
               {suggestionData.suggestion.actionLabel} <ArrowRight size={16} />
@@ -299,227 +342,251 @@ const DashboardPage = () => {
           </motion.div>
         )}
 
-        {loading ? (
-          <div className="grid-3" style={{ marginBottom: '2rem' }}>
-            {[1,2,3].map(i => <SkeletonCard key={i} />)}
-          </div>
-        ) : (
-          <>
-            {/* ── Top Cards Row ───────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: latest ? '1fr 1fr 1fr' : '1fr', gap: '1.25rem', marginBottom: '2rem' }}>
+        {/* ── SECTION 4 & 5: Hiring Grid & Trending Skills ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '2rem',
+          marginBottom: '2.5rem'
+        }}>
+          {/* Hiring Pulse */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <Briefcase size={18} style={{ color: 'var(--color-secondary)' }} />
+              <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "'Space Grotesk', sans-serif" }}>Hiring Pulse</h2>
+            </div>
 
-              {/* Career DNA Profile */}
-              {latest ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                  className="glass-card"
-                  style={{ padding: '1.5rem', cursor: 'pointer' }}
-                  onClick={() => navigate('/results')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                    <Dna size={16} color="var(--color-primary-light)" />
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Career DNA</span>
-                  </div>
-                  <RadarChart data={traitData} size={180} />
-                  <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
-                    <span style={{ fontSize: '1.4rem' }}>{archetype.emoji}</span>
-                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: archetype.color, marginTop: '0.25rem', fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {archetype.label}
-                    </div>
-                  </div>
-                </motion.div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {hiringLoading ? (
+                [1, 2, 3].map(i => (
+                  <div key={i} className="glass-card shimmer" style={{ height: 70, borderRadius: 10 }} />
+                ))
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                  className="glass-card"
-                  style={{ padding: '3rem 2rem', textAlign: 'center', gridColumn: '1 / -1' }}
-                >
-                  <Dna size={48} color="var(--color-text-muted)" style={{ margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
-                  <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', fontFamily: "'Space Grotesk', sans-serif" }}>Discover Your Career DNA</h3>
-                  <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>Take an 8-question assessment to unlock your personalized career identity</p>
-                  <button className="btn-primary" onClick={() => navigate('/career-dna')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Brain size={18} /> Start Career DNA Assessment <ArrowRight size={16} />
-                  </button>
-                </motion.div>
-              )}
-
-              {/* Top Career Match */}
-              {latest && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                  className="glass-card"
-                  style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', alignSelf: 'flex-start' }}>
-                    <Trophy size={16} color="#f59e0b" />
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Top Match</span>
-                  </div>
-                  <ProgressRing value={topMatch} size={130} />
-                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                    <div style={{ fontWeight: 700, fontSize: '1.1rem', fontFamily: "'Space Grotesk', sans-serif" }}>
-                      {latest.topCareer}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', marginTop: '0.35rem' }}>
-                      <span className={`neon-dot neon-dot-${latest.result?.[0]?.demand === 'High' ? 'green' : 'blue'}`} />
-                      <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>{latest.result?.[0]?.demand} Demand</span>
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                      {latest.result?.[0]?.salary}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Future-Proof Score */}
-              {latest && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                  className="glass-card"
-                  style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', alignSelf: 'flex-start' }}>
-                    <Shield size={16} color="#10b981" />
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Future-Proof</span>
-                  </div>
-                  <ScoreGauge
-                    value={Math.min(futureProofScore, 95)}
-                    size={180}
-                    label="Future-Proof Score"
-                    sublabel="AI stability prediction"
-                  />
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <span className="tag-green" style={{ padding: '0.2rem 0.6rem', borderRadius: 99, background: 'var(--color-success-glow)', border: '1px solid rgba(16,185,129,0.25)', fontSize: '0.68rem', fontWeight: 600, color: '#6ee7b7' }}>Low AI Risk</span>
-                    <span className="tag" style={{ fontSize: '0.68rem' }}>Growing Industry</span>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-
-            {/* ── Stats Row ───────────────────────────────────── */}
-            <div className="grid-auto stats-grid-4" style={{ marginBottom: '2rem' }}>
-              <StatCard icon={Brain} label="Assessments" value={assessments.length} sub="Career quizzes taken" color="#0ea5e9" delay={0.25} glow />
-              <StatCard icon={Star} label="Career Score" value={topMatch ? `${topMatch}%` : '—'} sub="Best career fit" color="#a855f7" delay={0.3} />
-              <StatCard icon={Zap} label="XP Points" value={user?.xp || 0} sub={`Level ${Math.floor((user?.xp || 0) / 200) + 1}`} color="#10b981" delay={0.35} />
-              <StatCard icon={Clock} label="Member Since" value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'} sub={user?.role === 'admin' ? 'Admin' : 'Explorer'} color="#f59e0b" delay={0.4} />
-            </div>
-
-            {/* ── Skill Growth (if assessment exists) ─────────── */}
-            {latest?.scores && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-                className="glass-card"
-                style={{ padding: '1.5rem', marginBottom: '2rem' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                  <Zap size={16} color="var(--color-primary-light)" />
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem', fontFamily: "'Space Grotesk', sans-serif" }}>Skill Growth Progress</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  {Object.entries(latest.scores).map(([trait, val], i) => {
-                    const maxVal = 15;
-                    const pct = Math.round((val / maxVal) * 100);
-                    const colors = ['#0ea5e9', '#a855f7', '#10b981', '#f59e0b', '#ec4899'];
-                    return (
-                      <div key={trait}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--color-text-dim)', textTransform: 'capitalize' }}>{trait}</span>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: colors[i] }}>{val}/{maxVal}</span>
-                        </div>
-                        <div className="progress-bar">
-                          <motion.div
-                            className="progress-bar-fill"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 1, delay: 0.5 + i * 0.1 }}
-                            style={{ background: colors[i] }}
-                          />
-                        </div>
+                hiring.slice(0, 4).map((comp, idx) => (
+                  <div key={idx} className="glass-card company-card" style={{ padding: '0.85rem 1rem', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 8,
+                        background: comp.color,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        color: '#fff'
+                      }}>
+                        {comp.logoText}
                       </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </>
-        )}
-
-        {/* ── Quick Actions ───────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-text-dim)', fontFamily: "'Space Grotesk', sans-serif" }}>
-            Quick Actions
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.875rem', marginBottom: '2rem' }}>
-            {quickActions.map((a, i) => (
-              <motion.button
-                key={i}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55 + i * 0.06 }}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate(a.to)}
-                className="glass-card"
-                style={{
-                  padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.875rem',
-                  cursor: 'pointer', background: 'none', textAlign: 'left', width: '100%',
-                }}
-              >
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: `${a.color}12`, border: `1px solid ${a.color}25`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  <a.icon size={18} color={a.color} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--color-text)' }}>{a.label}</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>{a.desc}</div>
-                </div>
-                <ArrowRight size={14} color="var(--color-text-muted)" />
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* ── Recent Assessments ──────────────────────────── */}
-        {assessments.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text-dim)', fontFamily: "'Space Grotesk', sans-serif" }}>Recent Assessments</h2>
-              <button onClick={() => navigate('/results')} style={{ background: 'none', border: 'none', color: 'var(--color-primary-light)', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 500 }}>
-                View all →
-              </button>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)' }}>{comp.company}</h4>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{comp.location}</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-secondary-light)', display: 'block' }}>{comp.openRoles} Open Roles</span>
+                      <a href="/jobs" onClick={(e) => { e.preventDefault(); navigate(`/jobs?company=${comp.company}`); }} style={{ fontSize: '0.7rem', color: 'var(--color-text-dim)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.1rem' }}>
+                        Apply <ChevronRight size={10} />
+                      </a>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {assessments.slice(0, 3).map((a, i) => (
-                <motion.div
-                  key={a._id}
-                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.65 + i * 0.08 }}
-                  className="glass-card"
-                  style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer' }}
-                  onClick={() => navigate(`/results?id=${a._id}`)}
+          </div>
+
+          {/* Trending Skills */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <Sparkle size={18} style={{ color: 'var(--color-xp)' }} />
+              <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "'Space Grotesk', sans-serif" }}>Trending Tech Skills</h2>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {trendingLoading ? (
+                [1, 2, 3].map(i => (
+                  <div key={i} className="glass-card shimmer" style={{ height: 65, borderRadius: 10 }} />
+                ))
+              ) : (
+                trendingSkills.slice(0, 4).map((skill, idx) => (
+                  <div key={idx} className="glass-card skill-chip-card" onClick={() => navigate('/skill-trends')} style={{ padding: '0.85rem 1rem', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: 'var(--color-text)' }}>{skill.name}</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--color-success)' }}>+{skill.growth}% demand</span>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>Demand Score: {skill.demandScore}/100</span>
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: '0.65rem',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: 4,
+                      background: 'var(--color-accent-glow)',
+                      color: 'var(--color-accent-light)',
+                      fontWeight: 700
+                    }}>
+                      {skill.futureRelevance || 'High'}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── SECTION 6 & 7: Opportunity Radar & GPS Snapshot ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '2rem',
+          marginBottom: '2.5rem'
+        }}>
+          {/* Opportunity Radar Preview */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Trophy size={18} style={{ color: 'var(--color-xp)' }} />
+                <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "'Space Grotesk', sans-serif" }}>Opportunity Radar</h2>
+              </div>
+              <a href="/opportunities" onClick={(e) => { e.preventDefault(); navigate('/opportunities'); }} style={{ fontSize: '0.75rem', color: 'var(--color-primary-light)', textDecoration: 'none' }}>
+                View All Opportunities →
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {oppLoading ? (
+                [1, 2].map(i => (
+                  <div key={i} className="glass-card shimmer" style={{ height: 80, borderRadius: 10 }} />
+                ))
+              ) : (
+                opportunities.map((opp, idx) => (
+                  <div key={idx} className="glass-card dashboard-card" style={{ padding: '1rem', borderRadius: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <span style={{
+                        fontSize: '0.65rem',
+                        padding: '0.15rem 0.45rem',
+                        borderRadius: 4,
+                        background: opp.type === 'hackathon' ? 'var(--color-primary-glow)' : 'var(--color-accent-glow)',
+                        color: opp.type === 'hackathon' ? 'var(--color-primary-light)' : 'var(--color-accent-light)',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}>
+                        {opp.type}
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--color-text-dim)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                        <Clock size={12} /> {opp.daysLeft} days left
+                      </span>
+                    </div>
+                    <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)' }}>{opp.title}</h4>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+                      <span style={{ color: 'var(--color-text-muted)' }}>{opp.organization}</span>
+                      <button onClick={() => navigate('/opportunities')} style={{ background: 'none', border: 'none', color: 'var(--color-primary-light)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Apply Now</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Career GPS Snapshot */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <Brain size={18} style={{ color: 'var(--color-primary)' }} />
+              <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "'Space Grotesk', sans-serif" }}>Career GPS Snapshot</h2>
+            </div>
+
+            <div className="glass-card" style={{ padding: '1.25rem', borderRadius: 12, height: 'calc(100% - 35px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              {gpsLoading ? (
+                <div className="shimmer" style={{ height: 120, borderRadius: 8 }} />
+              ) : gpsData ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Checkpoint</span>
+                      <h4 style={{ margin: '0.1rem 0 0 0', fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)' }}>{gpsData.checkpointName || gpsData.currentCheckpoint?.title || 'Initial Setup'}</h4>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: 4, background: 'var(--color-primary-glow)', color: 'var(--color-primary-light)', fontWeight: 700 }}>
+                      {gpsData.progressPercent || gpsData.overallProgress || 0}% Done
+                    </span>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, height: 6, marginBottom: '1.25rem', overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--gradient-primary)', height: '100%', width: `${gpsData.progressPercent || gpsData.overallProgress || 0}%`, transition: 'width 0.5s' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1.5rem', background: 'var(--color-surface-2)', padding: '0.65rem', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                    <CheckCircle2 size={16} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                      Next Skill: <strong style={{ color: 'var(--color-text)' }}>{gpsData.nextSkill || 'Assessment Review'}</strong>
+                    </span>
+                  </div>
+
+                  <button className="btn-primary" onClick={() => navigate('/gps')} style={{ width: '100%', fontSize: '0.82rem', padding: '0.6rem' }}>
+                    Open Career GPS
+                  </button>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', marginBottom: '1.25rem' }}>You haven't initialized your Career GPS path yet.</p>
+                  <button className="btn-primary" onClick={() => navigate('/roadmaps')} style={{ fontSize: '0.82rem', padding: '0.6rem 1.2rem' }}>
+                    Generate Career Path
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── COLLAPSIBLE QUICK ACTIONS & TOOLS (Bottom) ────────────────── */}
+        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--color-border)', paddingTop: '2rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)', fontFamily: "'Space Grotesk', sans-serif", marginBottom: '1.25rem' }}>Career OS Intelligence Suite</h3>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1rem'
+          }}>
+            {quickActions.map((action, idx) => {
+              const Icon = action.icon;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => navigate(action.to)}
+                  className="glass-card dashboard-card"
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    background: 'var(--color-surface-2)'
+                  }}
                 >
                   <div style={{
-                    width: 38, height: 38, borderRadius: 10,
-                    background: 'var(--color-primary-glow)',
-                    border: '1px solid rgba(14,165,233,0.15)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: 'var(--color-surface)',
+                    border: `1px solid ${action.color}33`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: action.color,
+                    flexShrink: 0
                   }}>
-                    <Trophy size={16} color="var(--color-primary-light)" />
+                    <Icon size={20} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{a.topCareer}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{new Date(a.createdAt).toLocaleDateString()}</div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--color-text)' }}>{action.label}</h4>
+                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>{action.desc}</p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, fontSize: '1.05rem' }} className="gradient-text">{a.result?.[0]?.match || 0}%</div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>match</div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </main>
     </div>
   );

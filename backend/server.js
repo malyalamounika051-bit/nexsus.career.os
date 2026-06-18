@@ -72,6 +72,7 @@ app.use('/api/interview', require('./routes/interviewRoutes'));
 app.use('/api/gps', require('./routes/gpsRoutes'));
 app.use('/api/opportunities', require('./routes/opportunityRoutes'));
 app.use('/api/skill-intelligence', require('./routes/skillIntelligenceRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // Root welcome endpoint
 app.get('/', (req, res) => {
