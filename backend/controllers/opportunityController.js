@@ -60,6 +60,7 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
     opportunityStatus: 'active',
     isVerified: true,
     verificationStatus: 'verified',
+    type: { $nin: ['job', 'internship', 'hiring-drive'] },
     ...filterQuery
   };
 
@@ -130,15 +131,16 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
  * Calculates top dynamic stats summary row metrics
  */
 const calculateRadarStats = async (userId) => {
-  const activeCount = await Opportunity.countDocuments({ opportunityStatus: 'active', isVerified: true });
+  const queryBase = { opportunityStatus: 'active', isVerified: true };
+  const hackathonsCount = await Opportunity.countDocuments({ ...queryBase, type: 'hackathon' });
+  const scholarshipsCount = await Opportunity.countDocuments({ ...queryBase, type: 'scholarship' });
+  const coursesCount = await Opportunity.countDocuments({ ...queryBase, type: 'course' });
   const closingSoonCount = await Opportunity.countDocuments({
-    opportunityStatus: 'active',
-    isVerified: true,
+    ...queryBase,
     deadline: { $gte: new Date(), $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
   });
 
   const userOpps = await UserOpportunity.find({ userId });
-  const savedCount = userOpps.filter(o => o.bookmarked && !o.dismissed).length;
   const appliedCount = userOpps.filter(o => o.applied).length;
 
   let totalMatch = 0;
@@ -153,11 +155,11 @@ const calculateRadarStats = async (userId) => {
   const avgMatchScore = countWithMatch > 0 ? Math.round(totalMatch / countWithMatch) : 75;
 
   return {
-    activeOpportunities: activeCount,
-    verifiedSources: 5, // Devpost, LinkedIn, Kaggle, OpenSource, Scholarship
-    closingSoon: closingSoonCount,
-    applied: appliedCount,
-    saved: savedCount,
+    hackathonsOpen: hackathonsCount,
+    scholarshipsOpen: scholarshipsCount,
+    coursesAvailable: coursesCount,
+    deadlinesThisWeek: closingSoonCount,
+    applicationsSubmitted: appliedCount,
     avgMatchScore
   };
 };

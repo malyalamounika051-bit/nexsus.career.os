@@ -6,7 +6,8 @@ const {
   saveJob, 
   getSavedJobs, 
   removeSavedJob,
-  matchJobsToResume
+  matchJobsToResume,
+  updateSavedJobStatus
 } = require('../controllers/jobController');
 const { protect } = require('../middleware/authMiddleware');
 const multer = require('multer');
@@ -30,5 +31,6 @@ router.post('/ai-match', protect, upload.single('resumeFile'), matchJobsToResume
 router.get('/saved', protect, getSavedJobs);
 router.post('/saved', protect, saveJob);
 router.delete('/saved/:jobId', protect, removeSavedJob);
+router.post('/saved/:jobId/status', protect, updateSavedJobStatus);
 
 module.exports = router;
