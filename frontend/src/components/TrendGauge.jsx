@@ -6,8 +6,8 @@ const TrendGauge = ({
   size = 140,
   label = '',
   sublabel = '',
-  colorFrom = '#0ea5e9',
-  colorTo = '#a855f7',
+  colorFrom = 'var(--color-primary)',
+  colorTo = 'var(--color-accent)',
   duration = 1200,
 }) => {
   const [animatedValue, setAnimatedValue] = useState(0);
@@ -53,11 +53,9 @@ const TrendGauge = ({
             </linearGradient>
           </defs>
           {/* Background arc */}
-          <path d={bgArcPath} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} strokeLinecap="round" />
+          <path d={bgArcPath} fill="none" stroke="var(--color-border)" strokeWidth={strokeWidth} strokeLinecap="round" />
           {/* Progress arc */}
-          <path d={progressArcPath} fill="none" stroke={`url(#${gradientId})`} strokeWidth={strokeWidth} strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 6px ${colorFrom}40)` }}
-          />
+          <path d={progressArcPath} fill="none" stroke={`url(#${gradientId})`} strokeWidth={strokeWidth} strokeLinecap="round" />
         </svg>
         {/* Center value */}
         <div style={{

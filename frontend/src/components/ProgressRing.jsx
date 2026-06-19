@@ -6,12 +6,12 @@ const ProgressRing = ({
   strokeWidth = 10,
   label = '',
   sublabel = '',
-  gradientFrom = '#0ea5e9',
-  gradientTo = '#a855f7',
-  bgStroke = 'rgba(255,255,255,0.06)',
+  gradientFrom = 'var(--color-primary)',
+  gradientTo = 'var(--color-accent)',
+  bgStroke = 'var(--color-border)',
   duration = 1500,
   fontSize,
-  showGlow = true,
+  showGlow = false,
 }) => {
   const [animatedValue, setAnimatedValue] = useState(0);
   const animRef = useRef(null);

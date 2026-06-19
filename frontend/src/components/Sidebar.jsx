@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Dna, Map, MessageSquare, TrendingUp,
   FileSearch, Play, User, LogOut, Zap, Menu, X,
   ChevronLeft, ChevronRight, Flame, Briefcase, FileText, Mic, Compass,
-  GitCompareArrows
+  GitCompareArrows, Sun, Moon
 } from 'lucide-react';
 
 const navSections = [
@@ -56,6 +56,16 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
@@ -77,12 +87,11 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
       }}>
         <div style={{
           width: 38, height: 38, borderRadius: 12,
-          background: 'var(--gradient-primary)',
+          background: 'var(--color-primary)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
-          boxShadow: '0 0 20px rgba(14,165,233,0.3)',
         }}>
-          <Zap size={18} color="white" />
+          <Zap size={18} color="var(--color-bg)" />
         </div>
         {!isCollapsed && (
           <div>
@@ -104,16 +113,15 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.75rem',
           padding: '0.75rem', borderRadius: 12,
-          background: 'var(--color-primary-glow)',
-          border: '1px solid rgba(14,165,233,0.12)',
+          background: 'var(--color-surface-2)',
+          border: '1px solid var(--color-border)',
           marginBottom: '1.5rem',
         }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
-            background: 'var(--gradient-primary)',
+            background: 'var(--color-primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: '0.9rem', color: 'white', flexShrink: 0,
-            boxShadow: '0 0 12px rgba(14,165,233,0.3)',
+            fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-bg)', flexShrink: 0,
           }}>
             {user.avatar
               ? <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -138,10 +146,9 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
-            background: 'var(--gradient-primary)',
+            background: 'var(--color-primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: '0.9rem', color: 'white',
-            boxShadow: '0 0 12px rgba(14,165,233,0.3)',
+            fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-bg)',
           }}>
             {user.name?.[0]?.toUpperCase() || 'U'}
           </div>
@@ -153,7 +160,7 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         {navSections.map((section, sIdx) => (
           <div key={sIdx} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
             {!isCollapsed && section.label && (
-              <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-primary-light)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.25rem 0.875rem 0.1rem', opacity: 0.8 }}>
+              <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.25rem 0.875rem 0.1rem', opacity: 0.8 }}>
                 {section.label}
               </div>
             )}
@@ -191,6 +198,21 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
           {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       )}
+
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="sidebar-link"
+        style={{
+          marginTop: 'auto', width: '100%', textAlign: 'left',
+          background: 'none', border: '1px solid transparent',
+          ...(isCollapsed ? { justifyContent: 'center', padding: '0.7rem' } : {}),
+        }}
+        title={isCollapsed ? `Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode` : undefined}
+      >
+        {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+        {!isCollapsed && <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>}
+      </button>
 
       {/* Logout */}
       <button
@@ -239,11 +261,10 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <div style={{
             width: 32, height: 32, borderRadius: 8,
-            background: 'var(--gradient-primary)',
+            background: 'var(--color-primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 12px rgba(14,165,233,0.3)',
           }}>
-            <Zap size={16} color="white" />
+            <Zap size={16} color="var(--color-bg)" />
           </div>
           <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '1rem' }}>Nexus</span>
           <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Career OS</span>

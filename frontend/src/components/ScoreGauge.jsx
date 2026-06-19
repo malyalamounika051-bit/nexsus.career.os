@@ -23,22 +23,15 @@ const ScoreGauge = ({ value = 0, size = 140, label = '', sublabel = '' }) => {
         <svg width={size} height={size * 0.6} viewBox={`0 0 ${size} ${size * 0.6}`}>
           <defs>
             <linearGradient id={`gauge-grad-${label}`} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#0ea5e9" />
-              <stop offset="100%" stopColor="#a855f7" />
+              <stop offset="0%" stopColor="var(--color-primary)" />
+              <stop offset="100%" stopColor="var(--color-accent)" />
             </linearGradient>
-            <filter id="gauge-glow">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
           </defs>
           {/* Background arc */}
           <path
             d={`M ${strokeWidth} ${size * 0.55} A ${radius} ${radius} 0 0 1 ${size - strokeWidth} ${size * 0.55}`}
             fill="none"
-            stroke="var(--color-surface-3)"
+            stroke="var(--color-border)"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
@@ -53,7 +46,6 @@ const ScoreGauge = ({ value = 0, size = 140, label = '', sublabel = '' }) => {
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: offset }}
             transition={{ duration: 1.8, ease: 'easeOut', delay: 0.3 }}
-            filter="url(#gauge-glow)"
           />
         </svg>
         {/* Center score */}
