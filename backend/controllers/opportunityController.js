@@ -237,8 +237,11 @@ const listOpportunities = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
 
-    // Check if database is empty → trigger ingestion
-    const count = await Opportunity.countDocuments({ opportunityStatus: 'active' });
+    // Check if database has active radar opportunities → trigger ingestion if none
+    const count = await Opportunity.countDocuments({
+      opportunityStatus: 'active',
+      type: { $nin: ['job', 'internship', 'hiring-drive'] }
+    });
     if (count === 0) {
       console.log('📦 Opportunity database empty. Running full ingestion...');
       await runIngestion().catch(err => console.error('Ingestion error:', err.message));
