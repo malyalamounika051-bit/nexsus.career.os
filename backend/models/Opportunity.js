@@ -5,7 +5,7 @@ const opportunitySchema = new mongoose.Schema({
   organization: { type: String, required: true },
   type: {
     type: String,
-    enum: ['hackathon', 'scholarship', 'competition', 'open-source', 'research', 'course', 'certification', 'quiz', 'fellowship'],
+    enum: ['hackathon', 'scholarship', 'competition', 'open-source', 'research', 'course', 'certification', 'quiz', 'fellowship', 'innovation', 'coding-challenge', 'startup-challenge'],
     required: true
   },
   description: { type: String },
@@ -32,7 +32,16 @@ const opportunitySchema = new mongoose.Schema({
     enum: ['active', 'expired', 'archived'],
     default: 'active'
   },
-  applicationCount: { type: Number, default: 0 }
+  applicationCount: { type: Number, default: 0 },
+  submissionDeadline: { type: Date },
+  resultDate: { type: Date },
+  benefits: [{ type: String }],
+  difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
+  estimatedCommitment: { type: String },
+  isFeatured: { type: Boolean, default: false },
+  category: { type: String },
+  prizePool: { type: String },
+  participantCount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 // Add required indexes for query optimization

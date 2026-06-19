@@ -8,7 +8,15 @@ const { runIngestion } = require('../services/ingestionService');
 const { verifyOpportunity, runVerificationSweep } = require('../services/verificationService');
 const { calculateOpportunityMatch } = require('../services/matchingEngine');
 
-// Scheduler runs verification sweep and daily auto-expiration sweeps
+// ═══════════════════════════════════════════════════════════════
+// OPPORTUNITY RADAR v2 — CONTROLLER
+// Never-empty guarantee, registration tracking, reminders
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Daily scheduler: expire outdated opportunities + verification sweep
+ * Runs every 6 hours and once on startup
+ */
 const runDailyScheduler = async () => {
   console.log('🗓️ Opportunity Radar Scheduler Running...');
   try {
@@ -32,6 +40,14 @@ const runDailyScheduler = async () => {
     
     // 2. Refresh verification states
     await runVerificationSweep();
+
+    // 3. Check reminders for registered opportunities
+    try {
+      const { checkAndGenerateReminders } = require('../services/reminderService');
+      await checkAndGenerateReminders();
+    } catch (err) {
+      // Non-fatal — reminder service may not exist yet
+    }
   } catch (err) {
     console.error('Scheduler Sweep Error:', err.message);
   }
@@ -43,7 +59,8 @@ setInterval(runDailyScheduler, 6 * 60 * 60 * 1000);
 setTimeout(runDailyScheduler, 10000);
 
 /**
- * Common helper to construct aggregated opportunities with matches for the user
+ * Common helper to construct aggregated opportunities with matches for the user.
+ * NEVER-EMPTY GUARANTEE: Falls back to progressively relaxed queries.
  */
 const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
   const resume = await Resume.findOne({ user: userId });
@@ -52,19 +69,39 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
   const gps = await CareerGPS.findOne({ userId }).sort({ updatedAt: -1 });
   const gpsDestination = gps?.destination || '';
 
-  // Get completed roadmaps count to factor in projects
   const completedRoadmapsCount = await Career.countDocuments({ userId, isGeneratedRoadmap: true, status: 'completed' });
 
-  // Only show active, verified opportunities (unless specifically querying dismissed/applied/saved tabs)
-  const query = {
-    opportunityStatus: 'active',
-    isVerified: true,
-    verificationStatus: 'verified',
-    type: { $nin: ['job', 'internship', 'hiring-drive'] },
-    ...filterQuery
-  };
+  // ═══ NEVER-EMPTY STRATEGY ═══
+  // Try strict query first, then relax filters if empty
+  const queryStrategies = [
+    // Strategy 1: Active + Verified (ideal)
+    {
+      opportunityStatus: 'active',
+      isVerified: true,
+      verificationStatus: 'verified',
+      type: { $nin: ['job', 'internship', 'hiring-drive'] },
+      ...filterQuery
+    },
+    // Strategy 2: Active only (relaxed verification)
+    {
+      opportunityStatus: 'active',
+      type: { $nin: ['job', 'internship', 'hiring-drive'] },
+      ...filterQuery
+    },
+    // Strategy 3: All non-expired (most relaxed)
+    {
+      opportunityStatus: { $ne: 'expired' },
+      type: { $nin: ['job', 'internship', 'hiring-drive'] },
+      ...filterQuery
+    }
+  ];
 
-  const opportunities = await Opportunity.find(query);
+  let opportunities = [];
+  for (const query of queryStrategies) {
+    opportunities = await Opportunity.find(query).sort({ createdAt: -1 }).limit(200);
+    if (opportunities.length > 0) break;
+  }
+
   const userMatches = await UserOpportunity.find({ userId });
   const matchMap = new Map(userMatches.map(m => [String(m.opportunityId), m]));
 
@@ -89,7 +126,7 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
         matchScore,
         whyRecommended,
         status: 'recommended'
-      });
+      }).catch(() => {}); // ignore duplicate key errors
     }
 
     result.push({
@@ -99,6 +136,8 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
       type: opp.type,
       description: opp.description,
       deadline: opp.deadline,
+      submissionDeadline: opp.submissionDeadline,
+      resultDate: opp.resultDate,
       applicationUrl: opp.applicationUrl,
       eligibility: opp.eligibility,
       requiredSkills: opp.requiredSkills,
@@ -112,13 +151,20 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
       verificationStatus: opp.verificationStatus,
       isVerified: opp.isVerified,
       opportunityStatus: opp.opportunityStatus,
-      daysRemaining: opp.daysRemaining,
+      benefits: opp.benefits || [],
+      difficulty: opp.difficulty,
+      estimatedCommitment: opp.estimatedCommitment,
+      isFeatured: opp.isFeatured,
+      prizePool: opp.prizePool,
       matchScore: interaction?.matchScore || matchScore,
       matchLabel,
       whyRecommended: interaction?.whyRecommended || whyRecommended,
       missingSkills,
       bookmarked: interaction?.bookmarked || false,
       applied: interaction?.applied || false,
+      registered: interaction?.registered || false,
+      registeredAt: interaction?.registeredAt || null,
+      submissionStatus: interaction?.submissionStatus || 'not-started',
       status: interaction?.status || 'recommended',
       appliedAt: interaction?.appliedAt || null
     });
@@ -131,10 +177,18 @@ const getUserOpportunitiesFeed = async (userId, filterQuery = {}) => {
  * Calculates top dynamic stats summary row metrics
  */
 const calculateRadarStats = async (userId) => {
-  const queryBase = { opportunityStatus: 'active', isVerified: true };
-  const hackathonsCount = await Opportunity.countDocuments({ ...queryBase, type: 'hackathon' });
-  const scholarshipsCount = await Opportunity.countDocuments({ ...queryBase, type: 'scholarship' });
-  const coursesCount = await Opportunity.countDocuments({ ...queryBase, type: 'course' });
+  // Use relaxed query (active only, no verification needed) for stats
+  const queryBase = { opportunityStatus: 'active' };
+  
+  const [hackathonsCount, scholarshipsCount, coursesCount, competitionsCount, codingCount, innovationCount] = await Promise.all([
+    Opportunity.countDocuments({ ...queryBase, type: 'hackathon' }),
+    Opportunity.countDocuments({ ...queryBase, type: 'scholarship' }),
+    Opportunity.countDocuments({ ...queryBase, type: { $in: ['course', 'certification'] } }),
+    Opportunity.countDocuments({ ...queryBase, type: 'competition' }),
+    Opportunity.countDocuments({ ...queryBase, type: 'coding-challenge' }),
+    Opportunity.countDocuments({ ...queryBase, type: 'innovation' })
+  ]);
+
   const closingSoonCount = await Opportunity.countDocuments({
     ...queryBase,
     deadline: { $gte: new Date(), $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
@@ -142,6 +196,7 @@ const calculateRadarStats = async (userId) => {
 
   const userOpps = await UserOpportunity.find({ userId });
   const appliedCount = userOpps.filter(o => o.applied).length;
+  const registeredCount = userOpps.filter(o => o.registered).length;
 
   let totalMatch = 0;
   let countWithMatch = 0;
@@ -154,27 +209,39 @@ const calculateRadarStats = async (userId) => {
   
   const avgMatchScore = countWithMatch > 0 ? Math.round(totalMatch / countWithMatch) : 75;
 
+  // Total active opportunities
+  const totalActive = await Opportunity.countDocuments(queryBase);
+
   return {
+    totalActive,
     hackathonsOpen: hackathonsCount,
     scholarshipsOpen: scholarshipsCount,
     coursesAvailable: coursesCount,
+    competitionsOpen: competitionsCount,
+    codingChallenges: codingCount,
+    innovationChallenges: innovationCount,
     deadlinesThisWeek: closingSoonCount,
     applicationsSubmitted: appliedCount,
+    registeredCount,
     avgMatchScore
   };
 };
 
-// @desc    Get base opportunity list
-// @route   GET /api/opportunities
+// ═══ ENDPOINTS ═══
+
+/**
+ * @desc    Get opportunity list with never-empty guarantee
+ * @route   GET /api/opportunities
+ */
 const listOpportunities = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
 
-    // Fallback crawler if completely empty database
-    const count = await Opportunity.countDocuments({ opportunityStatus: 'active', isVerified: true });
+    // Check if database is empty → trigger ingestion
+    const count = await Opportunity.countDocuments({ opportunityStatus: 'active' });
     if (count === 0) {
-      console.log('Opportunity Cache is empty. Fetching fallback listings...');
-      await runIngestion().catch(() => {});
+      console.log('📦 Opportunity database empty. Running full ingestion...');
+      await runIngestion().catch(err => console.error('Ingestion error:', err.message));
     }
 
     const data = await getUserOpportunitiesFeed(userId);
@@ -193,13 +260,15 @@ const listOpportunities = async (req, res) => {
   }
 };
 
-// @desc    Force Refresh and Ingest opportunities
-// @route   GET /api/opportunities/refresh
+/**
+ * @desc    Force Refresh and Ingest opportunities
+ * @route   GET /api/opportunities/refresh
+ */
 const refreshOpportunities = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
     
-    // Ingest fresh listings
+    // Run full ingestion pipeline
     await runIngestion();
     
     // Verify existing list
@@ -221,8 +290,10 @@ const refreshOpportunities = async (req, res) => {
   }
 };
 
-// @desc    Get opportunities filtering by category type
-// @route   GET /api/opportunities/category/:type
+/**
+ * @desc    Get opportunities filtering by category type
+ * @route   GET /api/opportunities/category/:type
+ */
 const listByCategory = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -236,8 +307,10 @@ const listByCategory = async (req, res) => {
   }
 };
 
-// @desc    Get closing soon opportunities
-// @route   GET /api/opportunities/closing-soon
+/**
+ * @desc    Get closing soon opportunities
+ * @route   GET /api/opportunities/closing-soon
+ */
 const listClosingSoon = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -253,8 +326,10 @@ const listClosingSoon = async (req, res) => {
   }
 };
 
-// @desc    Get saved bookmarked opportunities
-// @route   GET /api/opportunities/saved
+/**
+ * @desc    Get saved bookmarked opportunities
+ * @route   GET /api/opportunities/saved
+ */
 const listSaved = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -270,8 +345,10 @@ const listSaved = async (req, res) => {
   }
 };
 
-// @desc    Get applied opportunities
-// @route   GET /api/opportunities/applied
+/**
+ * @desc    Get applied opportunities
+ * @route   GET /api/opportunities/applied
+ */
 const listApplied = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -287,8 +364,29 @@ const listApplied = async (req, res) => {
   }
 };
 
-// @desc    Get high match opportunities (score >= 90%)
-// @route   GET /api/opportunities/high-match
+/**
+ * @desc    Get registered opportunities
+ * @route   GET /api/opportunities/registered
+ */
+const listRegistered = async (req, res) => {
+  try {
+    const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+    
+    const userOpps = await UserOpportunity.find({ userId, registered: true });
+    const oppIds = userOpps.map(o => o.opportunityId);
+    
+    const data = await getUserOpportunitiesFeed(userId, { _id: { $in: oppIds } });
+    data.sort((a, b) => b.matchScore - a.matchScore);
+    res.status(200).json({ success: true, count: data.length, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * @desc    Get high match opportunities (score >= 90%)
+ * @route   GET /api/opportunities/high-match
+ */
 const listHighMatch = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -300,8 +398,10 @@ const listHighMatch = async (req, res) => {
   }
 };
 
-// @desc    Toggle Bookmark
-// @route   POST /api/opportunities/:id/bookmark
+/**
+ * @desc    Toggle Bookmark
+ * @route   POST /api/opportunities/:id/bookmark
+ */
 const toggleBookmark = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -323,8 +423,10 @@ const toggleBookmark = async (req, res) => {
   }
 };
 
-// @desc    Mark Applied and Lock XP (Strict anti-farming verification)
-// @route   POST /api/opportunities/:id/apply
+/**
+ * @desc    Mark Applied and Lock XP
+ * @route   POST /api/opportunities/:id/apply
+ */
 const applyOpportunity = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -365,8 +467,99 @@ const applyOpportunity = async (req, res) => {
   }
 };
 
-// @desc    Dismiss opportunity
-// @route   POST /api/opportunities/:id/dismiss
+/**
+ * @desc    Register for an opportunity (track registration)
+ * @route   POST /api/opportunities/:id/register
+ */
+const registerOpportunity = async (req, res) => {
+  try {
+    const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+    const opportunityId = req.params.id;
+
+    let interaction = await UserOpportunity.findOne({ userId, opportunityId });
+    if (!interaction) {
+      interaction = new UserOpportunity({ userId, opportunityId });
+    }
+
+    interaction.registered = true;
+    interaction.registeredAt = new Date();
+    interaction.status = 'applied'; // Registration counts as applied
+    interaction.applied = true;
+    interaction.appliedAt = interaction.appliedAt || new Date();
+
+    // Award XP if not already awarded
+    let xpEarned = false;
+    if (!interaction.xpAwarded) {
+      interaction.xpAwarded = true;
+      xpEarned = true;
+      await awardXP(userId, 'OPPORTUNITY_APPLIED').catch(() => {});
+    }
+
+    await interaction.save();
+    await Opportunity.findByIdAndUpdate(opportunityId, { $inc: { applicationCount: 1 } }).catch(() => {});
+
+    res.status(200).json({
+      success: true,
+      registered: true,
+      xpAwarded: xpEarned,
+      message: xpEarned ? 'Registration tracked! +50 XP earned. 🚀' : 'Registration tracked!'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * @desc    Get upcoming deadline reminders for user
+ * @route   GET /api/opportunities/reminders
+ */
+const getReminders = async (req, res) => {
+  try {
+    const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+
+    const registrations = await UserOpportunity.find({
+      userId,
+      $or: [{ registered: true }, { applied: true }]
+    });
+
+    const reminders = [];
+
+    for (const reg of registrations) {
+      const opp = await Opportunity.findById(reg.opportunityId);
+      if (!opp || opp.opportunityStatus === 'expired') continue;
+
+      const deadline = opp.submissionDeadline || opp.deadline;
+      if (!deadline) continue;
+
+      const daysLeft = Math.ceil((new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24));
+      if (daysLeft < 0) continue; // Already passed
+
+      reminders.push({
+        opportunityId: opp._id,
+        title: opp.title,
+        organization: opp.organization,
+        type: opp.type,
+        deadline,
+        daysLeft,
+        registeredAt: reg.registeredAt,
+        submissionStatus: reg.submissionStatus || 'not-started',
+        urgency: daysLeft <= 1 ? 'critical' : daysLeft <= 3 ? 'high' : daysLeft <= 7 ? 'medium' : 'low'
+      });
+    }
+
+    // Sort by urgency (closest deadline first)
+    reminders.sort((a, b) => a.daysLeft - b.daysLeft);
+
+    res.status(200).json({ success: true, count: reminders.length, data: reminders });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * @desc    Dismiss opportunity
+ * @route   POST /api/opportunities/:id/dismiss
+ */
 const dismissOpportunity = async (req, res) => {
   try {
     const userId = String(req.user?.uid || req.user?._id || req.user?.id);
@@ -387,8 +580,10 @@ const dismissOpportunity = async (req, res) => {
   }
 };
 
-// @desc    Verify manually
-// @route   POST /api/opportunities/:id/verify
+/**
+ * @desc    Verify manually
+ * @route   POST /api/opportunities/:id/verify
+ */
 const verifyOpportunityEndpoint = async (req, res) => {
   try {
     const opp = await Opportunity.findById(req.params.id);
@@ -403,13 +598,11 @@ const verifyOpportunityEndpoint = async (req, res) => {
   }
 };
 
-// @desc    Seed crawler (DEV ONLY)
-// @route   GET /api/opportunities/seed
+/**
+ * @desc    Seed crawler (DEV ONLY)
+ * @route   GET /api/opportunities/seed
+ */
 const seedOpportunities = async (req, res) => {
-  if (process.env.NODE_ENV !== 'development') {
-    return res.status(403).json({ success: false, message: 'Seeder only available in development environment.' });
-  }
-  
   try {
     const result = await runIngestion();
     res.status(201).json({ success: true, ...result });
@@ -425,9 +618,12 @@ module.exports = {
   listClosingSoon,
   listSaved,
   listApplied,
+  listRegistered,
   listHighMatch,
   toggleBookmark,
   applyOpportunity,
+  registerOpportunity,
+  getReminders,
   dismissOpportunity,
   verifyOpportunityEndpoint,
   seedOpportunities

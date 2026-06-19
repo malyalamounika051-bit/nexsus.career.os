@@ -17,6 +17,21 @@ const userOpportunitySchema = new mongoose.Schema({
     type: String,
     enum: ['recommended', 'viewed', 'saved', 'applied', 'dismissed', 'expired'],
     default: 'recommended'
+  },
+
+  // --- Registration & reminder tracking ---
+  registered: { type: Boolean, default: false },
+  registeredAt: { type: Date },
+  remindersSent: {
+    sevenDay: { type: Boolean, default: false },
+    threeDay: { type: Boolean, default: false },
+    oneDay: { type: Boolean, default: false },
+    sameDay: { type: Boolean, default: false }
+  },
+  submissionStatus: {
+    type: String,
+    enum: ['not-started', 'in-progress', 'submitted', 'missed'],
+    default: 'not-started'
   }
 }, { timestamps: true });
 

@@ -45,6 +45,7 @@ const TABS = [
   { id: 'course', label: 'Free Courses' },
   { id: 'certification', label: 'Free Certifications' },
   { id: 'quiz', label: 'Quizzes & Challenges' },
+  { id: 'registered', label: 'Registered' },
   { id: 'saved', label: 'Saved' },
   { id: 'applied', label: 'Applied' }
 ];
@@ -65,6 +66,7 @@ const SCAN_STEPS = [
 const OpportunityRadar = () => {
   const [sc, setSc] = useState(false);
   const [opportunities, setOpportunities] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [stats, setStats] = useState({
     hackathonsOpen: 0,
     scholarshipsOpen: 0,
@@ -126,6 +128,11 @@ const OpportunityRadar = () => {
           setStats(data.stats);
         }
       }
+      
+      const { data: remData } = await api.get('/opportunities/reminders').catch(() => ({ data: { success: false } }));
+      if (remData?.success) {
+        setReminders(remData.data || []);
+      }
     } catch (err) {
       console.error('Failed to load opportunities:', err);
       showToast('Could not sync career recommendations.', 'error');
@@ -163,12 +170,10 @@ const OpportunityRadar = () => {
 
   const handleApply = async () => {
     try {
-      const { data } = await api.post(`/opportunities/${confirmOppId}/apply`, {
-        applicationProof: 'Registered/Submitted via Opportunity Radar Dashboard'
-      });
+      const { data } = await api.post(`/opportunities/${confirmOppId}/register`);
       if (data.success) {
         setOpportunities(prev => prev.map(opp => 
-          opp._id === confirmOppId ? { ...opp, applied: true } : opp
+          opp._id === confirmOppId ? { ...opp, registered: true, applied: true } : opp
         ));
         setStats(prev => ({
           ...prev,
@@ -179,7 +184,12 @@ const OpportunityRadar = () => {
           setCongratsMsg('Opportunity registered successfully! +50 XP Earned! 🚀');
           setShowSuccessOverlay(true);
         } else {
-          showToast('🎉 Mark registered successfully');
+          showToast('🎉 Registered successfully');
+        }
+        
+        const { data: remData } = await api.get('/opportunities/reminders').catch(() => ({ data: { success: false } }));
+        if (remData?.success) {
+          setReminders(remData.data || []);
         }
       }
     } catch (err) {
@@ -243,6 +253,7 @@ const OpportunityRadar = () => {
     }
     if (activeTab === 'saved') return opp.bookmarked;
     if (activeTab === 'applied') return opp.applied;
+    if (activeTab === 'registered') return opp.registered;
     return opp.type === activeTab;
   });
 
@@ -359,6 +370,87 @@ const OpportunityRadar = () => {
             <span style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--color-accent-light)' }}>{stats.applicationsSubmitted}</span>
           </div>
         </motion.div>
+
+        {/* Deadline Reminders Section */}
+        {reminders.length > 0 && (
+          <div className="glass-card" style={{
+            padding: '1.25rem',
+            borderRadius: 12,
+            marginBottom: '1.5rem',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(245, 158, 11, 0.05) 100%)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <Clock size={18} style={{ color: '#ef4444' }} />
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'white', fontFamily: "'Space Grotesk', sans-serif" }}>
+                Active Deadline Reminders
+              </h3>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ef4444', color: 'white', padding: '0.15rem 0.45rem', borderRadius: 12, marginLeft: 'auto' }}>
+                {reminders.length} Urgent
+              </span>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
+              {reminders.map(rem => (
+                <div key={rem.opportunityId} style={{
+                  padding: '0.85rem',
+                  borderRadius: 8,
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: `1px solid ${rem.urgency === 'critical' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.08)'}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: 4,
+                      background: rem.urgency === 'critical' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.1)',
+                      color: rem.urgency === 'critical' ? '#ef4444' : '#fbbf24'
+                    }}>
+                      {rem.daysLeft} {rem.daysLeft === 1 ? 'day' : 'days'} left
+                    </span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                      {rem.type}
+                    </span>
+                  </div>
+                  
+                  <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {rem.title}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--color-text-dim)' }}>
+                    {rem.organization}
+                  </p>
+                  
+                  <div style={{ marginTop: '0.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>
+                      Due: {new Date(rem.deadline).toLocaleDateString()}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const opp = opportunities.find(o => o._id === rem.opportunityId);
+                        if (opp) setSelectedOpp(opp);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-primary-light)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      View Link
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Global Opportunity Sources Panel */}
         <div style={{ marginBottom: '2rem' }}>
@@ -633,9 +725,9 @@ const OpportunityRadar = () => {
                 )}
 
                 <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-                  {selectedOpp.applied ? (
+                  {selectedOpp.registered || selectedOpp.applied ? (
                     <div style={{ flex: 1, padding: '0.75rem', background: 'var(--color-success-glow)', border: '1px solid var(--color-success)', color: 'var(--color-success)', borderRadius: 8, fontSize: '0.85rem', fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}>
-                      <Check size={16} /> Registered / Applied
+                      <Check size={16} /> Registered
                     </div>
                   ) : (
                     <>

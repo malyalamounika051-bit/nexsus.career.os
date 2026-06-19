@@ -3,17 +3,32 @@ const OpportunitySource = require('../models/OpportunitySource');
 const { verifyUrl } = require('./verificationService');
 const crypto = require('crypto');
 
-// Import connectors
-const linkedin = require('./connectors/linkedin');
-const devpost = require('./connectors/devpost');
-const kaggle = require('./connectors/kaggle');
-const openSource = require('./connectors/openSource');
-const scholarship = require('./connectors/scholarship');
+/**
+ * Opportunity Radar v2 — Ingestion Pipeline Manager
+ * 
+ * Two-tier ingestion:
+ * Tier 1: Curated seed database (120+ verified opportunities — guaranteed content)
+ * Tier 2: AI-powered discovery engine (finds new real opportunities)
+ */
+
+// Lazy-load services to avoid circular dependency issues at startup
+let seedModule = null;
+let discoveryModule = null;
+
+const getSeedModule = () => {
+  if (!seedModule) seedModule = require('./opportunitySeed');
+  return seedModule;
+};
+
+const getDiscoveryModule = () => {
+  if (!discoveryModule) discoveryModule = require('./discoveryEngine');
+  return discoveryModule;
+};
 
 const escapeRegex = (str = '') => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Generate a URL friendly slug
+ * Generate a URL-friendly slug
  */
 const slugify = (text) => {
   return text
@@ -79,7 +94,7 @@ const updateSourceSync = async (sourceName, fetchedCount) => {
     await OpportunitySource.findOneAndUpdate(
       { name: sourceName },
       {
-        $set: { lastSync: new Date(), status: 'active', sourceUrl: 'https://careers.google.com' },
+        $set: { lastSync: new Date(), status: 'active' },
         $inc: { opportunitiesFetched: fetchedCount }
       },
       { upsert: true }
@@ -90,100 +105,51 @@ const updateSourceSync = async (sourceName, fetchedCount) => {
 };
 
 /**
- * Ingestion pipe manager
+ * Main Ingestion Pipeline
+ * 
+ * Step 1: Seed curated opportunities (idempotent — skips existing)
+ * Step 2: Run AI discovery for fresh opportunities (optional, may fail gracefully)
  */
 const runIngestion = async () => {
-  console.log('🚀 Ingesting Opportunity Radar sources...');
+  console.log('🚀 Opportunity Radar v2: Starting ingestion pipeline...');
   
-  const sources = [
-    { name: 'LinkedIn', fetcher: linkedin.fetchOpportunities },
-    { name: 'Devpost', fetcher: devpost.fetchOpportunities },
-    { name: 'Kaggle', fetcher: kaggle.fetchOpportunities },
-    { name: 'OpenSource', fetcher: openSource.fetchOpportunities },
-    { name: 'Scholarship', fetcher: scholarship.fetchOpportunities }
-  ];
+  let totalSeeded = 0;
+  let totalDiscovered = 0;
 
-  let totalSaved = 0;
-
-  for (const src of sources) {
-    try {
-      console.log(`Running crawler for: ${src.name}`);
-      const rawOpps = await src.fetcher();
-      let savedForSource = 0;
-      
-      for (const opp of rawOpps) {
-        // Normalization
-        let type = (opp.type || 'hackathon').toLowerCase().trim();
-        if (type.includes('hack')) type = 'hackathon';
-        else if (type.includes('scholar') || type.includes('fellow')) type = 'scholarship';
-        else if (type.includes('compete') || type.includes('competition') || type.includes('challenge')) type = 'competition';
-        else if (type.includes('open') || type.includes('source')) type = 'open-source';
-        else if (type.includes('research')) type = 'research';
-        else if (type.includes('course') || type.includes('learn') || type.includes('class')) type = 'course';
-        else if (type.includes('certif')) type = 'certification';
-        else if (type.includes('quiz') || type.includes('test')) type = 'quiz';
-        else type = 'hackathon';
-        opp.type = type;
-
-        const duplicate = await detectAndMergeDuplicate(opp);
-        if (duplicate) {
-          continue;
-        }
-
-        // URL Check
-        const verificationStatus = await verifyUrl(opp.applicationUrl);
-        const isVerified = verificationStatus === 'verified';
-        
-        // Deadlines mapping
-        const deadline = opp.registrationDeadline ? new Date(opp.registrationDeadline) : (opp.deadline ? new Date(opp.deadline) : null);
-        let daysRemaining = 0;
-        if (deadline) {
-          daysRemaining = Math.max(0, Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24)));
-        }
-
-        const newOpp = new Opportunity({
-          title: opp.title,
-          organization: opp.organization,
-          type: opp.type,
-          description: opp.description,
-          deadline,
-          applicationUrl: opp.applicationUrl,
-          eligibility: opp.eligibility,
-          requiredSkills: opp.requiredSkills || [],
-          preferredSkills: opp.preferredSkills || [],
-          location: opp.location || 'Remote',
-          remote: opp.remote !== undefined ? opp.remote : true,
-          tags: opp.tags || [],
-          source: opp.source || src.name,
-          sourceType: opp.sourceType || 'api',
-          sourceScore: opp.sourceScore || 80,
-          verificationStatus,
-          isVerified,
-          lastChecked: new Date(),
-          careerTracks: opp.careerTracks || [opp.type],
-          difficulty: opp.difficultyLevel || opp.difficulty || 'Medium',
-          daysRemaining,
-          isFeatured: opp.isFeatured || false,
-          slug: slugify(opp.title),
-          opportunityStatus: (deadline && deadline < new Date()) ? 'expired' : 'active'
-        });
-
-        await newOpp.save();
-        savedForSource++;
-        totalSaved++;
-      }
-      
-      await updateSourceSync(src.name, savedForSource);
-      console.log(`Crawler complete for ${src.name}: Synced ${savedForSource} new opportunities.`);
-    } catch (err) {
-      console.error(`Error ingesting source ${src.name}:`, err.message);
-    }
+  // ═══ TIER 1: Curated Seed Database ═══
+  try {
+    console.log('📦 Tier 1: Seeding curated opportunity database...');
+    const { seedCuratedOpportunities } = getSeedModule();
+    const seedResult = await seedCuratedOpportunities();
+    totalSeeded = seedResult.inserted || 0;
+    console.log(`📦 Tier 1 complete: ${totalSeeded} new opportunities seeded.`);
+    await updateSourceSync('CuratedSeed', totalSeeded);
+  } catch (err) {
+    console.error('❌ Tier 1 seed error:', err.message);
   }
 
-  console.log(`✅ Global Ingestion finished. Saved ${totalSaved} opportunities overall.`);
-  return { success: true, saved: totalSaved };
+  // ═══ TIER 2: AI-Powered Discovery ═══
+  try {
+    console.log('🔍 Tier 2: Running AI discovery engine...');
+    const { discoverAllCategories } = getDiscoveryModule();
+    const discoveryResult = await discoverAllCategories();
+    totalDiscovered = discoveryResult.total || 0;
+    console.log(`🔍 Tier 2 complete: ${totalDiscovered} new opportunities discovered.`);
+    await updateSourceSync('AIDiscovery', totalDiscovered);
+  } catch (err) {
+    // AI discovery is optional — seed database guarantees content
+    console.error('⚠️ Tier 2 discovery error (non-fatal):', err.message);
+  }
+
+  const totalNew = totalSeeded + totalDiscovered;
+  console.log(`✅ Ingestion pipeline finished. Total new: ${totalNew} (Seeded: ${totalSeeded}, Discovered: ${totalDiscovered})`);
+  
+  return { success: true, saved: totalNew, seeded: totalSeeded, discovered: totalDiscovered };
 };
 
 module.exports = {
-  runIngestion
+  runIngestion,
+  detectAndMergeDuplicate,
+  slugify,
+  updateSourceSync
 };

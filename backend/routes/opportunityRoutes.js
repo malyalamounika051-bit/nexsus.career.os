@@ -7,9 +7,12 @@ const {
   listClosingSoon,
   listSaved,
   listApplied,
+  listRegistered,
   listHighMatch,
   toggleBookmark,
   applyOpportunity,
+  registerOpportunity,
+  getReminders,
   dismissOpportunity,
   verifyOpportunityEndpoint
 } = require('../controllers/opportunityController');
@@ -25,9 +28,12 @@ router.get('/closing-soon', protect, listClosingSoon);
 router.get('/high-match', protect, listHighMatch);
 router.get('/saved', protect, listSaved);
 router.get('/applied', protect, listApplied);
+router.get('/registered', protect, listRegistered);
+router.get('/reminders', protect, getReminders);
 
 router.post('/:id/bookmark', protect, toggleBookmark);
 router.post('/:id/apply', protect, applyOpportunity);
+router.post('/:id/register', protect, registerOpportunity);
 router.post('/:id/dismiss', protect, dismissOpportunity);
 router.post('/:id/verify', protect, verifyOpportunityEndpoint);
 
