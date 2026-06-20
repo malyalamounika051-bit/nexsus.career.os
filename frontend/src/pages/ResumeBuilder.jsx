@@ -16,7 +16,7 @@ import {
   ExecutiveEdgeTemplate
 } from '../components/ResumeTemplates';
 import {
-  FileText, Download, Plus, Trash2, Zap, User, Mail, Phone,
+  FileText, Download, Plus, Minus, Trash2, Zap, User, Mail, Phone,
   MapPin, Link, Globe, Briefcase, GraduationCap, Code2,
   ChevronDown, ChevronUp, Eye, Edit3, Sparkles, Save,
   Layers, Palette, Type, Layout, History, Share2, 
@@ -503,10 +503,10 @@ export default function ResumeBuilder() {
              <div style={{ padding: '1rem 2rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '0.1em' }}>LIVE PREVIEW</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                   <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--color-surface)', padding: '4px', borderRadius: '8px' }}>
-                      <button onClick={() => setZoom(Math.max(0.2, zoom - 0.05))} style={{ width: '28px', height: '28px', border: 'none', background: 'none', color: 'white', cursor: 'pointer' }}><Monitor size={14} /></button>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', alignSelf: 'center', minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 200)}%</span>
-                      <button onClick={() => setZoom(Math.min(1, zoom + 0.05))} style={{ width: '28px', height: '28px', border: 'none', background: 'none', color: 'white', cursor: 'pointer' }}><Plus size={14} /></button>
+                   <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--color-surface-2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                      <button onClick={() => setZoom(Math.max(0.2, zoom - 0.05))} style={{ width: '28px', height: '28px', border: 'none', background: 'none', color: 'var(--color-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Zoom Out"><Minus size={14} /></button>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text)', alignSelf: 'center', minWidth: '40px', textAlign: 'center', fontWeight: 600 }}>{Math.round(zoom * 200)}%</span>
+                      <button onClick={() => setZoom(Math.min(1, zoom + 0.05))} style={{ width: '28px', height: '28px', border: 'none', background: 'none', color: 'var(--color-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Zoom In"><Plus size={14} /></button>
                    </div>
                    <button onClick={() => setActiveTab('templates')} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <Palette size={14} /> Change Style

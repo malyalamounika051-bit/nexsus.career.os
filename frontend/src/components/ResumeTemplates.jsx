@@ -216,27 +216,27 @@ export const CreativeTemplate = ({ data }) => {
   return (
     <div style={{ fontFamily: "'Montserrat', sans-serif", display: 'grid', gridTemplateColumns: '260px 1fr', minHeight: '1123px', color: '#1f2937' }}>
       {/* Sidebar */}
-      <div style={{ background: '#111827', color: 'white', padding: '40px 25px' }}>
+      <div style={{ background: '#111827', color: '#ffffff', padding: '40px 25px' }}>
         <div style={{ marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '39px', fontWeight: 900, lineHeight: 1.1, marginBottom: '8px' }}>{info.name}</h1>
+          <h1 style={{ fontSize: '39px', fontWeight: 900, lineHeight: 1.1, marginBottom: '8px', color: '#ffffff' }}>{info.name}</h1>
           <div style={{ fontSize: '21px', color: accentColor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>{info.title}</div>
         </div>
 
         <div style={{ marginBottom: '35px' }}>
-          <h3 style={{ fontSize: '21px', borderBottom: `2px solid ${accentColor}`, paddingBottom: '6px', marginBottom: '15px', letterSpacing: '1px' }}>CONTACT</h3>
+          <h3 style={{ fontSize: '21px', borderBottom: `2px solid ${accentColor}`, paddingBottom: '6px', marginBottom: '15px', letterSpacing: '1px', color: '#ffffff' }}>CONTACT</h3>
           <div style={{ fontSize: '18px', display: 'flex', flexDirection: 'column', gap: '10px', color: '#9ca3af' }}>
-            {info.email && <div><span style={{ color: accentColor }}>✉</span> {info.email}</div>}
-            {info.phone && <div><span style={{ color: accentColor }}>✆</span> {info.phone}</div>}
-            {info.location && <div><span style={{ color: accentColor }}>⌖</span> {info.location}</div>}
+            {info.email && <div style={{ color: '#9ca3af' }}><span style={{ color: accentColor }}>✉</span> {info.email}</div>}
+            {info.phone && <div style={{ color: '#9ca3af' }}><span style={{ color: accentColor }}>✆</span> {info.phone}</div>}
+            {info.location && <div style={{ color: '#9ca3af' }}><span style={{ color: accentColor }}>⌖</span> {info.location}</div>}
           </div>
         </div>
 
         {skills?.length > 0 && (
           <div style={{ marginBottom: '35px' }}>
-            <h3 style={{ fontSize: '21px', borderBottom: `2px solid ${accentColor}`, paddingBottom: '6px', marginBottom: '15px', letterSpacing: '1px' }}>SKILLS</h3>
+            <h3 style={{ fontSize: '21px', borderBottom: `2px solid ${accentColor}`, paddingBottom: '6px', marginBottom: '15px', letterSpacing: '1px', color: '#ffffff' }}>SKILLS</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {skills.map((s, i) => (
-                <span key={i} style={{ background: '#374151', padding: '4px 10px', borderRadius: '4px', fontSize: '16px' }}>{s}</span>
+                <span key={i} style={{ background: '#374151', padding: '4px 10px', borderRadius: '4px', fontSize: '16px', color: '#ffffff' }}>{s}</span>
               ))}
             </div>
           </div>
@@ -244,7 +244,7 @@ export const CreativeTemplate = ({ data }) => {
 
         {achievements?.length > 0 && (
           <div>
-            <h3 style={{ fontSize: '21px', borderBottom: `2px solid ${accentColor}`, paddingBottom: '6px', marginBottom: '15px', letterSpacing: '1px' }}>AWARD</h3>
+            <h3 style={{ fontSize: '21px', borderBottom: `2px solid ${accentColor}`, paddingBottom: '6px', marginBottom: '15px', letterSpacing: '1px', color: '#ffffff' }}>AWARD</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {achievements.map((ach, i) => (
                 ach && <div key={i} style={{ fontSize: '18px', color: '#d1d5db', lineHeight: 1.4 }}>🏆 {ach}</div>
