@@ -160,12 +160,12 @@ const DashboardPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--color-primary-light)'
+                color: 'var(--color-primary)'
               }}>
                 <Quote size={20} />
               </div>
               <div>
-                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '2px' }}>Daily Inspiration ✨</span>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '2px' }}>Daily Inspiration ✨</span>
                 <p style={{
                   fontSize: '1rem',
                   fontStyle: 'italic',
@@ -206,9 +206,9 @@ const DashboardPage = () => {
         <div style={{ marginBottom: '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Activity size={20} style={{ color: 'var(--color-primary-light)' }} />
+              <Activity size={20} style={{ color: 'var(--color-primary)' }} />
               <h2 className="section-title" style={{ margin: 0, fontSize: '1.35rem', fontFamily: "var(--font-display)", fontWeight: 700 }}>Career Pulse Hub</h2>
-              <span style={{ background: 'var(--color-primary-glow)', color: 'var(--color-primary-light)', border: '1px solid rgba(124,58,237,0.2)', fontSize: '0.65rem', padding: '0.2rem 0.5rem', borderRadius: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Intelligence</span>
+              <span style={{ background: 'var(--color-primary-glow)', color: 'var(--color-primary)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '0.65rem', padding: '0.2rem 0.5rem', borderRadius: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Intelligence</span>
             </div>
 
             {/* Smart Filtering Tabs */}
@@ -259,15 +259,15 @@ const DashboardPage = () => {
                       </p>
 
                       {/* Why it Matters Block */}
-                      <div style={{ background: 'var(--color-primary-glow)', borderLeft: '3px solid var(--color-primary-light)', padding: '0.75rem', borderRadius: '4px 8px 8px 4px', marginBottom: '1.25rem' }}>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Why It Matters</span>
+                      <div style={{ background: 'var(--color-primary-glow)', borderLeft: '3px solid var(--color-primary)', padding: '0.75rem', borderRadius: '4px 8px 8px 4px', marginBottom: '1.25rem' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Why It Matters</span>
                         <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{item.whyItMatters}</span>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.85rem', marginTop: 'auto' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--color-primary-light)', fontWeight: 600 }}>{item.source}</span>
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-accent-light)', textDecoration: 'none', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 600 }}>{item.source}</span>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
                         Read More <ArrowRight size={14} />
                       </a>
                     </div>
@@ -315,7 +315,7 @@ const DashboardPage = () => {
               <Sparkles size={22} color="white" />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
                 Sara Says: Insight of the Day
               </div>
               {insightLoading ? (
@@ -391,7 +391,7 @@ const DashboardPage = () => {
                 <Trophy size={18} style={{ color: 'var(--color-xp)' }} />
                 <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "var(--font-display)" }}>Opportunity Radar</h2>
               </div>
-              <a href="/opportunities" onClick={(e) => { e.preventDefault(); navigate('/opportunities'); }} style={{ fontSize: '0.75rem', color: 'var(--color-primary-light)', textDecoration: 'none', fontWeight: 600 }}>
+              <a href="/opportunities" onClick={(e) => { e.preventDefault(); navigate('/opportunities'); }} style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
                 View All →
               </a>
             </div>
@@ -415,7 +415,7 @@ const DashboardPage = () => {
                     <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)' }}>{opp.title}</h4>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
                       <span style={{ color: 'var(--color-text-muted)' }}>{opp.organization}</span>
-                      <button onClick={() => navigate('/opportunities')} style={{ background: 'none', border: 'none', color: 'var(--color-primary-light)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Apply Now</button>
+                      <button onClick={() => navigate('/opportunities')} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Apply Now</button>
                     </div>
                   </div>
                 ))
@@ -448,7 +448,7 @@ const DashboardPage = () => {
                       <span style={{ fontSize: '0.72rem', color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Checkpoint</span>
                       <h4 style={{ margin: '0.1rem 0 0 0', fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)' }}>{gpsData.checkpointName || gpsData.currentCheckpoint?.title || 'Initial Setup'}</h4>
                     </div>
-                    <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: 4, background: 'var(--color-primary-glow)', color: 'var(--color-primary-light)', fontWeight: 700 }}>
+                    <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: 4, background: 'var(--color-primary-glow)', color: 'var(--color-primary)', fontWeight: 700 }}>
                       {gpsData.progressPercent || gpsData.overallProgress || 0}% Done
                     </span>
                   </div>
@@ -486,7 +486,7 @@ const DashboardPage = () => {
                 <Briefcase size={18} style={{ color: 'var(--color-accent)' }} />
                 <h2 className="section-title" style={{ margin: 0, fontSize: '1.2rem', fontFamily: "var(--font-display)" }}>Job Openings</h2>
               </div>
-              <a href="/jobs" onClick={(e) => { e.preventDefault(); navigate('/jobs'); }} style={{ fontSize: '0.75rem', color: 'var(--color-primary-light)', textDecoration: 'none', fontWeight: 600 }}>
+              <a href="/jobs" onClick={(e) => { e.preventDefault(); navigate('/jobs'); }} style={{ fontSize: '0.75rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
                 Explore Jobs →
               </a>
             </div>
@@ -524,7 +524,7 @@ const DashboardPage = () => {
                       <span className="tag tag-cyan" style={{ fontSize: '0.62rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
                         {job.matchScore || 85}% Match
                       </span>
-                      <a href="/jobs" onClick={(e) => { e.preventDefault(); navigate(`/jobs?search=${encodeURIComponent(job.title)}`); }} style={{ fontSize: '0.72rem', color: 'var(--color-primary-light)', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                      <a href="/jobs" onClick={(e) => { e.preventDefault(); navigate(`/jobs?search=${encodeURIComponent(job.title)}`); }} style={{ fontSize: '0.72rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                         View <ChevronRight size={12} />
                       </a>
                     </div>
