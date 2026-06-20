@@ -270,10 +270,41 @@ const InterviewReport = () => {
                   {/* User Answer */}
                   <div className="bg-gradient-to-r from-slate-800/90 to-slate-900/90 rounded-3xl p-10 border border-slate-700/50 shadow-lg relative overflow-hidden group hover:border-blue-500/40 transition-colors">
                     <div className="absolute top-0 left-0 w-2.5 h-full bg-slate-600 group-hover:bg-blue-500 transition-colors" />
-                    <div className="flex items-center gap-4 mb-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
                       <span className="text-sm font-black uppercase tracking-widest text-slate-400 bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700 shadow-sm">You (Candidate)</span>
+                      
+                      {/* Speech Analytics Info */}
+                      {q.analytics && (
+                        <div className="flex flex-wrap items-center gap-3">
+                          {q.duration > 0 && (
+                            <span className="text-[11px] font-bold text-slate-300 bg-slate-800/80 border border-slate-700/55 px-3 py-1 rounded-md">
+                              Duration: <span className="font-mono text-cyan-400">{Math.round(q.duration)}s</span>
+                            </span>
+                          )}
+                          {q.analytics.speakingSpeed > 0 && (
+                            <span className="text-[11px] font-bold text-slate-300 bg-slate-800/80 border border-slate-700/55 px-3 py-1 rounded-md">
+                              Speed: <span className="font-mono text-cyan-400">{q.analytics.speakingSpeed} WPM</span>
+                            </span>
+                          )}
+                          <span className="text-[11px] font-bold text-slate-300 bg-slate-800/80 border border-slate-700/55 px-3 py-1 rounded-md">
+                            Fillers: <span className="font-mono text-amber-400">{q.analytics.fillerWordCount || 0}</span>
+                          </span>
+                          {q.confidence > 0 && (
+                            <span className="text-[11px] font-bold text-slate-300 bg-slate-800/80 border border-slate-700/55 px-3 py-1 rounded-md">
+                              ASR Conf: <span className="font-mono text-purple-400">{Math.round(q.confidence * 100)}%</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <p className="text-slate-100 text-[18px] leading-relaxed font-medium italic opacity-95">"{q.userAnswer}"</p>
+                    
+                    {/* Filler words list warning */}
+                    {q.analytics && q.analytics.fillerWords && q.analytics.fillerWords.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-slate-800/60 text-[12px] text-amber-300/80 font-medium">
+                        ✦ Filler words detected: <span className="italic text-slate-300">{q.analytics.fillerWords.join(', ')}</span> (try to minimize these for better clarity).
+                      </div>
+                    )}
                   </div>
                   
                   {/* AI Feedback */}
