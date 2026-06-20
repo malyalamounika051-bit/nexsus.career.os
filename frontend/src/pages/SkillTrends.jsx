@@ -9,7 +9,7 @@ import {
   TrendingUp, Search, Sparkles, Briefcase, Award,
   DollarSign, BarChart2, BookOpen, HelpCircle, Flame,
   Zap, ArrowUpRight, ChevronRight, Brain, Layers,
-  GitCompareArrows
+  GitCompareArrows, Loader2
 } from 'lucide-react';
 
 const CATEGORIES = ['All', 'AI/ML', 'Cloud', 'Frontend', 'Backend', 'DevOps', 'Data'];
@@ -168,7 +168,11 @@ export default function SkillTrends() {
   // Skeleton for trending list
   const TrendingSkeleton = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-      {Array.from({ length: 8 }).map((_, i) => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.85rem', background: 'var(--color-surface-2)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
+        <Loader2 size={16} color="var(--color-primary)" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Loading latest trends...</span>
+      </div>
+      {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="skel-pulse" style={{ height: 56, borderRadius: 12 }} />
       ))}
     </div>
@@ -282,8 +286,13 @@ export default function SkillTrends() {
           {selectedSkill && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
               {deepDiveLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {[120, 200, 180, 150].map((h, i) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '3rem', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
+                    <Loader2 size={32} color="var(--color-primary)" style={{ animation: 'spin 1s linear infinite' }} />
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)' }}>Analyzing Skill Intelligence...</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Fetching salary, growth, and roadmap data</div>
+                  </div>
+                  {[200, 150].map((h, i) => (
                     <div key={i} className="skel-pulse" style={{ height: h, borderRadius: 16 }} />
                   ))}
                 </div>
@@ -376,7 +385,11 @@ export default function SkillTrends() {
                     className="glass-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
                     <div className="hub-section-title"><Layers size={18} color="var(--color-primary-light)" /> Skill Relationship Graph</div>
                     {graphLoading ? (
-                      <div className="skel-pulse" style={{ height: 350, borderRadius: 16 }} />
+                      <div style={{ height: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', background: 'var(--color-surface-2)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
+                        <Loader2 size={32} color="var(--color-primary)" style={{ animation: 'spin 1s linear infinite' }} />
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text)' }}>Mapping Skill Relationships...</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Constructing correlation graph</div>
+                      </div>
                     ) : graphData ? (
                       <SkillGraph
                         nodes={graphData.nodes || []}

@@ -273,18 +273,20 @@ const SkillGraph = ({
             position: 'absolute',
             left: Math.min(pos.x + 15, width - 160),
             top: Math.max(pos.y - 50, 10),
-            background: 'var(--color-surface)',
-            border: `1px solid ${color}40`,
+            background: 'var(--color-surface-glass, var(--color-surface))',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: `1px solid ${color}60`,
             borderRadius: 10,
             padding: '0.6rem 0.85rem',
-            boxShadow: `0 4px 20px rgba(0,0,0,0.5), 0 0 15px ${color}20`,
+            boxShadow: `0 4px 20px rgba(0,0,0,0.12), 0 0 15px ${color}15`,
             pointerEvents: 'none',
             zIndex: 10,
           }}>
-            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fff', marginBottom: '0.2rem' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--color-text)', marginBottom: '0.2rem' }}>
               {node.label}
             </div>
-            <div style={{ fontSize: '0.7rem', color, textTransform: 'capitalize' }}>
+            <div style={{ fontSize: '0.7rem', color, textTransform: 'capitalize', fontWeight: 600 }}>
               {node.category}
             </div>
           </div>
