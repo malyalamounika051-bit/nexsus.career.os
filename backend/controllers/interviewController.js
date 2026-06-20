@@ -1,6 +1,10 @@
 const { callGeminiDirectly } = require('../utils/geminiClient');
 const { parseStructuredJson } = require('../utils/jsonParser');
 const Interview = require('../models/Interview');
+const { ASRService } = require('../services/asrService');
+
+// Shared ASR service instance (uses env vars for provider config)
+const asrService = new ASRService();
 
 // @desc    Generate interview questions and start interview
 // @route   POST /api/interview/start
@@ -58,7 +62,7 @@ Return ONLY the JSON object. Do not include any markdown formatting or extra tex
 // @access  Private
 const evaluateAnswer = async (req, res) => {
   try {
-    const { interviewId, question, userAnswer } = req.body;
+    const { interviewId, question, userAnswer, confidence, duration, analytics } = req.body;
 
     if (!interviewId || !question || !userAnswer) {
       return res.status(400).json({ success: false, message: 'Interview ID, question, and user answer are required.' });
@@ -82,16 +86,29 @@ Return ONLY the JSON object. No markdown.`;
     const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
     const parsed = parseStructuredJson(response.text);
 
+    // Build transcript entry with optional ASR analytics fields
+    const transcriptEntry = {
+      question,
+      userAnswer,
+      aiFeedback: parsed.feedback,
+      isFollowUp: false
+    };
+
+    if (typeof confidence === 'number') transcriptEntry.confidence = confidence;
+    if (typeof duration === 'number') transcriptEntry.duration = duration;
+    if (analytics && typeof analytics === 'object') {
+      transcriptEntry.analytics = {
+        wordsSpoken: analytics.wordsSpoken || 0,
+        speakingSpeed: analytics.speakingSpeed || 0,
+        fillerWords: analytics.fillerWords || [],
+        fillerWordCount: analytics.fillerWordCount || 0,
+        pauseFrequency: analytics.pauseFrequency || 0
+      };
+    }
+
     // Save to transcript
     await Interview.findByIdAndUpdate(interviewId, {
-      $push: {
-        transcript: {
-          question,
-          userAnswer,
-          aiFeedback: parsed.feedback,
-          isFollowUp: false
-        }
-      }
+      $push: { transcript: transcriptEntry }
     });
 
     res.json({ success: true, data: parsed });
@@ -245,10 +262,38 @@ const getInterview = async (req, res) => {
   }
 };
 
+// @desc    Transcribe / enhance browser-captured speech
+// @route   POST /api/interview/transcribe
+// @access  Private
+const transcribeAudio = async (req, res) => {
+  try {
+    const { browserTranscript, duration, interviewId } = req.body;
+
+    if (!browserTranscript && browserTranscript !== '') {
+      return res.status(400).json({
+        success: false,
+        message: 'browserTranscript is required.'
+      });
+    }
+
+    // Use the ASR service (BrowserTranscriptProvider by default) to enhance
+    const result = await asrService.transcribe(null, {
+      browserTranscript,
+      duration: duration || 0
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error transcribing audio:', error);
+    res.status(500).json({ success: false, message: 'Failed to transcribe audio.' });
+  }
+};
+
 module.exports = {
   startInterview,
   evaluateAnswer,
   finalizeInterview,
   getHistory,
-  getInterview
+  getInterview,
+  transcribeAudio
 };

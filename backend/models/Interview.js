@@ -23,7 +23,17 @@ const interviewSchema = new mongoose.Schema({
     question: String,
     userAnswer: String,
     aiFeedback: String,
-    isFollowUp: Boolean
+    isFollowUp: Boolean,
+    confidence: { type: Number, default: 0 },
+    language: { type: String, default: 'en' },
+    duration: { type: Number, default: 0 },
+    analytics: {
+      wordsSpoken: { type: Number, default: 0 },
+      speakingSpeed: { type: Number, default: 0 },
+      fillerWords: [String],
+      fillerWordCount: { type: Number, default: 0 },
+      pauseFrequency: { type: Number, default: 0 }
+    }
   }],
   scores: {
     technical: { type: Number, default: 0 },
