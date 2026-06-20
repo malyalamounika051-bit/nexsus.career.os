@@ -323,11 +323,11 @@ const JobsPage = () => {
         </div>
 
         {/* Dynamic job metadata */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: 'rgba(255,255,255,0.02)', padding: '0.6rem', borderRadius: 8, fontSize: '0.75rem', color: 'var(--color-text-dim)', marginBottom: '1rem' }}>
-          <div>Exp: <strong style={{ color: '#fff' }}>{job.experienceLevel || 'Mid-level'}</strong></div>
-          <div>Location: <strong style={{ color: '#fff' }}>{job.remoteHybridOnsite || 'Remote'}</strong></div>
-          <div>Positions: <strong style={{ color: '#fff' }}>{job.openPositions || 1} Open</strong></div>
-          <div>Deadline: <strong style={{ color: '#fca5a5' }}>{job.applicationDeadline || 'Apply Soon'}</strong></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: 'var(--color-surface-2)', padding: '0.6rem', borderRadius: 8, fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: '1rem', border: '1px solid var(--color-border)' }}>
+          <div>Exp: <strong style={{ color: 'var(--color-text)' }}>{job.experienceLevel || 'Mid-level'}</strong></div>
+          <div>Location: <strong style={{ color: 'var(--color-text)' }}>{job.remoteHybridOnsite || 'Remote'}</strong></div>
+          <div>Positions: <strong style={{ color: 'var(--color-text)' }}>{job.openPositions || 1} Open</strong></div>
+          <div>Deadline: <strong style={{ color: 'var(--color-primary)' }}>{job.applicationDeadline || 'Apply Soon'}</strong></div>
         </div>
 
         {/* Why Recommended tags */}
