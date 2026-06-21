@@ -602,6 +602,50 @@ const verifyOpportunityEndpoint = async (req, res) => {
 };
 
 /**
+ * @desc    Get single opportunity by ID with user relation info
+ * @route   GET /api/opportunities/:id
+ */
+const getOpportunityById = async (req, res) => {
+  try {
+    const userId = String(req.user?.uid || req.user?._id || req.user?.id);
+    const opportunityId = req.params.id;
+
+    const opp = await Opportunity.findById(opportunityId);
+    if (!opp) {
+      return res.status(404).json({ success: false, message: 'Opportunity not found' });
+    }
+
+    const userOpp = await UserOpportunity.findOne({ userId, opportunityId });
+    const resume = await Resume.findOne({ user: userId });
+    const userSkills = resume?.skills || [];
+    const gps = await CareerGPS.findOne({ userId }).sort({ updatedAt: -1 });
+    const gpsDestination = gps?.destination || '';
+    const completedRoadmapsCount = await Career.countDocuments({ userId, isGeneratedRoadmap: true, status: 'completed' });
+
+    const { matchScore, whyRecommended } = calculateOpportunityMatch(
+      opp,
+      userSkills,
+      gpsDestination,
+      completedRoadmapsCount
+    );
+
+    const enriched = {
+      ...opp.toObject(),
+      matchScore: userOpp?.matchScore || matchScore,
+      whyRecommended: userOpp?.whyRecommended || whyRecommended,
+      bookmarked: userOpp ? userOpp.bookmarked : false,
+      registered: userOpp ? userOpp.registered : false,
+      applied: userOpp ? userOpp.applied : false,
+      dismissed: userOpp ? userOpp.dismissed : false
+    };
+
+    res.status(200).json({ success: true, data: enriched });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
  * @desc    Seed crawler (DEV ONLY)
  * @route   GET /api/opportunities/seed
  */
@@ -629,5 +673,6 @@ module.exports = {
   getReminders,
   dismissOpportunity,
   verifyOpportunityEndpoint,
-  seedOpportunities
+  seedOpportunities,
+  getOpportunityById
 };

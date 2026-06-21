@@ -215,6 +215,28 @@ const OpportunityRadar = () => {
     }
   };
 
+  const handleViewOpportunity = async (oppId) => {
+    // Check if we already have it in the local list
+    const opp = opportunities.find(o => o._id === oppId);
+    if (opp) {
+      setSelectedOpp(opp);
+      return;
+    }
+
+    // Otherwise fetch the specific opportunity details from the backend
+    try {
+      const { data } = await api.get(`/opportunities/${oppId}`);
+      if (data.success && data.data) {
+        setSelectedOpp(data.data);
+      } else {
+        showToast('Opportunity details could not be found.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error loading opportunity details.', 'error');
+    }
+  };
+
   const getDaysLeft = (deadlineStr) => {
     if (!deadlineStr) return 999;
     const diffTime = new Date(deadlineStr) - new Date();
@@ -430,10 +452,7 @@ const OpportunityRadar = () => {
                       Due: {new Date(rem.deadline).toLocaleDateString()}
                     </span>
                     <button
-                      onClick={() => {
-                        const opp = opportunities.find(o => o._id === rem.opportunityId);
-                        if (opp) setSelectedOpp(opp);
-                      }}
+                      onClick={() => handleViewOpportunity(rem.opportunityId)}
                       style={{
                         background: 'none',
                         border: 'none',

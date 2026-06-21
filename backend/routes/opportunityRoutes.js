@@ -14,7 +14,8 @@ const {
   registerOpportunity,
   getReminders,
   dismissOpportunity,
-  verifyOpportunityEndpoint
+  verifyOpportunityEndpoint,
+  getOpportunityById
 } = require('../controllers/opportunityController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -30,6 +31,7 @@ router.get('/saved', protect, listSaved);
 router.get('/applied', protect, listApplied);
 router.get('/registered', protect, listRegistered);
 router.get('/reminders', protect, getReminders);
+router.get('/:id', protect, getOpportunityById);
 
 router.post('/:id/bookmark', protect, toggleBookmark);
 router.post('/:id/apply', protect, applyOpportunity);
