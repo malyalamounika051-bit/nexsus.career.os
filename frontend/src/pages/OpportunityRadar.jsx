@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import api from '../services/api';
+import { formatExternalUrl } from '../utils/url';
 import {
   Compass, Search, Bookmark, BookmarkCheck, ExternalLink, Calendar, Check,
   X, AlertTriangle, ShieldCheck, Award, Zap, RefreshCw, Sparkles, GraduationCap,
@@ -267,11 +268,11 @@ const OpportunityRadar = () => {
 
     if (!matchesSearch) return false;
 
-    if (activeTab === 'recommended') return true;
-    if (activeTab === 'high-match') return opp.matchScore >= 90;
+    if (activeTab === 'recommended' || activeTab === 'recent') return true;
+    if (activeTab === 'high-match') return (opp.matchScore || 0) >= 80;
     if (activeTab === 'closing-soon') {
-      const days = getDaysLeft(opp.deadline);
-      return days > 0 && days <= 7;
+      const days = getDaysLeft(opp.submissionDeadline || opp.deadline);
+      return days > 0 && days <= 30;
     }
     if (activeTab === 'saved') return opp.bookmarked;
     if (activeTab === 'applied') return opp.applied;
@@ -758,7 +759,7 @@ const OpportunityRadar = () => {
                         Mark Registered
                       </button>
                       <a
-                        href={selectedOpp.applicationUrl}
+                        href={formatExternalUrl(selectedOpp.applicationUrl, `${selectedOpp.title} ${selectedOpp.organization}`)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-primary"

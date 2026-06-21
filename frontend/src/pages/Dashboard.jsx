@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { assessmentService } from '../services/assessmentService';
 import api from '../services/api';
+import { formatExternalUrl } from '../utils/url';
 import Sidebar from '../components/Sidebar';
 import ProgressRing from '../components/ProgressRing';
 import { SkeletonCard } from '../components/SkeletonLoader';
@@ -267,7 +268,7 @@ const DashboardPage = () => {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.85rem', marginTop: 'auto' }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 600 }}>{item.source}</span>
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
+                      <a href={formatExternalUrl(item.url, item.headline)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
                         Read More <ArrowRight size={14} />
                       </a>
                     </div>

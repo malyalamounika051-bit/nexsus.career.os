@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import { jobService } from '../services/adviceService';
 import { resumeService } from '../services/resumeService';
 import api from '../services/api';
+import { formatExternalUrl } from '../utils/url';
 import { 
   Briefcase, Search, MapPin, Building, DollarSign, 
   ExternalLink, BookmarkPlus, BookmarkCheck, Loader2,
@@ -375,7 +376,7 @@ const JobsPage = () => {
               </button>
             )}
             <a 
-              href={job.url || '#'} 
+              href={formatExternalUrl(job.url, `${job.title} ${job.company}`)} 
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn-primary" 
@@ -727,7 +728,7 @@ const JobsPage = () => {
                     </div>
                     <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
                       <button className="btn-ghost" onClick={() => setSelectedJob(null)} style={{ flex: 1, padding: '0.75rem' }}>Close</button>
-                      <a href={selectedJob.url || '#'} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ flex: 1, padding: '0.75rem', textAlign: 'center', textDecoration: 'none', background: 'var(--color-primary)' }}>Apply Now</a>
+                      <a href={formatExternalUrl(selectedJob.url, `${selectedJob.title} ${selectedJob.company}`)} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ flex: 1, padding: '0.75rem', textAlign: 'center', textDecoration: 'none', background: 'var(--color-primary)' }}>Apply Now</a>
                     </div>
                   </div>
                 ) : (

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import { careerService } from '../services/adviceService';
 import api from '../services/api';
+import { formatExternalUrl } from '../utils/url';
 import {
   Map, Briefcase, Plus, Sparkles, ChevronDown, ChevronUp, ExternalLink, Trash2,
   CheckCircle2, Circle, Clock, TrendingUp, DollarSign, Lightbulb, BookOpen,
@@ -800,7 +801,7 @@ const RoadmapPage = () => {
                               const Icon = CATEGORY_ICONS[res.type] || BookOpen;
                               const iconColor = CATEGORY_COLORS[res.type] || '#0ea5e9';
                               return (
-                                <a key={idx} href={res.url} target="_blank" rel="noopener noreferrer" style={{
+                                <a key={idx} href={formatExternalUrl(res.url, `${res.title} ${res.provider}`)} target="_blank" rel="noopener noreferrer" style={{
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
