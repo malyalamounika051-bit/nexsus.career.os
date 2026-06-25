@@ -233,7 +233,7 @@ const updateUserCareerStateRoadmap = async (userUid, career) => {
 const getGeneratedRoadmaps = async (req, res) => {
   try {
     const userUid = req.user?.uid || req.user?._id || req.user?.id;
-    const roadmaps = await Career.find({
+    const roadmaps = await Career.find({ 
       userUid: String(userUid),
       isGeneratedRoadmap: true,
     })
@@ -251,8 +251,8 @@ const getGeneratedRoadmaps = async (req, res) => {
 const deleteRoadmap = async (req, res) => {
   try {
     const userUid = req.user?.uid || req.user?._id || req.user?.id;
-    const career = await Career.findOneAndDelete({
-      _id: req.params.id,
+    const career = await Career.findOneAndDelete({ 
+      _id: req.params.id, 
       userUid: String(userUid),
       isGeneratedRoadmap: true,
     });
@@ -348,12 +348,12 @@ const generateRoadmap = async (req, res) => {
       : new RegExp(`^${escapeRegex(query)}$`, 'i');
 
     // ── Check cache: return existing high-quality roadmap for this user ──
-    const existingCareer = await Career.findOne({
+    const existingCareer = await Career.findOne({ 
       domain: { $regex: flexibleRegex },
       userUid: String(userUid),
       isGeneratedRoadmap: true,
     });
-
+    
     if (existingCareer) {
       const hasProjects = existingCareer.roadmap?.some(p => p.projects && p.projects.length > 0);
       const hasEnoughPhases = existingCareer.roadmap?.length >= 7;
@@ -561,9 +561,9 @@ Return ONLY valid JSON.`;
         });
       }
       const isTimeout = errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT');
-      return res.status(isOverloaded ? 503 : 500).json({
-        success: false,
-        message: isOverloaded
+      return res.status(isOverloaded ? 503 : 500).json({ 
+        success: false, 
+        message: isOverloaded 
           ? 'AI service is temporarily busy. Please try again shortly.'
           : isTimeout
           ? 'The AI took too long to respond. Please try a simpler career title or try again in a moment.'

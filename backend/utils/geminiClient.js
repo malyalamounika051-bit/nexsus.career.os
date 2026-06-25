@@ -81,7 +81,7 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
           messages: finalMessages,
           temperature,
           top_p: 0.95,
-          max_tokens: maxTokens || 8192,
+          max_tokens: Math.min(maxTokens || 2048, 2048),
         },
         {
           headers: {

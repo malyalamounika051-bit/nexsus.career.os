@@ -8,7 +8,7 @@ const { awardXP } = require('../utils/gamification');
 // @access Private
 const analyzeSkillGap = async (req, res) => {
   try {
-    const { targetRole } = req.body;
+    const { targetRole, currentSkills } = req.body;
     
     if (!targetRole) {
       return res.status(400).json({ success: false, message: 'Target role is required' });
@@ -27,6 +27,16 @@ const analyzeSkillGap = async (req, res) => {
       }
     }
 
+    // Parse currentSkills if provided
+    let skillsList = [];
+    if (currentSkills) {
+      try {
+        skillsList = JSON.parse(currentSkills);
+      } catch (e) {
+        skillsList = [];
+      }
+    }
+
     // Check if AI keys are present
     if (!process.env.OPENROUTER_API_KEY) {
       return res.status(500).json({ success: false, message: 'AI service is not configured.' });
@@ -34,6 +44,7 @@ const analyzeSkillGap = async (req, res) => {
 
     const prompt = `You are an expert career counselor and technical recruiter. Analyze the skill gap for a candidate targeting the role of "${targetRole}".
 
+${skillsList && skillsList.length > 0 ? `CANDIDATE'S EXPLICITLY PROVIDED SKILLS: ${skillsList.join(', ')}\n` : ''}
 ${resumeText ? `CANDIDATE'S RESUME CONTENT:\n---\n${resumeText.slice(0, 3000)}\n---\n` : 'No resume provided — provide a general skill gap analysis for someone starting to pursue this role.'}
 
 Respond in this EXACT JSON format:
