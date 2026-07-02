@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 const sendLoginMail = require('../utils/sendLoginMail');
 const { updateStreak } = require('../utils/gamification');
+const { recordFailedAttempt, recordSuccessfulLogin } = require('../middleware/accountLockout');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
@@ -171,14 +172,25 @@ const login = async (req, res) => {
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       console.log('❌ User not found:', email);
+      // Record failure even for non-existent users (prevents user enumeration)
+      await recordFailedAttempt(email, 'Unknown');
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       console.log('❌ Password mismatch for:', email);
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      const lockStatus = await recordFailedAttempt(email, user.name);
+      // Never reveal whether it's lockout or wrong password
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        ...(lockStatus.locked ? { retryAfter: lockStatus.remainingSeconds } : {}),
+      });
     }
+
+    // Password is correct — clear any failed attempt history
+    recordSuccessfulLogin(email);
 
     // Bypass OTP for demo account
     const demoEmail = process.env.DEMO_EMAIL || 'demo@nexus.com';
@@ -366,6 +378,7 @@ const verifyLoginOtp = async (req, res) => {
     }
 
     // OTP is valid - clear it, set last login and login user
+    recordSuccessfulLogin(user.email);
     user.loginOtp = undefined;
     user.loginOtpExpire = undefined;
     user.lastLogin = Date.now();

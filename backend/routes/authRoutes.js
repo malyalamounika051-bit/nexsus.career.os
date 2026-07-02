@@ -3,12 +3,14 @@ const router = express.Router();
 const passport = require('passport');
 const { register, login, verifyLoginOtp, getMe, updateProfile, demoLogin, oauthSuccess, logout } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
+const { loginRateLimiter, otpRateLimiter, authRateLimiter } = require('../middleware/rateLimiter');
+const { checkAccountLockout } = require('../middleware/accountLockout');
 
-// Standard auth
-router.post('/register', register);
-router.post('/login', login);
-router.post('/verify-otp', verifyLoginOtp);
-router.post('/demo', demoLogin);
+// Standard auth (with rate limiting + lockout protection)
+router.post('/register', authRateLimiter, register);
+router.post('/login', loginRateLimiter, checkAccountLockout, login);
+router.post('/verify-otp', otpRateLimiter, verifyLoginOtp);
+router.post('/demo', authRateLimiter, demoLogin);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
