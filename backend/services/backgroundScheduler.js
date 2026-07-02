@@ -174,10 +174,12 @@ Return ONLY the raw JSON array.`;
 const startScheduler = () => {
   console.log('⏳ [Background Scheduler] Initializing background task worker (Runs every 60 minutes)...');
 
-  // Trigger an initial run on server startup
-  setTimeout(() => {
-    runAllTasks().catch(err => console.error('Scheduler Startup Task Error:', err));
-  }, 5000); // 5-second delay to let MongoDB connect first
+  // Trigger an initial run on server startup (skipped in development to avoid hammering API on hot-reloads)
+  if (process.env.NODE_ENV !== 'development') {
+    setTimeout(() => {
+      runAllTasks().catch(err => console.error('Scheduler Startup Task Error:', err));
+    }, 5000); // 5-second delay to let MongoDB connect first
+  }
 
   // Setup interval loop
   setInterval(() => {
