@@ -76,7 +76,7 @@ const callNvidiaNIM = async ({ messages, temperature = 0.6, maxTokens }) => {
         Authorization: `Bearer ${nvidiaKey}`,
         'Content-Type': 'application/json',
       },
-      timeout: 45000, // 45 seconds timeout for NVIDIA NIM
+      timeout: 120000, // 120 seconds timeout for NVIDIA NIM
     }
   );
 
