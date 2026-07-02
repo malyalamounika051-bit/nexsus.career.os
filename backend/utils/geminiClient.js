@@ -55,6 +55,8 @@ const isQuotaError = (error) => {
 };
 const isModelNotFoundError = (error) => error?.response?.status === 404;
 
+let detectedFreeTier = false;
+
 /**
  * Core AI call function targeting OpenRouter
  * Automatically fails over across an array of models if one fails/times out.
@@ -75,7 +77,15 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
   }
 
   // Determine which models to try
-  const modelsToTry = model ? [model, ...MODEL_CHAIN.filter(m => m !== model)] : [...MODEL_CHAIN];
+  let modelsToTry = model ? [model, ...MODEL_CHAIN.filter(m => m !== model)] : [...MODEL_CHAIN];
+  
+  if (detectedFreeTier) {
+    modelsToTry = modelsToTry.filter(m => m.includes(':free'));
+    if (modelsToTry.length === 0) {
+      modelsToTry = ['meta-llama/llama-3.3-70b-instruct:free'];
+    }
+  }
+
   let lastError = null;
 
   for (let i = 0; i < modelsToTry.length; i++) {
@@ -122,6 +132,11 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
       } catch (error) {
         lastError = error;
         const status = error?.response?.status;
+
+        if (status === 402) {
+          console.warn(`💡 Detected Free-Tier API Key (402 Payment Required for paid model). Automatically switching to Free models.`);
+          detectedFreeTier = true;
+        }
 
         // If rate limited on a free model, wait and retry
         if (status === 429 && isFreeModel && attempt < maxAttempts - 1) {
