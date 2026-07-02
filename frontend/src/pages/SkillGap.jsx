@@ -55,38 +55,9 @@ const SkillGap = () => {
       if (currentSkills.length > 0) fd.append('currentSkills', JSON.stringify(currentSkills));
       const { data } = await api.post('/skill-gap/analyze', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       if (data.success) setResult(data.data);
-    } catch {
-      // Fallback mock data for demo
-      setResult({
-        targetRole: targetRole.trim(),
-        interviewReadiness: 62,
-        estimatedTimeToReady: '4 months',
-        matchingSkills: currentSkills.length > 0 ? currentSkills.slice(0, 4) : ['JavaScript', 'React', 'Problem Solving', 'Git'],
-        missingSkills: ['TypeScript', 'System Design', 'Docker', 'AWS', 'CI/CD', 'Node.js'],
-        salaryImpact: { currentRange: '₹4-8 LPA', potentialRange: '₹15-30 LPA', increase: '+200%' },
-        careerPathsUnlocked: ['Senior Developer', 'Tech Lead', 'Solutions Architect', 'Engineering Manager'],
-        recommendedProjects: [
-          'Build a full-stack TypeScript app with Next.js',
-          'Deploy a microservice with Docker and AWS',
-          'Create a CI/CD pipeline with GitHub Actions',
-          'Build a real-time chat with WebSockets',
-        ],
-        improvementAreas: [
-          { area: 'Backend Architecture', priority: 'High', description: 'Learn system design & microservices patterns' },
-          { area: 'Cloud & DevOps', priority: 'High', description: 'Get comfortable with AWS, Docker, and CI/CD' },
-          { area: 'Testing', priority: 'Medium', description: 'Master unit and integration testing frameworks' },
-          { area: 'TypeScript', priority: 'Medium', description: 'Adopt TypeScript for type-safe development' },
-        ],
-        learningPlan: [
-          { week: 'Week 1-2', focus: 'TypeScript Fundamentals', resources: 4 },
-          { week: 'Week 3-4', focus: 'Node.js & Express Deep Dive', resources: 5 },
-          { week: 'Week 5-6', focus: 'System Design Basics', resources: 3 },
-          { week: 'Week 7-8', focus: 'Docker & Containerization', resources: 4 },
-          { week: 'Week 9-12', focus: 'AWS Services & Deployment', resources: 6 },
-          { week: 'Week 13-16', focus: 'CI/CD & Portfolio Projects', resources: 5 },
-        ],
-        skillCategoryBreakdown: { frontend: 85, backend: 25, devops: 10, softSkills: 65 },
-      });
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'AI analysis failed. Please try again.';
+      setError(msg);
     } finally { setLoading(false); }
   };
 

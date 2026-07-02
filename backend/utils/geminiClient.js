@@ -12,9 +12,14 @@ const MODEL_CHAIN = [
   'meta-llama/llama-3.3-70b-instruct',
   'meta-llama/llama-3.1-70b-instruct',
   'meta-llama/llama-3.3-70b-instruct:free',
-  'meta-llama/llama-3.2-3b-instruct:free',
   'qwen/qwen3-coder:free',
+  'meta-llama/llama-3.2-3b-instruct:free',
+  'nousresearch/hermes-3-llama-3.1-405b:free',
+  'qwen/qwen3-next-80b-a3b-instruct:free',
 ];
+
+/** Small delay helper */
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Mapper: Gemini-like `contents` -> OpenAI messages
@@ -46,13 +51,14 @@ const mapGeminiToOpenAI = (contents) => {
 const isQuotaError = (error) => {
   const status = error?.response?.status;
   const msg = (error?.message || '').toLowerCase();
-  return status === 429 || msg.includes('quota') || msg.includes('rate_limit') || msg.includes('resource_exhausted');
+  return status === 429 || status === 402 || msg.includes('quota') || msg.includes('rate_limit') || msg.includes('resource_exhausted');
 };
 const isModelNotFoundError = (error) => error?.response?.status === 404;
 
 /**
  * Core AI call function targeting OpenRouter
  * Automatically fails over across an array of models if one fails/times out.
+ * Includes retry-after support for rate-limited free models.
  */
 const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, maxTokens }) => {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -69,55 +75,76 @@ const callAI = async ({ messages, systemInstruction, temperature = 0.6, model, m
   }
 
   // Determine which models to try
-  const modelsToTry = model ? [model] : [...MODEL_CHAIN];
+  const modelsToTry = model ? [model, ...MODEL_CHAIN.filter(m => m !== model)] : [...MODEL_CHAIN];
   let lastError = null;
 
   for (let i = 0; i < modelsToTry.length; i++) {
     const currentModel = modelsToTry[i];
-    console.log(`🤖 Calling OpenRouter AI: ${currentModel}...`);
+    const isFreeModel = currentModel.includes(':free');
 
-    try {
-      const response = await axios.post(
-        `${OPENROUTER_BASE_URL}/chat/completions`,
-        {
-          model: currentModel,
-          messages: finalMessages,
-          temperature,
-          top_p: 0.95,
-          max_tokens: Math.min(maxTokens || 2048, 2048),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://nexus-career-os.vercel.app',
-            'X-Title': 'Nexus Career OS',
+    // For free models, attempt up to 2 retries with delay on 429
+    const maxAttempts = isFreeModel ? 2 : 1;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      console.log(`🤖 Calling OpenRouter AI: ${currentModel}${attempt > 0 ? ` (retry ${attempt})` : ''}...`);
+
+      try {
+        const response = await axios.post(
+          `${OPENROUTER_BASE_URL}/chat/completions`,
+          {
+            model: currentModel,
+            messages: finalMessages,
+            temperature,
+            top_p: 0.95,
+            max_tokens: maxTokens || 4096,
           },
-          timeout: 60000, // 60s timeout
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://nexus-career-os.vercel.app',
+              'X-Title': 'Nexus Career OS',
+            },
+            timeout: 90000, // 90s timeout for large responses
+          }
+        );
 
-      const choice = response?.data?.choices?.[0];
-      const content = choice?.message?.content || '';
-      
-      if (!content || content.trim() === '') {
-        console.warn(`⚠️ OpenRouter model ${currentModel} returned empty response.`);
-        throw new Error(`Empty response from model ${currentModel}`);
+        const choice = response?.data?.choices?.[0];
+        const content = choice?.message?.content || '';
+
+        if (!content || content.trim() === '') {
+          console.warn(`⚠️ OpenRouter model ${currentModel} returned empty response.`);
+          throw new Error(`Empty response from model ${currentModel}`);
+        }
+
+        console.log(`✅ SUCCESS: AI response generated using ${currentModel}.`);
+        return { text: content };
+      } catch (error) {
+        lastError = error;
+        const status = error?.response?.status;
+
+        // If rate limited on a free model, wait and retry
+        if (status === 429 && isFreeModel && attempt < maxAttempts - 1) {
+          const retryAfter = error?.response?.data?.error?.metadata?.retry_after_seconds || 5;
+          const waitMs = Math.min((retryAfter + 1) * 1000, 30000);
+          console.log(`⏳ Rate limited on ${currentModel}. Waiting ${Math.ceil(waitMs / 1000)}s before retry...`);
+          await sleep(waitMs);
+          continue;
+        }
+
+        console.warn(`❌ Model ${currentModel} failed: ${error.message} (status: ${status || 'N/A'})`);
+        break; // Move to next model
       }
-      
-      console.log(`✅ SUCCESS: AI response generated using ${currentModel}.`);
-      return { text: content };
-    } catch (error) {
-      lastError = error;
-      console.warn(`❌ Model ${currentModel} failed: ${error.message}`);
-      
-      if (i < modelsToTry.length - 1) {
-        console.log(`🔄 Retrying next model in chain...`);
-      } else {
-        console.error('❌ All OpenRouter models in the failover chain failed.');
-        console.error('Final Error Status:', error?.response?.status);
-        console.error('Final Error Data:', JSON.stringify(error?.response?.data, null, 2));
-      }
+    }
+
+    if (i < modelsToTry.length - 1) {
+      console.log(`🔄 Trying next model in chain...`);
+      // Small delay between model switches to avoid rapid-fire rate limiting
+      await sleep(500);
+    } else {
+      console.error('❌ All OpenRouter models in the failover chain failed.');
+      console.error('Final Error Status:', lastError?.response?.status);
+      console.error('Final Error Data:', JSON.stringify(lastError?.response?.data, null, 2));
     }
   }
 

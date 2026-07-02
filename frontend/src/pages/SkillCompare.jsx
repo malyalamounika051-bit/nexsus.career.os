@@ -30,23 +30,9 @@ const SkillCompare = () => {
     try {
       const { data } = await api.post('/skill-intelligence/compare', { skill1: skill1.trim(), skill2: skill2.trim() });
       if (data.success) { setResult(data.data); }
-    } catch {
-      // Fallback mock data
-      setResult({
-        skill1: {
-          name: skill1.trim(), demandScore: 88, avgSalaryLpa: 18, difficulty: 'Intermediate',
-          timeToLearn: '3-4 months', futureRelevance: 'Very High', jobOpenings: '45,000+',
-          topUseCase: 'Building dynamic web interfaces', ecosystem: 'Next.js, Redux, React Native',
-        },
-        skill2: {
-          name: skill2.trim(), demandScore: 72, avgSalaryLpa: 15, difficulty: 'Intermediate',
-          timeToLearn: '4-5 months', futureRelevance: 'High', jobOpenings: '28,000+',
-          topUseCase: 'Enterprise web applications', ecosystem: 'NgRx, Ionic, NestJS',
-        },
-        verdict: `Both are excellent frontend skills. ${skill1} has higher market demand and a larger ecosystem, making it the better first choice for career growth.`,
-        synergy: 'Understanding both gives you versatility across different team tech stacks and broadens job opportunities.',
-        commonCareers: ['Frontend Developer', 'Full Stack Developer', 'UI Engineer', 'Technical Lead'],
-      });
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to compare skills. Please try again.';
+      setError(msg);
     } finally { setLoading(false); }
   };
 

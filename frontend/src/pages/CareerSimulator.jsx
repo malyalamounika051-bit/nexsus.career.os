@@ -39,41 +39,10 @@ const CareerSimulator = () => {
     try {
       const { data } = await api.post('/simulator/simulate', { career: target });
       if (data.success) { setSimulation(data.data); setLoading(false); return; }
-    } catch { /* fallback */ }
-
-    // Enhanced mock data
-    setSimulation({
-      career: target,
-      dailySchedule: [
-        { time: '9:00 AM', activity: 'Team standup & sprint planning', type: 'meeting' },
-        { time: '9:30 AM', activity: 'Deep work: Feature development & code review', type: 'coding' },
-        { time: '12:00 PM', activity: 'Lunch & tech community browsing', type: 'break' },
-        { time: '1:00 PM', activity: 'Architecture discussions & design reviews', type: 'meeting' },
-        { time: '2:30 PM', activity: 'Problem solving: Bug fixes & optimization', type: 'coding' },
-        { time: '4:30 PM', activity: 'Documentation & knowledge sharing', type: 'writing' },
-        { time: '5:30 PM', activity: 'Learning: Online courses & side projects', type: 'learning' },
-      ],
-      stressLevel: 42,
-      workLifeBalance: 74,
-      remoteWorkChance: 85,
-      growthPath: ['Junior', 'Mid-Level', 'Senior', 'Lead', 'Staff', 'Principal'],
-      salaryProgression: ['₹4-8 LPA', '₹8-15 LPA', '₹15-30 LPA', '₹30-50 LPA', '₹50-80 LPA', '₹80+ LPA'],
-      requiredTraits: ['Problem Solving', 'Continuous Learning', 'Team Collaboration', 'Adaptability', 'Communication'],
-      futureOpportunities: ['Tech Lead', 'Engineering Manager', 'CTO', 'Startup Founder', 'Tech Consultant'],
-      toolsUsed: [
-        { name: 'VS Code', category: 'IDE' }, { name: 'Git', category: 'VCS' },
-        { name: 'Docker', category: 'DevOps' }, { name: 'Figma', category: 'Design' },
-        { name: 'Jira', category: 'PM' }, { name: 'Slack', category: 'Communication' },
-        { name: 'AWS', category: 'Cloud' }, { name: 'PostgreSQL', category: 'Database' },
-      ],
-      challengeScenarios: [
-        { title: 'Production Outage', description: 'Critical API is down affecting 10K users. Debug and fix under pressure.', difficulty: 'Hard' },
-        { title: 'Legacy Code Refactor', description: 'Modernize a 5-year-old codebase while maintaining backward compatibility.', difficulty: 'Medium' },
-        { title: 'Feature Deadline', description: 'Ship a complex feature in 2 weeks with changing requirements.', difficulty: 'Medium' },
-      ],
-      industryDemand: { level: 'Very High', openings: '50,000+', growthRate: '+25%' },
-      weeklyView: { codingHours: 25, meetingHours: 8, learningHours: 5, otherHours: 2 },
-    });
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to simulate career. Please try again.';
+      alert(msg);
+    }
     setLoading(false);
   };
 

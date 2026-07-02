@@ -49,12 +49,7 @@ export default function SkillTrends() {
       const { data } = await api.get(`/skill-intelligence/salary/${encodeURIComponent(skill.name)}`);
       if (data.success) setSalaryData(data.data);
     } catch {
-      setSalaryData({
-        skill: skill.name, entrySalary: '₹4-8 LPA', midSalary: '₹12-22 LPA',
-        seniorSalary: '₹25-45 LPA', avgSalary: '₹18 LPA',
-        topCompanies: ['Google', 'Microsoft', 'Amazon', 'Flipkart', 'Razorpay'],
-        demandLevel: 'High', growthRate: '+35%',
-      });
+      setSalaryData(null);
     }
 
     // Fetch learn-next
@@ -62,13 +57,7 @@ export default function SkillTrends() {
       const { data } = await api.post('/skill-intelligence/learn-next', { currentSkills: [skill.name] });
       if (data.success) setLearnNextData(data.data);
     } catch {
-      setLearnNextData({
-        recommendations: [
-          { skill: 'TypeScript', reason: 'Type safety for large projects', difficulty: 'Medium', timeToLearn: '2-3 months', salaryBoost: '+18%', demandScore: 90, category: 'frontend' },
-          { skill: 'Docker', reason: 'Essential for modern deployment', difficulty: 'Medium', timeToLearn: '1-2 months', salaryBoost: '+22%', demandScore: 88, category: 'devops' },
-          { skill: 'System Design', reason: 'Required for senior roles', difficulty: 'Hard', timeToLearn: '3-4 months', salaryBoost: '+30%', demandScore: 92, category: 'backend' },
-        ],
-      });
+      setLearnNextData(null);
     }
 
     // Fetch skill graph
@@ -77,25 +66,7 @@ export default function SkillTrends() {
       const { data } = await api.post('/skill-intelligence/graph', { skills: [skill.name] });
       if (data.success) setGraphData(data.data);
     } catch {
-      setGraphData({
-        nodes: [
-          { id: skill.name.toLowerCase(), label: skill.name, category: skill.category || 'frontend', size: 5 },
-          { id: 'typescript', label: 'TypeScript', category: 'frontend', size: 3 },
-          { id: 'node.js', label: 'Node.js', category: 'backend', size: 3 },
-          { id: 'docker', label: 'Docker', category: 'devops', size: 2 },
-          { id: 'aws', label: 'AWS', category: 'devops', size: 3 },
-          { id: 'mongodb', label: 'MongoDB', category: 'data', size: 2 },
-          { id: 'graphql', label: 'GraphQL', category: 'backend', size: 2 },
-        ],
-        edges: [
-          { source: skill.name.toLowerCase(), target: 'typescript', strength: 0.85 },
-          { source: skill.name.toLowerCase(), target: 'node.js', strength: 0.8 },
-          { source: skill.name.toLowerCase(), target: 'docker', strength: 0.5 },
-          { source: 'node.js', target: 'mongodb', strength: 0.75 },
-          { source: 'node.js', target: 'aws', strength: 0.6 },
-          { source: 'typescript', target: 'graphql', strength: 0.55 },
-        ],
-      });
+      setGraphData(null);
     } finally {
       setGraphLoading(false);
       setDeepDiveLoading(false);
