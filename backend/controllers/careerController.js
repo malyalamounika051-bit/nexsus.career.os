@@ -595,19 +595,23 @@ const triggerResourceVerification = async (req, res) => {
   }
 };
 
-// Start weekly resource validation sweep (runs every 7 days)
-setInterval(() => {
-  console.log('⏰ Running weekly roadmap resource validation sweep...');
-  const { runSweep } = require('../scripts/run_resource_sweep');
-  runSweep().catch(err => console.error('Weekly sweep error:', err));
-}, 7 * 24 * 60 * 60 * 1000);
+// Start weekly resource validation sweep (runs every 7 days) - skipped in development
+if (process.env.NODE_ENV !== 'development') {
+  setInterval(() => {
+    console.log('⏰ Running weekly roadmap resource validation sweep...');
+    const { runSweep } = require('../scripts/run_resource_sweep');
+    runSweep().catch(err => console.error('Weekly sweep error:', err));
+  }, 7 * 24 * 60 * 60 * 1000);
+}
 
-// Trigger startup validation sweep 30 seconds after server startup
-setTimeout(() => {
-  console.log('⏰ Running startup roadmap resource validation sweep...');
-  const { runSweep } = require('../scripts/run_resource_sweep');
-  runSweep().catch(err => console.error('Startup sweep error:', err));
-}, 30000);
+// Trigger startup validation sweep 30 seconds after server startup - skipped in development
+if (process.env.NODE_ENV !== 'development') {
+  setTimeout(() => {
+    console.log('⏰ Running startup roadmap resource validation sweep...');
+    const { runSweep } = require('../scripts/run_resource_sweep');
+    runSweep().catch(err => console.error('Startup sweep error:', err));
+  }, 30000);
+}
 
 module.exports = {
   getAllCareers,
