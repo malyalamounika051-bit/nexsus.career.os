@@ -11,6 +11,9 @@ const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct';
 const MODEL_CHAIN = [
   'meta-llama/llama-3.3-70b-instruct',
   'meta-llama/llama-3.1-70b-instruct',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'meta-llama/llama-3.2-3b-instruct:free',
+  'qwen/qwen3-coder:free',
 ];
 
 /**
@@ -169,5 +172,5 @@ module.exports = {
   callAI,
   isQuotaError,
   isModelNotFoundError,
-  MODEL_CHAIN: [DEFAULT_MODEL],
+  MODEL_CHAIN,
 };
