@@ -18,11 +18,39 @@ const startInterview = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Job role and difficulty are required.' });
     }
 
-    const prompt = `You are an expert HR and Technical Interviewer. I am preparing for a ${jobRole} role and want to do a mock interview.
-The difficulty level should be ${difficulty}.
-Please generate a list of EXACTLY 10 interview questions.
-CRITICAL: The VERY FIRST question MUST be an introductory question such as "Tell me about yourself and your background".
-The remaining 9 questions should be a mix of technical, behavioral, and situational questions relevant to the role.
+    let progressionInstructions = '';
+    if (difficulty.toLowerCase() === 'beginner' || difficulty.toLowerCase() === 'basic') {
+      progressionInstructions = `
+CRITICAL QUESTION STRUCTURE FOR BEGINNER/BASIC DIFFICULTY (Do NOT violate this):
+- Question 1: Simple introduction ("Tell me about yourself and your background").
+- Questions 2-3: Core programming and web basics (HTML structures, CSS styles, basic JavaScript variables/functions).
+- Questions 4-6: UI Framework basics (simple React components, props vs state, handling events, simple loops).
+- Questions 7-8: Simple student or hobby projects (e.g. weather app, counter, simple form layout).
+- Questions 9-10: Basic behavioral and school/college teamwork communication questions.
+- WARNING: Absolutely NO questions about system design, performance scaling, backend database optimization, caching, caching tiers, microservices, or complex architectural trade-offs.`;
+    } else if (difficulty.toLowerCase() === 'intermediate' || difficulty.toLowerCase() === 'medium') {
+      progressionInstructions = `
+CRITICAL QUESTION STRUCTURE FOR INTERMEDIATE DIFFICULTY:
+- Question 1: Introduction and overview of recent professional projects.
+- Questions 2-3: Practical coding concepts, async programming, React hooks (useEffect, custom hooks).
+- Questions 4-6: State management patterns, standard API integrations, styling tools.
+- Questions 7-8: Performance profiling, client-side testing, troubleshooting.
+- Questions 9-10: Team collaboration and conflict resolution.`;
+    } else {
+      progressionInstructions = `
+CRITICAL QUESTION STRUCTURE FOR ADVANCED DIFFICULTY:
+- Question 1: Deep dive into architectural leadership and complex project overview.
+- Questions 2-3: Core architecture patterns, micro-frontends, global state stores.
+- Questions 4-6: Web security measures, extreme performance tuning, scaling optimizations.
+- Questions 7-8: System design, infrastructure setup, database partitioning trade-offs.
+- Questions 9-10: Tech leadership, mentoring, and high-level decision-making scenarios.`;
+    }
+
+    const prompt = `You are an expert HR and Technical Interviewer. I am preparing for a ${jobRole} role.
+The difficulty level is ${difficulty}.
+
+Generate a list of EXACTLY 10 interview questions based on the difficulty and role.
+${progressionInstructions}
 
 Respond in this EXACT JSON format:
 {
