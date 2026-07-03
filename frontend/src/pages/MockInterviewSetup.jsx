@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Video, Mic, Briefcase, Settings, ArrowRight, Loader2, User, Sparkles, ShieldAlert, Laptop } from 'lucide-react';
 import api from '../services/api';
+import Sidebar from '../components/Sidebar';
 
 export default function MockInterviewSetup() {
   const navigate = useNavigate();
