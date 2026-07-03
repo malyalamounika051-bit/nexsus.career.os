@@ -14,7 +14,11 @@ const SectionTitle = ({ title, color, style }) => (
 
 // Helper to dynamically render sections based on order
 const SectionRenderer = ({ id, data, primaryColor }) => {
-  const { experiences, internships, projects, skills, education, achievements, customSections, certifications, languages, socialLinks } = data;
+  const { 
+    experiences, internships, projects, skills, education, achievements, 
+    customSections, certifications, languages, socialLinks,
+    technicalSkills, softSkills, researchPapers, workshops, volunteering, interests, references
+  } = data;
   
   switch(id) {
     case 'experience':
@@ -78,6 +82,38 @@ const SectionRenderer = ({ id, data, primaryColor }) => {
           </div>
         </section>
       );
+    case 'technicalSkills':
+      if (!technicalSkills?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="Technical Skills" color={primaryColor} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {technicalSkills.map((s, i) => (
+              <span key={i} style={{
+                background: primaryColor + '15', color: primaryColor,
+                padding: '2px 8px', borderRadius: '4px', fontSize: '16px', fontWeight: 600,
+                border: `1px solid ${primaryColor}30`
+              }}>{s}</span>
+            ))}
+          </div>
+        </section>
+      );
+    case 'softSkills':
+      if (!softSkills?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="Soft Skills" color={primaryColor} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {softSkills.map((s, i) => (
+              <span key={i} style={{
+                background: primaryColor + '15', color: primaryColor,
+                padding: '2px 8px', borderRadius: '4px', fontSize: '16px', fontWeight: 600,
+                border: `1px solid ${primaryColor}30`
+              }}>{s}</span>
+            ))}
+          </div>
+        </section>
+      );
     case 'education':
       if (!education?.length || (education.length === 1 && !education[0].degree)) return null;
       return (
@@ -125,6 +161,72 @@ const SectionRenderer = ({ id, data, primaryColor }) => {
           </div>
         </section>
       );
+    case 'researchPapers':
+      if (!researchPapers?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="Research Papers" color={primaryColor} />
+          {researchPapers.map((paper, i) => (
+            <div key={i} style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: '20px' }}>{paper.title}</div>
+              <div style={{ color: '#64748b', fontSize: '18px' }}>{paper.publisher} | {paper.year}</div>
+              {paper.desc && <p style={{ fontSize: '18px', color: '#4b5563', margin: '4px 0 0' }}>{paper.desc}</p>}
+            </div>
+          ))}
+        </section>
+      );
+    case 'workshops':
+      if (!workshops?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="Workshops & Seminars" color={primaryColor} />
+          {workshops.map((w, i) => (
+            <div key={i} style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: '20px' }}>{w.name}</div>
+              <div style={{ color: '#64748b', fontSize: '18px' }}>Organized by {w.organizer} | {w.year}</div>
+              {w.desc && <p style={{ fontSize: '18px', color: '#4b5563', margin: '4px 0 0' }}>{w.desc}</p>}
+            </div>
+          ))}
+        </section>
+      );
+    case 'volunteering':
+      if (!volunteering?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="Volunteering" color={primaryColor} />
+          {volunteering.map((v, i) => (
+            <div key={i} style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: '20px' }}>{v.role} @ {v.organization}</div>
+              <div style={{ color: '#64748b', fontSize: '18px' }}>{v.period}</div>
+              {v.desc && <p style={{ fontSize: '18px', color: '#4b5563', margin: '4px 0 0' }}>{v.desc}</p>}
+            </div>
+          ))}
+        </section>
+      );
+    case 'interests':
+      if (!interests?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="Interests" color={primaryColor} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '18px', color: '#4b5563' }}>
+            {interests.map((interest, i) => interest && <span key={i}>• {interest}</span>)}
+          </div>
+        </section>
+      );
+    case 'references':
+      if (!references?.length) return null;
+      return (
+        <section style={{ marginBottom: '20px' }}>
+          <SectionTitle title="References" color={primaryColor} />
+          {references.map((ref, i) => (
+            <div key={i} style={{ marginBottom: '10px' }}>
+              <div style={{ fontWeight: 700, fontSize: '19px' }}>{ref.name}</div>
+              <div style={{ fontSize: '17px', color: '#4b5563' }}>{ref.company} | {ref.relation}</div>
+              {ref.contact && <div style={{ fontSize: '17px', color: '#64748b' }}>Contact: {ref.contact}</div>}
+            </div>
+          ))}
+        </section>
+      );
     default:
       return null;
   }
@@ -151,6 +253,8 @@ export const ModernTemplate = ({ data }) => {
           {info.phone && <span>✆ {info.phone}</span>}
           {info.location && <span>⌖ {info.location}</span>}
           {info.linkedin && <span>in {info.linkedin}</span>}
+          {info.github && <span>🔗 GitHub: {info.github}</span>}
+          {info.portfolio && <span>💼 Portfolio: {info.portfolio}</span>}
         </div>
       </header>
 

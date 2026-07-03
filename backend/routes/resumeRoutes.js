@@ -9,7 +9,13 @@ const {
   optimizeResume,
   generateSummary,
   improveAchievement,
-  getPublicResume
+  getPublicResume,
+  duplicateResume,
+  rewriteContent,
+  analyzeJobDescription,
+  tailorResume,
+  getATSAnalysis,
+  syncNexusCareerData
 } = require('../controllers/resumeController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -18,6 +24,8 @@ router.get('/public/:token', getPublicResume);
 
 // Protected routes
 router.use(protect);
+
+router.get('/sync/nexus', syncNexusCareerData);
 
 router.route('/')
   .get(getResumes)
@@ -32,5 +40,12 @@ router.route('/:id')
 router.post('/:id/optimize', optimizeResume);
 router.post('/ai/generate-summary', generateSummary);
 router.post('/ai/improve-achievement', improveAchievement);
+
+// Premium AI Features
+router.post('/ai/rewrite', rewriteContent);
+router.post('/ai/analyze-job', analyzeJobDescription);
+router.post('/ai/tailor', tailorResume);
+router.post('/:id/duplicate', duplicateResume);
+router.post('/:id/ats-analyze', getATSAnalysis);
 
 module.exports = router;

@@ -24,9 +24,14 @@ const resumeSchema = new mongoose.Schema({
     linkedin: String,
     website: String,
     summary: String,
-    avatar: String
+    objective: String,
+    avatar: String,
+    github: String,
+    portfolio: String
   },
   skills: [String],
+  technicalSkills: [String],
+  softSkills: [String],
   experiences: [{
     title: String,
     company: String,
@@ -59,6 +64,32 @@ const resumeSchema = new mongoose.Schema({
   achievements: [String],
   languages: [String],
   certifications: [String],
+  researchPapers: [{
+    title: String,
+    publisher: String,
+    year: String,
+    link: String,
+    desc: String
+  }],
+  workshops: [{
+    name: String,
+    organizer: String,
+    year: String,
+    desc: String
+  }],
+  volunteering: [{
+    organization: String,
+    role: String,
+    period: String,
+    desc: String
+  }],
+  interests: [String],
+  references: [{
+    name: String,
+    company: String,
+    contact: String,
+    relation: String
+  }],
   socialLinks: [{
     platform: String,
     url: String
@@ -89,7 +120,8 @@ const resumeSchema = new mongoose.Schema({
   customStyles: {
     primaryColor: String,
     fontFamily: String,
-    fontSize: String
+    fontSize: String,
+    spacing: String
   }
 }, { timestamps: true });
 

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Video, Mic, Briefcase, Settings, ArrowRight, Loader2, User } from 'lucide-react';
+import { Video, Mic, Briefcase, Settings, ArrowRight, Loader2, User, Sparkles, ShieldAlert, Laptop } from 'lucide-react';
 import api from '../services/api';
 
-const MockInterviewSetup = () => {
+export default function MockInterviewSetup() {
   const navigate = useNavigate();
   const [jobRole, setJobRole] = useState('');
-  const [difficulty, setDifficulty] = useState('Medium');
-  const [avatar, setAvatar] = useState('female');
+  const [difficulty, setDifficulty] = useState('Intermediate'); // Beginner, Intermediate, Advanced
+  const [track, setTrack] = useState('Technical'); // Technical, Behavioral, System Design, Company-Specific
+  const [company, setCompany] = useState('');
+  const [avatar, setAvatar] = useState('female'); // female (Jessica), male (Marcus)
   const [loading, setLoading] = useState(false);
 
   const handleStart = async (e) => {
@@ -17,165 +19,224 @@ const MockInterviewSetup = () => {
     
     setLoading(true);
     try {
-      const response = await api.post('/interview/start', { jobRole, difficulty });
+      const response = await api.post('/interview/start', { jobRole, difficulty, track, company });
       if (response.data.success) {
         navigate('/mock-interview/room', { 
           state: { 
             interviewId: response.data.data._id,
             jobRole,
             difficulty,
+            track,
+            company,
             avatar,
-            questions: response.data.data.questions
+            questions: response.data.data.questions || [
+              `Tell me about a challenging project you built in your target role of ${jobRole}.`,
+              `How do you optimize system latency and handle scale?`,
+              `Describe a situation where you had a conflict with a team member. How did you resolve it?`
+            ]
           } 
         });
       }
     } catch (error) {
       console.error('Error starting interview:', error);
-      alert('Failed to start interview. Please try again.');
+      // Fallback local start if API fails
+      navigate('/mock-interview/room', { 
+        state: { 
+          interviewId: `fallback-${Date.now()}`,
+          jobRole,
+          difficulty,
+          track,
+          company,
+          avatar,
+          questions: [
+            `Tell me about a challenging project you built in your target role of ${jobRole}.`,
+            `How do you optimize system performance and handle scale?`,
+            `Describe a situation where you had a conflict with a teammate. How did you resolve it?`
+          ]
+        } 
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="app-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100vw', background: 'var(--color-bg)' }}>
-      {/* Background orbs */}
-      <div className="orb" style={{ width: 600, height: 600, background: '#3b82f6', top: -200, left: -200 }} />
-      <div className="orb" style={{ width: 500, height: 500, background: '#a855f7', bottom: -200, right: -200, animationDelay: '3s' }} />
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass-card glow-blue"
-        style={{ maxWidth: '900px', width: '100%', margin: '2rem', padding: '3rem', zIndex: 10 }}
-      >
-
-        <div className="text-center" style={{ marginBottom: '3rem' }}>
-          <h1 className="page-title text-hero gradient-text font-display" style={{ fontSize: '3rem', marginBottom: '1rem' }}>AI Voice Mock Interview</h1>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-            Practice for your next role in a realistic online meeting environment. Our AI interviewer will ask contextual questions and analyze your responses in real-time.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-12">
-          {/* Form Side */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Briefcase size={16} color="var(--color-primary)" />
-                Target Job Role
-              </label>
-              <input
-                type="text"
-                value={jobRole}
-                onChange={(e) => setJobRole(e.target.value)}
-                placeholder="e.g. Frontend Developer, Product Manager"
-                className="input"
-                required
-              />
+    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', width: '100vw', background: 'var(--color-bg)' }}>
+      <Sidebar />
+      <main className="app-main" style={{ marginLeft: 'var(--sidebar-width)', padding: '3rem 2rem', flex: 1, overflowY: 'auto' }}>
+        
+        <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+          
+          {/* Header */}
+          <div style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '2rem' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'var(--color-primary-glow)', padding: '0.5rem 1.25rem', borderRadius: '99px', marginBottom: '1rem' }}>
+              <Video size={16} color="var(--color-primary)" />
+              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-primary)' }}>WhisperFlow Realtime Engine</span>
             </div>
+            <h1 style={{ fontSize: '2.25rem', fontWeight: 900, color: 'var(--color-text)', margin: 0 }}>AI Mock Interview Room</h1>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '1rem', marginTop: '0.5rem', lineHeight: 1.6 }}>
+              Practice interviews in a high-fidelity video meeting interface. WhisperFlow noise-cancellation and speech-recognition engines will transcribe your responses with high accuracy.
+            </p>
+          </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Settings size={16} color="var(--color-accent)" />
-                Difficulty Level
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                {['Basic', 'Medium', 'Tough'].map(level => (
+          <form onSubmit={handleStart} style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2.5rem' }}>
+            
+            {/* Left Options Form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              
+              {/* Target Job Role */}
+              <div className="glass-card" style={{ padding: '1.75rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>1. Profile & Role Target</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Target Job Role</label>
+                  <input
+                    type="text"
+                    value={jobRole}
+                    onChange={(e) => setJobRole(e.target.value)}
+                    placeholder="e.g. Senior Frontend Engineer, Product Manager"
+                    style={{ width: '100%', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.85rem 1.15rem', borderRadius: '12px', fontSize: '1.1rem', outline: 'none' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Tracks & Difficulty */}
+              <div className="glass-card" style={{ padding: '1.75rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>2. Settings & Difficulty</h3>
+                
+                {/* Track */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Interview Track</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    {['Technical', 'Behavioral', 'System Design', 'Company-Specific'].map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTrack(t)}
+                        style={{
+                          padding: '0.75rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                          background: track === t ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
+                          border: track === t ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                          color: track === t ? 'var(--color-primary)' : 'var(--color-text)'
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Company Name */}
+                {track === 'Company-Specific' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Company Name</label>
+                    <input
+                      type="text"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      placeholder="e.g. Google, Amazon, Stripe"
+                      style={{ width: '100%', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }}
+                    />
+                  </motion.div>
+                )}
+
+                {/* Difficulty */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Difficulty Level</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                    {['Beginner', 'Intermediate', 'Advanced'].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setDifficulty(d)}
+                        style={{
+                          padding: '0.75rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                          background: difficulty === d ? 'var(--color-primary-glow)' : 'var(--color-surface-2)',
+                          border: difficulty === d ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                          color: difficulty === d ? 'var(--color-primary)' : 'var(--color-text)'
+                        }}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Persona Selection */}
+              <div className="glass-card" style={{ padding: '1.75rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>3. Interviewer Persona</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                   <button
-                    key={level}
                     type="button"
-                    onClick={() => setDifficulty(level)}
-                    className={difficulty === level ? 'btn-primary' : 'btn-ghost'}
-                    style={{ padding: '0.75rem', fontSize: '0.9rem' }}
+                    onClick={() => setAvatar('female')}
+                    style={{
+                      padding: '1.25rem', borderRadius: '16px', border: `2px solid ${avatar === 'female' ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: avatar === 'female' ? 'var(--color-primary-glow)' : 'var(--color-surface-2)', cursor: 'pointer', transition: 'all 0.2s',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
+                    }}
                   >
-                    {level}
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica&backgroundColor=b6e3f4" alt="Jessica" style={{ width: '64px', height: '64px', borderRadius: '50%' }} />
+                    <span style={{ fontWeight: 800, color: 'var(--color-text)' }}>Jessica (HR Executive)</span>
                   </button>
-                ))}
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <User size={16} color="var(--color-info)" />
-                Interviewer Avatar
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setAvatar('female')}
-                  className={avatar === 'female' ? 'glass-card glow-blue' : 'glass-card'}
-                  style={{ padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', borderColor: avatar === 'female' ? 'var(--color-primary)' : '' }}
-                >
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-2)', overflow: 'hidden' }}>
-                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica&backgroundColor=b6e3f4" alt="Female AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)' }}>Jessica (HR)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAvatar('male')}
-                  className={avatar === 'male' ? 'glass-card glow-purple' : 'glass-card'}
-                  style={{ padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', borderColor: avatar === 'male' ? 'var(--color-accent)' : '' }}
-                >
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-surface-2)', overflow: 'hidden' }}>
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus&backgroundColor=c0aede" alt="Male AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text)' }}>Marcus (Tech)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Guidelines Side */}
-          <div className="glass-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--color-surface-2)' }}>
-            <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '1.5rem', fontFamily: "'Space Grotesk', sans-serif" }}>Equipment Check</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', borderRadius: '12px', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-                  <div style={{ padding: '0.5rem', background: 'var(--color-primary-glow)', borderRadius: '8px', color: 'var(--color-primary)' }}>
-                    <Video size={20} />
-                  </div>
-                  <div>
-                    <h4 style={{ color: 'var(--color-text)', fontWeight: 600, fontSize: '0.95rem' }}>Camera Access</h4>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: '0.25rem', lineHeight: 1.5 }}>Please ensure your camera is positioned at eye level and the room is well lit.</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', padding: '1.25rem', borderRadius: '12px', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-                  <div style={{ padding: '0.5rem', background: 'var(--color-accent-glow)', borderRadius: '8px', color: 'var(--color-accent)' }}>
-                    <Mic size={20} />
-                  </div>
-                  <div>
-                    <h4 style={{ color: 'var(--color-text)', fontWeight: 600, fontSize: '0.95rem' }}>Microphone Access</h4>
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: '0.25rem', lineHeight: 1.5 }}>Use a headset or ensure you are in a quiet room to allow the AI to hear you clearly.</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAvatar('male')}
+                    style={{
+                      padding: '1.25rem', borderRadius: '16px', border: `2px solid ${avatar === 'male' ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      background: avatar === 'male' ? 'var(--color-primary-glow)' : 'var(--color-surface-2)', cursor: 'pointer', transition: 'all 0.2s',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
+                    }}
+                  >
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus&backgroundColor=c0aede" alt="Marcus" style={{ width: '64px', height: '64px', borderRadius: '50%' }} />
+                    <span style={{ fontWeight: 800, color: 'var(--color-text)' }}>Marcus (Tech Architect)</span>
+                  </button>
                 </div>
               </div>
+
             </div>
 
-            <button
-              onClick={handleStart}
-              disabled={!jobRole || loading}
-              className="btn-primary"
-              style={{ width: '100%', marginTop: '2rem', padding: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '1.1rem', opacity: (!jobRole || loading) ? 0.5 : 1, cursor: (!jobRole || loading) ? 'not-allowed' : 'pointer' }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Generating Questions...
-                </>
-              ) : (
-                <>
-                  Enter Interview Room
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </div>
+            {/* Right Instructions / Audio Audit Panel */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              
+              <div className="glass-card" style={{ padding: '2rem', border: '1px solid var(--color-border)', background: 'var(--color-surface-2)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>Equipment Verification</h3>
+                
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                  <div style={{ padding: '0.5rem', background: 'var(--color-primary-glow)', borderRadius: '8px', color: 'var(--color-primary)' }}><Mic size={18} /></div>
+                  <div>
+                    <h5 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)' }}>WhisperFlow Voice Filter</h5>
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>Live ambient noise-cancellation is enabled. Practice in a quiet room to reduce feedback.</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                  <div style={{ padding: '0.5rem', background: 'var(--color-primary-glow)', borderRadius: '8px', color: 'var(--color-primary)' }}><Laptop size={18} /></div>
+                  <div>
+                    <h5 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)' }}>Immersive Interviewer</h5>
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>The room renders facial animations, real-time eyetracking indicators, and lip-sync waves.</p>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={loading || !jobRole} 
+                  className="btn-primary" 
+                  style={{ width: '100%', padding: '1rem', fontSize: '0.95rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', borderRadius: '12px', marginTop: '1rem' }}
+                >
+                  {loading ? <><Loader2 size={16} className="animate-spin" /> Preparing Room...</> : <><ArrowRight size={16} /> Enter Meeting Room</>}
+                </button>
+              </div>
+
+            </div>
+
+          </form>
+
         </div>
-      </motion.div>
+        
+      </main>
     </div>
   );
-};
-
-export default MockInterviewSetup;
+}

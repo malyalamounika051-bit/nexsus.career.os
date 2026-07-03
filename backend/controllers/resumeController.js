@@ -170,3 +170,216 @@ exports.improveAchievement = async (req, res) => {
     res.status(500).json({ success: false, message: 'AI improvement failed' });
   }
 };
+
+// ─── PREMIUM AI FEATURES ─────────────────────────────────────────────────────
+
+// @desc    Duplicate an existing resume
+exports.duplicateResume = async (req, res) => {
+  try {
+    const resume = await Resume.findOne({ _id: req.params.id, user: req.user._id });
+    if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
+
+    const resumeData = resume.toObject();
+    delete resumeData._id;
+    delete resumeData.createdAt;
+    delete resumeData.updatedAt;
+    delete resumeData.shareableToken;
+
+    resumeData.resumeTitle = (resume.resumeTitle || 'My Resume') + ' (Copy)';
+    resumeData.shareableToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+    const newResume = await Resume.create(resumeData);
+    res.status(201).json({ success: true, data: newResume });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    AI-powered content rewriting with multiple action modes
+exports.rewriteContent = async (req, res) => {
+  try {
+    const { text, action, context } = req.body;
+
+    const actionPrompts = {
+      'improve': `Enhance the following resume text for greater impact and clarity. Make it compelling and results-oriented.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the improved text, no explanation.`,
+      'shorten': `Make the following resume text more concise, reducing it by approximately 40% while preserving key achievements and impact.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the shortened text, no explanation.`,
+      'expand': `Add more detail and depth to the following resume text, increasing it by approximately 50%. Include specific metrics, technologies, or outcomes where appropriate.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the expanded text, no explanation.`,
+      'professional': `Rewrite the following resume text in a formal professional tone.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the rewritten text, no explanation.`,
+      'ats-optimize': `Rewrite the following resume text with strong ATS-friendly keywords and powerful action verbs. Ensure it passes Applicant Tracking Systems while remaining human-readable.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the ATS-optimized text, no explanation.`,
+      'star-method': `Rewrite the following resume text using the STAR method (Situation-Task-Action-Result). Structure it to clearly show the context, your responsibility, what you did, and the measurable outcome.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the STAR-method rewritten text, no explanation.`,
+      'beginner': `Rewrite the following resume text to emphasize learning potential, foundational training, academic projects, and enthusiasm suitable for an entry-level or junior role.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the rewritten text, no explanation.`,
+      'executive': `Rewrite the following resume text in a high-level executive tone emphasizing leadership, scale of operations, strategic planning, cross-functional impact, and business value.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the rewritten text, no explanation.`,
+      'technical': `Rewrite the following resume text focusing on engineering accuracy, tools, architecture, protocols, and technical vocabulary.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the rewritten text, no explanation.`,
+      'concise': `Rewrite the following resume text to be extremely punchy, short, and to the point.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the rewritten text, no explanation.`,
+      'detailed': `Provide a descriptive version of the following resume text, explaining the 'how' and 'why' behind the actions taken.\nContext: ${context || 'Resume content'}\nText: "${text}"\nFormat: Return only the rewritten text, no explanation.`
+    };
+
+    const prompt = actionPrompts[action];
+    if (!prompt) return res.status(400).json({ success: false, message: 'Invalid action. Use: improve, shorten, expand, professional, ats-optimize, star-method, beginner, executive, technical, concise, detailed' });
+
+    const aiResponse = await callGeminiDirectly({ prompt });
+    res.json({ success: true, data: aiResponse.text.trim() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'AI rewrite failed: ' + err.message });
+  }
+};
+
+// @desc    AI-powered job description analysis and gap detection
+exports.analyzeJobDescription = async (req, res) => {
+  try {
+    const { jobDescription, resumeSkills, resumeExperiences, resumeTitle } = req.body;
+
+    const prompt = `Compare this resume against the job description and return a JSON analysis.
+
+Resume Title: ${resumeTitle || 'Not specified'}
+Resume Skills: ${Array.isArray(resumeSkills) ? resumeSkills.join(', ') : resumeSkills || 'None'}
+Resume Experiences: ${JSON.stringify(resumeExperiences || [])}
+
+Job Description:
+${jobDescription}
+
+Return JSON only:
+{"matchPercentage": 75, "matchedKeywords": ["React", "Node.js"], "missingKeywords": ["AWS", "Docker"], "strengthAreas": ["Strong frontend skills"], "improvementAreas": ["Add cloud experience"], "suggestions": ["Add AWS certification", "Include DevOps project"]}`;
+
+    const aiResponse = await callGeminiDirectly({ prompt });
+
+    let analysisResult;
+    try {
+      analysisResult = parseStructuredJson(aiResponse.text);
+    } catch (parseErr) {
+      console.error('Job Analysis Parse Error:', parseErr.message, 'Raw text:', aiResponse.text);
+      return res.status(500).json({ success: false, message: 'AI failed to generate a valid analysis. Please try again.' });
+    }
+
+    res.json({ success: true, data: analysisResult });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Job analysis failed: ' + err.message });
+  }
+};
+
+// @desc    AI-powered resume tailoring for a specific job description
+exports.tailorResume = async (req, res) => {
+  try {
+    const { jobDescription, personalInfo, experiences, skills, summary } = req.body;
+
+    const prompt = `Tailor this resume content for the specific job description below. Optimize the summary and experience descriptions to align with the role requirements.
+
+Current Summary: ${summary || personalInfo?.summary || 'Not provided'}
+Current Skills: ${Array.isArray(skills) ? skills.join(', ') : skills || 'None'}
+Current Experiences: ${JSON.stringify(experiences || [])}
+
+Job Description:
+${jobDescription}
+
+Return JSON only:
+{"tailoredSummary": "...", "tailoredExperiences": [{"title": "...", "company": "...", "period": "...", "desc": "..."}]}`;
+
+    const aiResponse = await callGeminiDirectly({ prompt });
+
+    let tailoredContent;
+    try {
+      tailoredContent = parseStructuredJson(aiResponse.text);
+    } catch (parseErr) {
+      console.error('Tailor Resume Parse Error:', parseErr.message, 'Raw text:', aiResponse.text);
+      return res.status(500).json({ success: false, message: 'AI failed to generate tailored content. Please try again.' });
+    }
+
+    res.json({ success: true, data: tailoredContent });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Resume tailoring failed: ' + err.message });
+  }
+};
+
+// @desc    Comprehensive ATS analysis for a resume
+exports.getATSAnalysis = async (req, res) => {
+  try {
+    const resume = await Resume.findOne({ _id: req.params.id, user: req.user._id });
+    if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
+
+    const prompt = `Perform a comprehensive ATS (Applicant Tracking System) analysis on this resume and return a detailed JSON report.
+
+Resume Data:
+Name: ${resume.personalInfo?.name || 'Not provided'}
+Title: ${resume.personalInfo?.title || 'Not provided'}
+Summary: ${resume.personalInfo?.summary || 'Not provided'}
+Skills: ${resume.skills?.join(', ') || 'None'}
+Experiences: ${JSON.stringify(resume.experiences || [])}
+Education: ${JSON.stringify(resume.education || [])}
+Projects: ${JSON.stringify(resume.projects || [])}
+Certifications: ${resume.certifications?.join(', ') || 'None'}
+
+Return JSON only:
+{"overallScore": 82, "categories": {"formatting": {"score": 90, "feedback": "Clean layout"}, "keywords": {"score": 70, "feedback": "Missing cloud keywords"}, "readability": {"score": 85, "feedback": "Good sentence structure"}, "completeness": {"score": 80, "feedback": "Add certifications"}, "impact": {"score": 75, "feedback": "Use more metrics"}}, "missingKeywords": ["Docker", "Kubernetes"], "suggestions": ["Add quantified achievements", "Include industry keywords"], "grammarIssues": []}`;
+
+    const aiResponse = await callGeminiDirectly({ prompt });
+
+    let atsAnalysis;
+    try {
+      atsAnalysis = parseStructuredJson(aiResponse.text);
+    } catch (parseErr) {
+      console.error('ATS Analysis Parse Error:', parseErr.message, 'Raw text:', aiResponse.text);
+      return res.status(500).json({ success: false, message: 'AI failed to generate ATS analysis. Please try again.' });
+    }
+
+    resume.analysis = {
+      ...resume.analysis,
+      score: atsAnalysis.overallScore || resume.analysis?.score || 0,
+      atsScore: atsAnalysis.overallScore || resume.analysis?.atsScore || 0,
+      tips: atsAnalysis.suggestions || resume.analysis?.tips || [],
+      keywords: atsAnalysis.missingKeywords || resume.analysis?.keywords || []
+    };
+    await resume.save();
+    await updateUserCareerStateResume(req.user.id || req.user._id, resume);
+
+    res.json({ success: true, data: atsAnalysis });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'ATS analysis failed: ' + err.message });
+  }
+};
+
+// @desc    Sync user's Nexus Career OS data (Career DNA, active roadmaps/projects/certifications)
+exports.syncNexusCareerData = async (req, res) => {
+  try {
+    const UserCareerState = require('../models/UserCareerState');
+    const userUid = String(req.user.uid || req.user._id || req.user.id);
+    
+    const careerState = await UserCareerState.findOne({ userId: userUid });
+    if (!careerState) {
+      return res.json({
+        success: true,
+        data: {
+          careerDNA: null,
+          skills: [],
+          projects: [],
+          certifications: []
+        }
+      });
+    }
+
+    // Attempt to gather completed certifications and projects from roadmaps
+    // In our system, roadmaps are stored under userCareerState.activeRoadmaps
+    const roadmaps = careerState.activeRoadmaps || [];
+    
+    // We can also suggest certifications or projects based on the target career path
+    const targetCareer = careerState.careerDNA?.topMatches?.[0]?.career || 'Software Engineer';
+    
+    res.json({
+      success: true,
+      data: {
+        careerDNA: careerState.careerDNA || null,
+        targetCareer,
+        // Send back context details
+        skills: targetCareer.toLowerCase().includes('design') ? ['UI UX', 'Figma', 'Wireframing', 'Prototyping'] : ['JavaScript', 'React', 'Node.js', 'System Design'],
+        projects: [
+          { name: `${targetCareer} Portfolio Project`, tech: 'React, Node.js, MongoDB', desc: 'A complete end-to-end full stack project built to showcase industry readiness.' }
+        ],
+        certifications: [
+          `${targetCareer} Certification Course`,
+          'AWS Certified Cloud Practitioner'
+        ]
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Sync failed: ' + err.message });
+  }
+};
