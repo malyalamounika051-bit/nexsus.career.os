@@ -12,6 +12,42 @@ const SectionTitle = ({ title, color, style }) => (
   </div>
 );
 
+const ProjectTitleLink = ({ name, link, github, color, fontSize = '20px' }) => {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+      <span style={{ fontWeight: 700, fontSize }}>{name}</span>
+      {link && (
+        <a 
+          href={link} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={{ display: 'inline-flex', alignItems: 'center', color: color || '#1d4ed8', textDecoration: 'none' }} 
+          title="Live Demo"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      )}
+      {github && (
+        <a 
+          href={github} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={{ display: 'inline-flex', alignItems: 'center', color: '#64748b', textDecoration: 'none' }} 
+          title="GitHub Repository"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+        </a>
+      )}
+    </div>
+  );
+};
+
 // Helper to dynamically render sections based on order
 const SectionRenderer = ({ id, data, primaryColor }) => {
   const { 
@@ -59,7 +95,7 @@ const SectionRenderer = ({ id, data, primaryColor }) => {
           <SectionTitle title="Projects" color={primaryColor} />
           {projects.map((proj, i) => (
             <div key={i} style={{ marginBottom: '12px' }}>
-              <div style={{ fontWeight: 700, fontSize: '20px' }}>{proj.name}</div>
+              <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="20px" />
               <div style={{ color: primaryColor, fontSize: '18px' }}>{proj.tech}</div>
               <p style={{ fontSize: '18px', color: '#4b5563', margin: '2px 0 0', whiteSpace: 'pre-wrap' }}>{proj.desc}</p>
             </div>
@@ -516,7 +552,7 @@ export const GreyLiningTemplate = ({ data }) => {
                 </div>
                 {data.projects.map((proj, i) => (
                   <div key={i} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>{proj.name}</div>
+                    <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="13px" />
                     <div style={{ color: primaryColor, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{proj.tech}</div>
                     <p style={{ fontSize: '12px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{proj.desc}</p>
                   </div>
@@ -672,7 +708,7 @@ export const SaharaContrastTemplate = ({ data }) => {
                 <h2 style={{ fontSize: '12px', fontWeight: 800, color: primaryColor, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' }}>Projects</h2>
                 {data.projects.map((proj, i) => (
                   <div key={i} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#18181b' }}>{proj.name}</div>
+                    <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="12.5px" />
                     <div style={{ color: primaryColor, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{proj.tech}</div>
                     <p style={{ fontSize: '11.5px', color: '#3f3f46', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{proj.desc}</p>
                   </div>
@@ -805,7 +841,7 @@ export const GlacierChillTemplate = ({ data }) => {
                     <div style={{ fontSize: '13px', fontWeight: 800, color: primaryColor, textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: `2px solid ${primaryColor}20`, paddingBottom: '4px', marginBottom: '12px' }}>Projects</div>
                     {data.projects.map((proj, i) => (
                       <div key={i} style={{ marginBottom: '12px' }}>
-                        <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#1e293b' }}>{proj.name}</div>
+                        <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="12.5px" />
                         <div style={{ color: primaryColor, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{proj.tech}</div>
                         <p style={{ fontSize: '11.5px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{proj.desc}</p>
                       </div>
@@ -982,7 +1018,7 @@ export const IvoryPrestigeTemplate = ({ data }) => {
                 <div style={{ fontSize: '13px', fontWeight: 700, color: primaryColor, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', borderBottom: `1px solid ${primaryColor}40`, paddingBottom: '3px' }}>Selected Undertakings</div>
                 {data.projects.map((proj, i) => (
                   <div key={i} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '12.5px', color: '#1c1917' }}>{proj.name}</div>
+                    <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="12.5px" />
                     <div style={{ color: primaryColor, fontSize: '11px', fontStyle: 'italic', marginBottom: '2px' }}>{proj.tech}</div>
                     <p style={{ fontSize: '11.5px', color: '#44403c', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{proj.desc}</p>
                   </div>
@@ -1121,7 +1157,7 @@ export const RoyalEssenceTemplate = ({ data }) => {
                     <div style={{ fontSize: '13px', fontWeight: 800, color: primaryColor, textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: `2px solid ${primaryColor}`, paddingBottom: '4px', marginBottom: '14px' }}>Key Projects</div>
                     {data.projects.map((proj, i) => (
                       <div key={i} style={{ marginBottom: '12px' }}>
-                        <div style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>{proj.name}</div>
+                        <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="13px" />
                         <div style={{ color: primaryColor, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{proj.tech}</div>
                         <p style={{ fontSize: '12px', color: '#475569', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{proj.desc}</p>
                       </div>
@@ -1313,7 +1349,7 @@ export const ExecutiveEdgeTemplate = ({ data }) => {
                 </div>
                 {data.projects.map((proj, i) => (
                   <div key={i} style={{ marginBottom: '12px', paddingLeft: '15px', borderLeft: `2px solid ${primaryColor}40` }}>
-                    <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a' }}>{proj.name}</div>
+                    <ProjectTitleLink name={proj.name} link={proj.link} github={proj.github} color={primaryColor} fontSize="12.5px" />
                     <div style={{ color: primaryColor, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{proj.tech}</div>
                     <p style={{ fontSize: '11.5px', color: '#334155', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{proj.desc}</p>
                   </div>
