@@ -219,12 +219,12 @@ export default function ProfilePage() {
   // Computes LinkedIn completeness score
   const completeness = (() => {
     let score = 20;
-    if (info.name) score += 10;
-    if (info.linkedin) score += 15;
-    if (info.github) score += 15;
-    if (technicalSkills.length > 0) score += 15;
-    if (experiences.length > 0) score += 15;
-    if (projects.length > 0) score += 10;
+    if (info?.name) score += 10;
+    if (info?.linkedin) score += 15;
+    if (info?.github) score += 15;
+    if (technicalSkills?.length > 0) score += 15;
+    if (experiences?.length > 0) score += 15;
+    if (projects?.length > 0) score += 10;
     return Math.min(100, score);
   })();
 
@@ -337,10 +337,10 @@ export default function ProfilePage() {
               </div>
               
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {technicalSkills.map(sk => (
+                {(technicalSkills || []).map(sk => (
                   <span key={sk} className="tag" style={{ background: 'var(--color-surface-glass-2)', color: 'var(--color-primary)', padding: '0.5rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}>
                     {sk}
-                    <button type="button" onClick={() => setTechnicalSkills(technicalSkills.filter(s => s !== sk))} style={{ border: 'none', background: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>×</button>
+                    <button type="button" onClick={() => setTechnicalSkills((technicalSkills || []).filter(s => s !== sk))} style={{ border: 'none', background: 'none', color: 'var(--color-text-muted)', cursor: 'pointer' }}>×</button>
                   </span>
                 ))}
               </div>
@@ -348,11 +348,11 @@ export default function ProfilePage() {
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <input 
                   value={techInput} onChange={e => setTechInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && techInput) { setTechnicalSkills([...technicalSkills, techInput]); setTechInput(''); } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && techInput) { setTechnicalSkills([...(technicalSkills || []), techInput]); setTechInput(''); } }}
                   placeholder="React, AWS, Python..."
                   style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1.15rem', borderRadius: '12px', outline: 'none' }}
                 />
-                <button type="button" onClick={() => techInput && (setTechnicalSkills([...technicalSkills, techInput]), setTechInput(''))} className="btn-primary" style={{ padding: '0 1.25rem' }}>Add</button>
+                <button type="button" onClick={() => techInput && (setTechnicalSkills([...(technicalSkills || []), techInput]), setTechInput(''))} className="btn-primary" style={{ padding: '0 1.25rem' }}>Add</button>
               </div>
             </div>
 
@@ -363,18 +363,18 @@ export default function ProfilePage() {
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>Professional Experience</h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {experiences.map((exp, i) => (
+                {(experiences || []).map((exp, i) => (
                   <div key={i} style={{ padding: '1.25rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '16px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <Input label="Role Title" value={exp.title} onChange={e => { const n = [...experiences]; n[i].title = e.target.value; setExperiences(n); }} />
-                      <Input label="Company" value={exp.company} onChange={e => { const n = [...experiences]; n[i].company = e.target.value; setExperiences(n); }} />
+                      <Input label="Role Title" value={exp.title} onChange={e => { const n = [...(experiences || [])]; n[i].title = e.target.value; setExperiences(n); }} />
+                      <Input label="Company" value={exp.company} onChange={e => { const n = [...(experiences || [])]; n[i].company = e.target.value; setExperiences(n); }} />
                       <div style={{ gridColumn: 'span 2' }}>
-                        <TextArea label="Responsibilities & Metrics" value={exp.desc} onChange={e => { const n = [...experiences]; n[i].desc = e.target.value; setExperiences(n); }} />
+                        <TextArea label="Responsibilities & Metrics" value={exp.desc} onChange={e => { const n = [...(experiences || [])]; n[i].desc = e.target.value; setExperiences(n); }} />
                       </div>
                     </div>
                   </div>
                 ))}
-                <button type="button" onClick={() => setExperiences([...experiences, EMPTY_EXP()])} className="btn-ghost" style={{ padding: '0.85rem' }}><Plus size={15} /> Add Experience</button>
+                <button type="button" onClick={() => setExperiences([...(experiences || []), EMPTY_EXP()])} className="btn-ghost" style={{ padding: '0.85rem' }}><Plus size={15} /> Add Experience</button>
               </div>
             </div>
 
