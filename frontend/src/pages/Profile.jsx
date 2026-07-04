@@ -325,7 +325,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <TextArea label="Career Summary" value={info.summary} onChange={e => setInfo({ ...info, summary: e.target.value })} />
-                <AIWriteBar text={info.summary} context="Summary" onResult={t => setInfo({ ...info, summary: t })} aiLoadingField={aiLoadingField} setAiLoadingField={setAiLoadingField} />
+                <AIWriteBar text={info.summary} context="Summary" onResult={t => setInfo({ ...info, summary: t })} />
               </div>
             </div>
 
