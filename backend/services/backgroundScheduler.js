@@ -47,7 +47,7 @@ Format as a clean JSON array with EXACTLY this structure:
     "summary": "Concise 2-line summary explaining the update clearly.",
     "whyItMatters": "Actionable explanation of why this matters to students, freshers, or job seekers (e.g. what skills they should learn).",
     "source": "Source name (e.g., TechCrunch, Microsoft Blog, NVIDIA News)",
-    "url": "Official reference link",
+    "url": "Official reference landing URL (CRITICAL: Do NOT hallucinate deep paths. Only use the main landing domain or main official blog index page of the source, e.g. 'https://techcrunch.com', 'https://blogs.nvidia.com', 'https://aws.amazon.com/blogs', 'https://news.ycombinator.com', 'https://careers.google.com', 'https://careers.microsoft.com', etc. This guarantees links never result in a 404 error.)",
     "category": "One of: Big Tech, AI, Hiring, Startups, Skills, Students"
   }
 ]
