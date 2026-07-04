@@ -7,6 +7,7 @@ import ResumeDashboard from '../components/resume/ResumeDashboard';
 import ResumeATSReport from '../components/resume/ResumeATSReport';
 import ResumeJobMatch from '../components/resume/ResumeJobMatch';
 import ResumeTemplateGallery from '../components/resume/ResumeTemplateGallery';
+import ResumeProfileMatch from '../components/resume/ResumeProfileMatch';
 import {
   ModernTemplate,
   ProfessionalTemplate,
@@ -180,11 +181,14 @@ export default function ResumeBuilder() {
   const { user } = useAuth();
   const printRef = useRef();
   
-  // Tab control: 'dashboard', 'edit', 'templates', 'ats', 'job-match'
+  // Tab control: 'dashboard', 'edit', 'templates', 'ats', 'job-match', 'profile-match'
   const [activeTab, setActiveTab] = useState('dashboard');
   const [savedResumes, setSavedResumes] = useState([]);
   const [currentResumeId, setCurrentResumeId] = useState(null);
   const [zoom, setZoom] = useState(0.7);
+
+  // Wizard Onboarding Step
+  const [editorStep, setEditorStep] = useState(0);
 
   // Resume Document States
   const [resumeTitle, setResumeTitle] = useState('Untitled Resume');
@@ -450,25 +454,6 @@ export default function ResumeBuilder() {
     finally { setTailorLoading(false); }
   };
 
-  const handleSyncNexusData = async () => {
-    setSyncStatus('syncing');
-    try {
-      const { data } = await resumeService.syncNexus();
-      if (data.success && data.data) {
-        const sync = data.data;
-        if (sync.targetCareer) setInfo(prev => ({ ...prev, title: sync.targetCareer }));
-        if (sync.skills?.length) setTechnicalSkills(prev => Array.from(new Set([...prev, ...sync.skills])));
-        if (sync.certifications?.length) setCertifications(prev => Array.from(new Set([...prev, ...sync.certifications])));
-        setSyncStatus('success');
-        setTimeout(() => setSyncStatus('idle'), 3000);
-      }
-    } catch (err) {
-      setSyncStatus('error');
-      console.error(err);
-      setTimeout(() => setSyncStatus('idle'), 3000);
-    }
-  };
-
   const exportToTxt = () => {
     let text = `${info.name || ''}\n${info.title || ''}\n`;
     if (info.email || info.phone || info.location) {
@@ -489,18 +474,13 @@ export default function ResumeBuilder() {
     a.remove();
   };
 
-  // Render wizard sections
-  const renderSection = (id) => {
-    switch (id) {
-      case 'personalInfo':
+  // Render wizard sections based on current wizard step
+  const renderWizardStep = () => {
+    switch (editorStep) {
+      case 0:
         return (
-          <Accordion title="Career Profile Onboarding" icon={User} defaultOpen>
+          <Accordion title="1. Personal Information & Socials" icon={User} defaultOpen>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-              
-              {/* Personal Information */}
-              <div style={{ gridColumn: 'span 2', borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-primary)' }}>Personal Information</span>
-              </div>
               <Input label="Full Name" value={info.name} onChange={e => setInfo({...info, name: e.target.value})} placeholder="Jane Doe" />
               <Input label="Job Title" value={info.title} onChange={e => setInfo({...info, title: e.target.value})} placeholder="Full Stack Developer" />
               <Input label="Email" icon={Mail} value={info.email} onChange={e => setInfo({...info, email: e.target.value})} placeholder="jane@example.com" />
@@ -509,37 +489,28 @@ export default function ResumeBuilder() {
               <Input label="City" icon={MapPin} value={info.city} onChange={e => setInfo({...info, city: e.target.value})} placeholder="New York" />
               <Input label="Country" icon={MapPin} value={info.country} onChange={e => setInfo({...info, country: e.target.value})} placeholder="United States" />
               
-              {/* Professional */}
-              <div style={{ gridColumn: 'span 2', borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.5rem', marginBottom: '0.5rem', marginTop: '1rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-primary)' }}>Professional Target</span>
+              <div style={{ gridColumn: 'span 2', borderBottom: '1px solid var(--color-border-subtle)', margin: '1rem 0 0.5rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--color-primary)' }}>Social & Coding Portfolios</span>
               </div>
+              <Input label="LinkedIn Link" icon={Link} value={info.linkedin} onChange={e => setInfo({...info, linkedin: e.target.value})} placeholder="linkedin.com/in/jane" />
+              <Input label="GitHub Link" icon={Globe} value={info.github} onChange={e => setInfo({...info, github: e.target.value})} placeholder="github.com/jane" />
+              <Input label="Portfolio Website" icon={Globe} value={info.portfolio} onChange={e => setInfo({...info, portfolio: e.target.value})} placeholder="janedoe.dev" />
+              <Input label="LeetCode" icon={Link} value={info.leetcode} onChange={e => setInfo({...info, leetcode: e.target.value})} placeholder="leetcode.com/jane" />
+              <Input label="Codeforces" icon={Link} value={info.codeforces} onChange={e => setInfo({...info, codeforces: e.target.value})} placeholder="codeforces.com/profile/jane" />
+              <Input label="Stack Overflow" icon={Link} value={info.stackOverflow} onChange={e => setInfo({...info, stackOverflow: e.target.value})} placeholder="stackoverflow.com/users/jane" />
+              <Input label="Behance" icon={Link} value={info.behance} onChange={e => setInfo({...info, behance: e.target.value})} placeholder="behance.net/jane" />
+            </div>
+          </Accordion>
+        );
+      case 1:
+        return (
+          <Accordion title="2. Professional Target & Skills" icon={Code2} defaultOpen>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
               <Input label="Current Role" value={info.currentRole} onChange={e => setInfo({...info, currentRole: e.target.value})} placeholder="Software Developer" />
               <Input label="Target Role" value={info.targetRole} onChange={e => setInfo({...info, targetRole: e.target.value})} placeholder="Senior Architect" />
               <Input label="Years of Experience" value={info.yearsOfExperience} onChange={e => setInfo({...info, yearsOfExperience: e.target.value})} placeholder="5" />
               <Input label="Preferred Industry" value={info.preferredIndustry} onChange={e => setInfo({...info, preferredIndustry: e.target.value})} placeholder="Financial Technology" />
-
-              {/* Education */}
-              <div style={{ gridColumn: 'span 2', borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.5rem', marginBottom: '0.5rem', marginTop: '1rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-primary)' }}>Education Details</span>
-              </div>
-              <Input label="College / University" value={info.college} onChange={e => setInfo({...info, college: e.target.value})} placeholder="Stanford" />
-              <Input label="Degree" value={info.degree} onChange={e => setInfo({...info, degree: e.target.value})} placeholder="B.S. Computer Science" />
-              <Input label="Branch" value={info.branch} onChange={e => setInfo({...info, branch: e.target.value})} placeholder="Information Technology" />
-              <Input label="CGPA" value={info.cgpa} onChange={e => setInfo({...info, cgpa: e.target.value})} placeholder="3.8" />
-              <Input label="Graduation Year" value={info.graduationYear} onChange={e => setInfo({...info, graduationYear: e.target.value})} placeholder="2024" />
-
-              {/* Social Portfolios */}
-              <div style={{ gridColumn: 'span 2', borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.5rem', marginBottom: '0.5rem', marginTop: '1rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-primary)' }}>Social & Coding Profiles</span>
-              </div>
-              <Input label="LinkedIn Link" icon={Link} value={info.linkedin} onChange={e => setInfo({...info, linkedin: e.target.value})} placeholder="linkedin.com/in/jane" />
-              <Input label="GitHub Link" icon={Globe} value={info.github} onChange={e => setInfo({...info, github: e.target.value})} placeholder="github.com/jane" />
-              <Input label="Portfolio / Website" icon={Globe} value={info.portfolio} onChange={e => setInfo({...info, portfolio: e.target.value})} placeholder="janedoe.dev" />
-              <Input label="LeetCode Link" icon={Link} value={info.leetcode} onChange={e => setInfo({...info, leetcode: e.target.value})} placeholder="leetcode.com/jane" />
-              <Input label="Codeforces Link" icon={Link} value={info.codeforces} onChange={e => setInfo({...info, codeforces: e.target.value})} placeholder="codeforces.com/profile/jane" />
-              <Input label="Stack Overflow Link" icon={Link} value={info.stackOverflow} onChange={e => setInfo({...info, stackOverflow: e.target.value})} placeholder="stackoverflow.com/users/jane" />
-              <Input label="Behance / Dribbble" icon={Link} value={info.behance} onChange={e => setInfo({...info, behance: e.target.value})} placeholder="behance.net/jane" />
-
+              
               <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
                 <TextArea label="Career Objective" value={info.objective} onChange={e => setInfo({...info, objective: e.target.value})} placeholder="State your immediate career objective..." />
                 <AIWriteBar text={info.objective} context="Objective" currentField="objective" onResult={(text) => setInfo({...info, objective: text})} aiLoadingField={aiLoadingField} setAiLoadingField={setAiLoadingField} />
@@ -548,122 +519,121 @@ export default function ResumeBuilder() {
                 <TextArea label="Professional Summary" value={info.summary} onChange={e => setInfo({...info, summary: e.target.value})} placeholder="Describe your career highlights..." />
                 <AIWriteBar text={info.summary} context="Summary" onResult={(text) => setInfo({...info, summary: text})} aiLoadingField={aiLoadingField} setAiLoadingField={setAiLoadingField} />
               </div>
+
+              {/* Technical skills list */}
+              <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Technical Skills</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                  {technicalSkills.map(s => (
+                    <span key={s} className="tag" style={{ background: 'var(--color-surface-glass-2)', padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--color-primary)' }}>
+                      {s} <button type="button" onClick={() => setTechnicalSkills(technicalSkills.filter(x => x !== s))} style={{ border: 'none', background: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', paddingLeft: '0.5rem' }}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <input 
+                    value={techSkillInput} onChange={e => setTechSkillInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && techSkillInput) { setTechnicalSkills([...technicalSkills, techSkillInput]); setTechSkillInput(''); } }}
+                    placeholder="React, C++, Python..."
+                    style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1rem', borderRadius: '12px', outline: 'none' }}
+                  />
+                  <button type="button" onClick={() => techSkillInput && (setTechnicalSkills([...technicalSkills, techSkillInput]), setTechSkillInput(''))} className="btn-primary" style={{ padding: '0 1.25rem' }}><Plus size={20} /></button>
+                </div>
+              </div>
             </div>
           </Accordion>
         );
-      case 'experience':
+      case 2:
         return (
-          <Accordion title="Work Experience & Internships" icon={Briefcase}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+          <Accordion title="3. Education History" icon={GraduationCap} defaultOpen>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+              <Input label="College / University" value={info.college} onChange={e => setInfo({...info, college: e.target.value})} placeholder="Stanford" />
+              <Input label="Degree" value={info.degree} onChange={e => setInfo({...info, degree: e.target.value})} placeholder="B.S. Computer Science" />
+              <Input label="Branch" value={info.branch} onChange={e => setInfo({...info, branch: e.target.value})} placeholder="Information Technology" />
+              <Input label="CGPA / Percentage" value={info.cgpa} onChange={e => setInfo({...info, cgpa: e.target.value})} placeholder="3.8" />
+              <Input label="Graduation Year" value={info.graduationYear} onChange={e => setInfo({...info, graduationYear: e.target.value})} placeholder="2024" />
+              
+              <div style={{ gridColumn: 'span 2', marginTop: '1rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text-muted)' }}>Additional Degrees</span>
+              </div>
+              <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {education.map((edu, i) => (
+                  <div key={edu.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
+                    <button type="button" onClick={() => setEducation(education.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div style={{ gridColumn: 'span 2' }}><Input label="Degree / Major" value={edu.degree} onChange={e => { const n = [...education]; n[i].degree = e.target.value; setEducation(n); }} placeholder="B.S. Computer Science" /></div>
+                      <Input label="Institution" value={edu.institution} onChange={e => { const n = [...education]; n[i].institution = e.target.value; setEducation(n); }} placeholder="Stanford University" />
+                      <Input label="Year" value={edu.year} onChange={e => { const n = [...education]; n[i].year = e.target.value; setEducation(n); }} placeholder="2020 - 2024" />
+                    </div>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setEducation([...education, EMPTY_EDU()])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Additional Education</button>
+              </div>
+            </div>
+          </Accordion>
+        );
+      case 3:
+        return (
+          <Accordion title="4. Experience & Projects" icon={Briefcase} defaultOpen>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+              
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>Work Experience & Internships</span>
               {experiences.map((exp, i) => (
                 <div key={exp.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
                   <button type="button" onClick={() => setExperiences(experiences.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div style={{ gridColumn: 'span 2' }}><Input label="Job Title" value={exp.title} onChange={e => { const n = [...experiences]; n[i].title = e.target.value; setExperiences(n); }} placeholder="Senior Developer" /></div>
+                    <div style={{ gridColumn: 'span 2' }}><Input label="Job Title / Role" value={exp.title} onChange={e => { const n = [...experiences]; n[i].title = e.target.value; setExperiences(n); }} placeholder="Senior Developer" /></div>
                     <Input label="Company" value={exp.company} onChange={e => { const n = [...experiences]; n[i].company = e.target.value; setExperiences(n); }} placeholder="Google" />
                     <Input label="Period" value={exp.period} onChange={e => { const n = [...experiences]; n[i].period = e.target.value; setExperiences(n); }} placeholder="Jan 2022 - Present" />
                     <div style={{ gridColumn: 'span 2' }}>
-                      <TextArea label="Description" value={exp.desc} onChange={e => { const n = [...experiences]; n[i].desc = e.target.value; setExperiences(n); }} placeholder="What did you achieve?" />
+                      <TextArea label="Description" value={exp.desc} onChange={e => { const n = [...experiences]; n[i].desc = e.target.value; setExperiences(n); }} placeholder="What did you achieve? Include measurable metrics." />
                       <AIWriteBar text={exp.desc} context={`Experience description for ${exp.title}`} currentField={`exp-${i}`} onResult={(text) => { const n = [...experiences]; n[i].desc = text; setExperiences(n); }} aiLoadingField={aiLoadingField} setAiLoadingField={setAiLoadingField} />
                     </div>
                   </div>
                 </div>
               ))}
               <button type="button" onClick={() => setExperiences([...experiences, EMPTY_EXP()])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Experience</button>
-            </div>
-          </Accordion>
-        );
-      case 'education':
-        return (
-          <Accordion title="Additional Education" icon={GraduationCap}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-              {education.map((edu, i) => (
-                <div key={edu.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
-                  <button type="button" onClick={() => setEducation(education.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
+
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', marginTop: '1.5rem' }}>Projects & Hackathons</span>
+              {projects.map((proj, i) => (
+                <div key={proj.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
+                  <button type="button" onClick={() => setProjects(projects.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div style={{ gridColumn: 'span 2' }}><Input label="Degree / Major" value={edu.degree} onChange={e => { const n = [...education]; n[i].degree = e.target.value; setEducation(n); }} placeholder="B.S. Computer Science" /></div>
-                    <Input label="Institution" value={edu.institution} onChange={e => { const n = [...education]; n[i].institution = e.target.value; setEducation(n); }} placeholder="Stanford University" />
-                    <Input label="Year" value={edu.year} onChange={e => { const n = [...education]; n[i].year = e.target.value; setEducation(n); }} placeholder="2020 - 2024" />
+                    <Input label="Project Name" value={proj.name} onChange={e => { const n = [...projects]; n[i].name = e.target.value; setProjects(n); }} placeholder="E-commerce Platform" />
+                    <Input label="Technologies" value={proj.tech} onChange={e => { const n = [...projects]; n[i].tech = e.target.value; setProjects(n); }} placeholder="React, Node.js" />
+                    <Input label="Live Demo URL" value={proj.link} onChange={e => { const n = [...projects]; n[i].link = e.target.value; setProjects(n); }} placeholder="https://live.dev" />
+                    <Input label="GitHub Link" value={proj.github} onChange={e => { const n = [...projects]; n[i].github = e.target.value; setProjects(n); }} placeholder="https://github.com/..." />
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <TextArea label="Description" value={proj.desc} onChange={e => { const n = [...projects]; n[i].desc = e.target.value; setProjects(n); }} placeholder="Describe the project impact..." />
+                      <AIWriteBar text={proj.desc} context={`Project ${proj.name}`} currentField={`proj-${i}`} onResult={(text) => { const n = [...projects]; n[i].desc = text; setProjects(n); }} aiLoadingField={aiLoadingField} setAiLoadingField={setAiLoadingField} />
+                    </div>
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={() => setEducation([...education, EMPTY_EDU()])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Education</button>
+              <button type="button" onClick={() => setProjects([...projects, { id: Date.now() + Math.random(), name: '', tech: '', desc: '', link: '', github: '' }])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Project / Hackathon</button>
+
             </div>
           </Accordion>
         );
-      case 'technicalSkills':
+      case 4:
         return (
-          <Accordion title="Technical Skills" icon={Code2}>
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                {technicalSkills.map(s => (
-                  <span key={s} className="tag" style={{ background: 'var(--color-surface-glass-2)', padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--color-primary)' }}>
-                    {s} <button type="button" onClick={() => setTechnicalSkills(technicalSkills.filter(x => x !== s))} style={{ border: 'none', background: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', paddingLeft: '0.5rem' }}>×</button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <input 
-                  value={techSkillInput} onChange={e => setTechSkillInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && techSkillInput) { setTechnicalSkills([...technicalSkills, techSkillInput]); setTechSkillInput(''); } }}
-                  placeholder="React, C++, Python..."
-                  style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1rem', borderRadius: '12px', outline: 'none' }}
-                />
-                <button type="button" onClick={() => techSkillInput && (setTechnicalSkills([...technicalSkills, techSkillInput]), setTechSkillInput(''))} className="btn-primary" style={{ padding: '0 1.25rem' }}><Plus size={20} /></button>
-              </div>
-            </div>
-          </Accordion>
-        );
-      case 'softSkills':
-        return (
-          <Accordion title="Soft Skills" icon={Zap}>
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                {softSkills.map(s => (
-                  <span key={s} className="tag" style={{ background: 'var(--color-surface-glass-2)', padding: '0.6rem 1rem', fontSize: '0.8rem' }}>
-                    {s} <button type="button" onClick={() => setSoftSkills(softSkills.filter(x => x !== s))} style={{ border: 'none', background: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', paddingLeft: '0.5rem' }}>×</button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <input 
-                  value={softSkillInput} onChange={e => setSoftSkillInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && softSkillInput) { setSoftSkills([...softSkills, softSkillInput]); setSoftSkillInput(''); } }}
-                  placeholder="Leadership, Public Speaking..."
-                  style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1rem', borderRadius: '12px', outline: 'none' }}
-                />
-                <button type="button" onClick={() => softSkillInput && (setSoftSkills([...softSkills, softSkillInput]), setSoftSkillInput(''))} className="btn-primary" style={{ padding: '0 1.25rem' }}><Plus size={20} /></button>
-              </div>
-            </div>
-          </Accordion>
-        );
-      case 'projects':
-        return (
-          <Accordion title="Projects & Hackathons" icon={Layers}>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-                {projects.map((proj, i) => (
-                  <div key={proj.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
-                     <button type="button" onClick={() => setProjects(projects.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <Input label="Project Name" value={proj.name} onChange={e => { const n = [...projects]; n[i].name = e.target.value; setProjects(n); }} placeholder="E-commerce Platform" />
-                        <Input label="Technologies" value={proj.tech} onChange={e => { const n = [...projects]; n[i].tech = e.target.value; setProjects(n); }} placeholder="React, Node.js" />
-                        <Input label="Live Demo URL" value={proj.link} onChange={e => { const n = [...projects]; n[i].link = e.target.value; setProjects(n); }} placeholder="https://live.dev" />
-                        <Input label="GitHub Link" value={proj.github} onChange={e => { const n = [...projects]; n[i].github = e.target.value; setProjects(n); }} placeholder="https://github.com/..." />
-                        <div style={{ gridColumn: 'span 2' }}>
-                          <TextArea label="Description" value={proj.desc} onChange={e => { const n = [...projects]; n[i].desc = e.target.value; setProjects(n); }} placeholder="Describe the project impact..." />
-                          <AIWriteBar text={proj.desc} context={`Project ${proj.name}`} currentField={`proj-${i}`} onResult={(text) => { const n = [...projects]; n[i].desc = text; setProjects(n); }} aiLoadingField={aiLoadingField} setAiLoadingField={setAiLoadingField} />
-                        </div>
-                     </div>
-                  </div>
-                ))}
-                <button type="button" onClick={() => setProjects([...projects, { id: Date.now() + Math.random(), name: '', tech: '', desc: '', link: '', github: '' }])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Project / Hackathon</button>
-             </div>
-          </Accordion>
-        );
-      case 'researchPapers':
-        return (
-          <Accordion title="Research Papers & Publications" icon={BookOpen}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+          <Accordion title="5. Certifications & Extra-Curriculars" icon={Award} defaultOpen>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+              
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>Certifications</span>
+              {certifications.map((cert, i) => (
+                <div key={i} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input 
+                    value={cert} onChange={e => { const n = [...certifications]; n[i] = e.target.value; setCertifications(n); }}
+                    placeholder="AWS Certified Cloud Practitioner..."
+                    style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1rem', borderRadius: '12px', outline: 'none' }}
+                  />
+                  <button type="button" onClick={() => setCertifications(certifications.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setCertifications([...certifications, ''])} className="btn-ghost" style={{ width: '100%', padding: '0.8rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={14} /> Add Certification</button>
+
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', marginTop: '1.5rem' }}>Research Papers & Publications</span>
               {researchPapers.map((paper, i) => (
                 <div key={paper.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
                   <button type="button" onClick={() => setResearchPapers(researchPapers.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
@@ -675,41 +645,7 @@ export default function ResumeBuilder() {
                 </div>
               ))}
               <button type="button" onClick={() => setResearchPapers([...researchPapers, EMPTY_RESEARCH()])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Publication</button>
-            </div>
-          </Accordion>
-        );
-      case 'volunteering':
-        return (
-          <Accordion title="Volunteering & Leadership" icon={Heart}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-              {volunteering.map((v, i) => (
-                <div key={v.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
-                  <button type="button" onClick={() => setVolunteering(volunteering.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <Input label="Organization" value={v.organization} onChange={e => { const n = [...volunteering]; n[i].organization = e.target.value; setVolunteering(n); }} placeholder="NGO" />
-                    <Input label="Role / Title" value={v.role} onChange={e => { const n = [...volunteering]; n[i].role = e.target.value; setVolunteering(n); }} placeholder="Lead Volunteer" />
-                    <div style={{ gridColumn: 'span 2' }}><TextArea label="Volunteering Description" value={v.desc} onChange={e => { const n = [...volunteering]; n[i].desc = e.target.value; setVolunteering(n); }} /></div>
-                  </div>
-                </div>
-              ))}
-              <button type="button" onClick={() => setVolunteering([...volunteering, EMPTY_VOLUNTEER()])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add volunteering work</button>
-            </div>
-          </Accordion>
-        );
-      case 'references':
-        return (
-          <Accordion title="References" icon={Quote}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-              {references.map((ref, i) => (
-                <div key={ref.id || i} style={{ padding: '1.25rem', background: 'var(--color-surface-3)', borderRadius: '16px', position: 'relative', border: '1px solid var(--color-border)' }}>
-                  <button type="button" onClick={() => setReferences(references.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--color-danger)', border: 'none', background: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <Input label="Name" value={ref.name} onChange={e => { const n = [...references]; n[i].name = e.target.value; setReferences(n); }} placeholder="Dr. John" />
-                    <Input label="Company / Relation" value={ref.company} onChange={e => { const n = [...references]; n[i].company = e.target.value; setReferences(n); }} placeholder="Academic Advisor" />
-                  </div>
-                </div>
-              ))}
-              <button type="button" onClick={() => setReferences([...references, EMPTY_REFERENCE()])} className="btn-ghost" style={{ width: '100%', padding: '1rem', borderStyle: 'dashed', background: 'transparent' }}><Plus size={16} /> Add Reference</button>
+
             </div>
           </Accordion>
         );
@@ -752,22 +688,13 @@ export default function ResumeBuilder() {
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             {activeTab !== 'dashboard' && (
               <>
-                <button 
-                  onClick={handleSyncNexusData}
-                  disabled={syncStatus === 'syncing'}
-                  className="btn-ghost"
-                  style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}
-                >
-                  <Sparkles size={14} />
-                  {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Career DNA'}
-                </button>
-
                 <div className="hide-mobile" style={{ display: 'flex', background: 'var(--color-surface-2)', padding: '0.25rem', borderRadius: '10px' }}>
                   {[
                     { id: 'edit', label: 'Editor' },
                     { id: 'templates', label: 'Design' },
                     { id: 'ats', label: 'ATS Score' },
-                    { id: 'job-match', label: 'Job Match' }
+                    { id: 'job-match', label: 'Job Match' },
+                    { id: 'profile-match', label: 'Match Profile' }
                   ].map(tab => (
                     <button 
                       key={tab.id}
@@ -827,17 +754,48 @@ export default function ResumeBuilder() {
                   <AnimatePresence mode="wait">
                     {activeTab === 'edit' && (
                       <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <Reorder.Group axis="y" values={sectionOrder} onReorder={setSectionOrder} style={{ listStyleType: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                          {sectionOrder.map(id => {
-                            const sect = renderSection(id);
-                            if (!sect) return null;
-                            return (
-                              <Reorder.Item key={id} value={id} style={{ cursor: 'grab' }} whileDrag={{ scale: 1.02 }}>
-                                {sect}
-                              </Reorder.Item>
-                            );
-                          })}
-                        </Reorder.Group>
+                        
+                        {/* Multi-step progress indicator */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--color-surface-2)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--color-border)', marginBottom: '1rem' }}>
+                          {['Bio', 'Skills', 'Education', 'Projects', 'Extras'].map((step, idx) => (
+                            <button
+                              key={step}
+                              onClick={() => setEditorStep(idx)}
+                              style={{
+                                border: 'none', background: 'none', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer',
+                                color: editorStep === idx ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
+                                paddingBottom: '3px', borderBottom: editorStep === idx ? '2px solid var(--color-primary)' : '2px solid transparent'
+                              }}
+                            >
+                              {step}
+                            </button>
+                          ))}
+                        </div>
+
+                        {renderWizardStep()}
+
+                        {/* Step navigation buttons */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+                          <button
+                            type="button"
+                            disabled={editorStep === 0}
+                            onClick={() => setEditorStep(prev => Math.max(0, prev - 1))}
+                            className="btn-ghost"
+                            style={{ padding: '0.6rem 1.25rem' }}
+                          >
+                            Previous Step
+                          </button>
+                          <button
+                            type="button"
+                            disabled={editorStep === 4}
+                            onClick={() => setEditorStep(prev => Math.min(4, prev + 1))}
+                            className="btn-primary"
+                            style={{ padding: '0.6rem 1.25rem' }}
+                          >
+                            Next Step
+                          </button>
+                        </div>
+
                       </motion.div>
                     )}
 
@@ -871,6 +829,21 @@ export default function ResumeBuilder() {
                           jobDescription={jobDescription} setJobDescription={setJobDescription}
                           jobAnalysis={jobAnalysis} onAnalyze={handleJobAnalyze}
                           onTailor={handleTailorResume} jobLoading={jobLoading} tailorLoading={tailorLoading}
+                        />
+                      </motion.div>
+                    )}
+
+                    {activeTab === 'profile-match' && (
+                      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+                        <ResumeProfileMatch 
+                          info={info} 
+                          skills={skills} 
+                          technicalSkills={technicalSkills} 
+                          softSkills={softSkills} 
+                          experiences={experiences} 
+                          projects={projects} 
+                          certifications={certifications}
+                          researchPapers={researchPapers}
                         />
                       </motion.div>
                     )}
