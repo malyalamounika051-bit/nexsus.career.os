@@ -35,71 +35,19 @@ export default function InterviewRoom() {
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
 
-  const recognitionRef = useRef(null);
-
   useEffect(() => {
     if (!jobRole) {
       navigate('/mock-interview/setup');
       return;
     }
-
-    // Initialize Web Speech API for voice recognition
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const rec = new SpeechRecognition();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'en-US';
-
-      rec.onresult = (event) => {
-        let finalText = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalText += event.results[i][0].transcript;
-          }
-        }
-        if (finalText) {
-          setSpeechText(prev => prev ? prev + ' ' + finalText : finalText);
-        }
-      };
-
-      rec.onerror = (e) => {
-        console.error('Speech recognition error:', e);
-      };
-
-      recognitionRef.current = rec;
-    }
-
     // Speak first question
     speakQuestion(questions[0]);
-
     return () => {
       if (synthRef.current) {
         synthRef.current.cancel();
       }
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
     };
   }, []);
-
-  // Control listening state based on interviewer state
-  useEffect(() => {
-    if (!recognitionRef.current) return;
-    if (interviewerState === 'listening' && !isMuted) {
-      try {
-        recognitionRef.current.start();
-      } catch (err) {
-        // Already started
-      }
-    } else {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {
-        // Already stopped
-      }
-    }
-  }, [interviewerState, isMuted]);
 
   const speakQuestion = (text) => {
     if (!text) return;

@@ -376,7 +376,7 @@ CRITICAL REQUIREMENTS:
         // Auto-complete if they already know the skill
         if (crit.type === 'task') {
           const matchedSkill = cp.skills.find(sk => 
-            knownSkills.has(sk.toLowerCase().trim()) || 
+            knownSkills.has(sk.toLowerCase().trim()) && 
             crit.title.toLowerCase().includes(sk.toLowerCase().trim())
           );
           if (matchedSkill) {
