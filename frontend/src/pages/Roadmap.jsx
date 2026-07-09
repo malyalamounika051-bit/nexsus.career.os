@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
 import { careerService } from '../services/adviceService';
 import api from '../services/api';
-import { formatExternalUrl } from '../utils/url';
 import {
   Map, Briefcase, Plus, Sparkles, ChevronDown, ChevronUp, ExternalLink, Trash2,
   CheckCircle2, Circle, Clock, TrendingUp, DollarSign, Lightbulb, BookOpen,

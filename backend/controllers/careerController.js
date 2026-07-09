@@ -108,26 +108,15 @@ const normalizeRoadmapData = (data, fallbackDomain) => {
 
     // Resources
     if (!Array.isArray(phase.resources)) phase.resources = [];
-    phase.resources = phase.resources.filter(r => r && typeof r === 'object').slice(0, 15);
+    phase.resources = phase.resources.filter(r => r && typeof r === 'object' && r.url && r.url.startsWith('http')).slice(0, 15);
     phase.resources.forEach(r => {
-      if (!r.title || String(r.title).trim() === '') r.title = 'Learning resource';
-      r.title = String(r.title).trim().slice(0, 200);
-      if (!r.url || String(r.url).trim() === '') r.url = '#';
+      r.title = String(r.title || 'Learning Resource').trim().slice(0, 200);
       r.url = String(r.url).trim().slice(0, 2000);
       const t = String(r.type || '').toLowerCase();
       r.type = VALID_RESOURCE_TYPES.has(t) ? t : 'article';
       const c = String(r.category || '').toLowerCase();
       r.category = VALID_RESOURCE_CATEGORIES.has(c) ? c : 'other';
     });
-
-    if (phase.resources.length === 0) {
-      phase.resources.push({
-        title: 'Google Search',
-        url: `https://www.google.com/search?q=${encodeURIComponent(out.domain + ' ' + phase.phase + ' tutorial')}`,
-        type: 'article',
-        category: 'other',
-      });
-    }
 
     phase.completed = false;
   });
@@ -150,12 +139,7 @@ const normalizeRoadmapData = (data, fallbackDomain) => {
       certifications: [],
       practiceTasks: [`Practice exercise for ${out.domain}`],
       projects: [`Portfolio project ${n + 1} for ${out.domain}`],
-      resources: [{
-        title: 'Google Search',
-        url: `https://www.google.com/search?q=${encodeURIComponent(out.domain + ' learning resources')}`,
-        type: 'article',
-        category: 'other',
-      }],
+      resources: [],
       completed: false,
     });
   }
