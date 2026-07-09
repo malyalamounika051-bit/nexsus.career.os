@@ -794,36 +794,86 @@ const RoadmapPage = () => {
 
                       {/* Learning Resources */}
                       {activeCheckpoint.resources && activeCheckpoint.resources.length > 0 && (
-                        <div>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.45rem' }}>Learning Resources</span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                            {activeCheckpoint.resources.map((res, idx) => {
-                              const Icon = CATEGORY_ICONS[res.type] || BookOpen;
-                              const iconColor = CATEGORY_COLORS[res.type] || '#0ea5e9';
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-text)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.5rem' }}>Learning Hub Resources</span>
+                          
+                          {/* Grouped Layout */}
+                          {(() => {
+                            const docs = activeCheckpoint.resources.filter(r => r.isOfficial || r.type === 'documentation');
+                            const courses = activeCheckpoint.resources.filter(r => r.type === 'course');
+                            const videos = activeCheckpoint.resources.filter(r => r.type === 'video');
+                            const practice = activeCheckpoint.resources.filter(r => r.type === 'platform' || r.type === 'tool');
+                            const articles = activeCheckpoint.resources.filter(r => r.type === 'article');
+
+                            const renderGroup = (title, icon, items) => {
+                              if (!items || items.length === 0) return null;
                               return (
-                                <a key={idx} href={formatExternalUrl(res.url, `${res.title} ${res.provider}`)} target="_blank" rel="noopener noreferrer" style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  padding: '0.6rem 0.75rem',
-                                  borderRadius: 8,
-                                  background: 'var(--color-surface-2)',
-                                  border: '1px solid var(--color-border)',
-                                  textDecoration: 'none',
-                                  fontSize: '0.82rem',
-                                  transition: 'transform 0.15s ease'
-                                }} className="resource-item-hover">
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Icon size={14} color={iconColor} />
-                                    <span style={{ color: 'var(--color-text-dim)', fontWeight: 500 }}>{res.title}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-primary-light)' }}>
+                                    {icon} <span>{title}</span>
                                   </div>
-                                  <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.04)', padding: '0.15rem 0.4rem', borderRadius: 4 }}>
-                                    {res.provider}
-                                  </span>
-                                </a>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+                                    {items.map((res, idx) => (
+                                      <div 
+                                        key={idx} 
+                                        className="glass-card" 
+                                        style={{ 
+                                          padding: '1.25rem', 
+                                          border: '1px solid var(--color-border)', 
+                                          background: 'var(--color-surface-2)',
+                                          borderRadius: '12px',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: '0.6rem'
+                                        }}
+                                      >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                                            {res.provider || 'Community'}
+                                          </span>
+                                          <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                                            {res.isOfficial && <span style={{ fontSize: '0.62rem', background: 'var(--color-primary-glow)', color: 'var(--color-primary-light)', padding: '0.15rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>Official</span>}
+                                            <span style={{ fontSize: '0.62rem', background: res.isFree ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)', color: res.isFree ? '#10b981' : '#f59e0b', padding: '0.15rem 0.4rem', borderRadius: '4px', fontWeight: 800 }}>{res.isFree ? 'Free' : 'Paid'}</span>
+                                            {res.verified && <span style={{ fontSize: '0.62rem', background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.15rem 0.4rem', borderRadius: '4px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>✓ Verified</span>}
+                                          </div>
+                                        </div>
+
+                                        <h5 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: 'var(--color-text)' }}>{res.title}</h5>
+                                        {res.description && <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{res.description}</p>}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.5rem' }}>
+                                          <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                                            <span>Difficulty: <strong>{res.difficulty || 'Beginner'}</strong></span>
+                                            <span>·</span>
+                                            <span>Duration: <strong>{res.duration || 'Self-paced'}</strong></span>
+                                          </div>
+                                          <a 
+                                            href={res.verifiedUrl || res.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="btn-ghost" 
+                                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 700 }}
+                                          >
+                                            Open <Link size={12} />
+                                          </a>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               );
-                            })}
-                          </div>
+                            };
+
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                {renderGroup('Official Documentation', <BookOpen size={14} />, docs)}
+                                {renderGroup('Online Courses', <GraduationCap size={14} />, courses)}
+                                {renderGroup('Video Playlists', <Play size={14} />, videos)}
+                                {renderGroup('Interactive Practice', <Code size={14} />, practice)}
+                                {renderGroup('Articles & Guides', <FileText size={14} />, articles)}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 

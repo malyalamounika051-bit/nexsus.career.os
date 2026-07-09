@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 
 /* ── Resource sub-schema ───────────────────────────────── */
 const resourceSchema = new mongoose.Schema({
-  title: String,
-  url: String,
+  title: { type: String, required: true },
+  url: { type: String, required: true },
+  verifiedUrl: { type: String },
   type: {
     type: String,
     enum: ['video', 'article', 'course', 'book', 'certification', 'platform', 'tool', 'tutorial', 'documentation'],
@@ -14,10 +15,15 @@ const resourceSchema = new mongoose.Schema({
     enum: ['youtube', 'course', 'blog', 'docs', 'platform', 'community', 'book', 'other'],
     default: 'other',
   },
-  verified: { type: Boolean, default: false },
-  qualityScore: { type: Number, default: 70 },
+  provider: { type: String, default: 'Community' },
+  difficulty: { type: String, default: 'Beginner' },
+  isFree: { type: Boolean, default: true },
+  duration: { type: String, default: 'Self-paced' },
+  description: { type: String, default: '' },
+  isOfficial: { type: Boolean, default: false },
+  verified: { type: Boolean, default: true },
   lastChecked: { type: Date, default: Date.now },
-  sourceType: { type: String },
+  lastVerifiedDate: { type: Date, default: Date.now }
 }, { _id: false });
 
 /* ── Roadmap Phase sub-schema ──────────────────────────── */
@@ -57,37 +63,18 @@ const careerSchema = new mongoose.Schema({
   growthRate: { type: String, default: '15%' },
   demand: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Medium' },
   trendingSkills: [String],
-
-  // ── Roadmap-specific fields ──────────────────────────
-  isGeneratedRoadmap: { type: Boolean, default: false },
   salaryRange: salaryRangeSchema,
-  futureScore: { type: Number, min: 0, max: 100, default: 70 },
-  alternativePaths: [String],
   studyStrategy: { type: String },
+  alternativePaths: [String],
+  userUid: { type: String, required: true, index: true },
+  userId: { type: String, index: true }, // legacy support
+  userEmail: { type: String },
+  isGeneratedRoadmap: { type: Boolean, default: false },
   progress: {
     completedPhases: { type: Number, default: 0 },
     totalPhases: { type: Number, default: 7 },
-    interviewReadiness: { type: Number, default: 0 },
-    lastUpdated: { type: Date },
-  },
-
-  // ── Ownership fields (Firebase auth) ─────────────────
-  userUid: { type: String, index: true },
-  userEmail: { type: String, lowercase: true, trim: true, index: true },
-  // Legacy field kept for backward compatibility
-  userId: { type: String, ref: 'User' },
-
-  // ── Scoring weights — how this career matches user trait scores
-  weights: {
-    technical: { type: Number, default: 0 },
-    creative: { type: Number, default: 0 },
-    analytical: { type: Number, default: 0 },
-    leadership: { type: Number, default: 0 },
-    communication: { type: Number, default: 0 },
+    lastUpdated: { type: Date, default: Date.now },
   },
 }, { timestamps: true });
-
-// Unique constraint only for generated roadmaps by same user and domain
-careerSchema.index({ userUid: 1, domain: 1, isGeneratedRoadmap: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Career', careerSchema);

@@ -2,6 +2,7 @@ const Career = require('../models/Career');
 const { callGeminiDirectly } = require('../utils/geminiClient');
 const { awardXP } = require('../utils/gamification');
 const { parseStructuredJson } = require('../utils/jsonParser');
+const { getVerifiedResourcesForTopics } = require('../services/resourceRecommendationService');
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -428,24 +429,17 @@ JSON structure:
       "tools": ["VS Code", "Chrome DevTools", "Git"],
       "certifications": ["freeCodeCamp Responsive Web Design"],
       "practiceTasks": ["Build a personal portfolio page", "Complete 30 CSS challenges"],
-      "projects": ["Personal portfolio website with responsive design"],
-      "resources": [
-        { "title": "Coursera - HTML, CSS, and Javascript for Web Developers", "url": "https://www.coursera.org/learn/html-css-javascript-for-web-developers", "type": "course", "category": "course" },
-        { "title": "Udemy - Modern JavaScript From The Beginning", "url": "https://www.udemy.com/course/modern-javascript-from-the-beginning/", "type": "course", "category": "course" },
-        { "title": "YouTube - HTML & CSS Full Course for Beginners", "url": "https://www.youtube.com/watch?v=mU6anWqODqg", "type": "video", "category": "youtube" }
-      ]
+      "projects": ["Personal portfolio website with responsive design"]
     }
   ]
 }
 
 REQUIREMENTS:
 - DYNAMIC MARKET TRENDS: The demandScore, futureScore, avgSalary, growthRate, and trendingSkills must reflect the latest real-world industry demand, current hiring spikes, and labor statistics.
-- EDUCATIONAL COURSE MAPPING: For each phase, the "resources" MUST include actual high-quality educational courses or popular structured video tutorials from platforms like Coursera, Udemy, edX, or YouTube. The resource objects must have realistic URL patterns and clear platform names in their titles.
 - Create EXACTLY 7 phases: Beginner, Foundation, Skill Development, Project, Internship & Freelance, Advanced, Career Preparation
-- Each phase: 4-8 skills, 4-8 topics, 2-5 tools, 1-3 certifications, 2-4 practiceTasks, 1-3 projects, 4-8 resources
+- Each phase: 4-8 skills, 4-8 topics, 2-5 tools, 1-3 certifications, 2-4 practiceTasks, 1-3 projects
 - Skills/topics must be specific and actionable (e.g. "React Hooks" not "learn frontend")
 - Projects must be portfolio-worthy and specific (e.g. "Real-time chat app with Socket.io and React")
-- Resources must have real URLs. Types: video|article|course|book|certification|platform|tool|tutorial|documentation. Categories: youtube|course|blog|docs|platform|community|book|other
 - difficulty values: beginner|intermediate|advanced
 - demandScore and futureScore: 0-100
 - Salary data for India in INR
@@ -481,6 +475,14 @@ Return ONLY valid JSON.`;
       }
 
       generatedData = normalizeRoadmapData(generatedData, query.trim());
+
+      // Inject verified resources for each phase based on its topics
+      if (Array.isArray(generatedData.roadmap)) {
+        for (const phase of generatedData.roadmap) {
+          phase.resources = await getVerifiedResourcesForTopics(phase.topics || []);
+        }
+      }
+
       generatedData.isGeneratedRoadmap = true;
       generatedData.userUid = String(userUid);
       generatedData.userId  = String(userUid); // also populate legacy field to satisfy old index
