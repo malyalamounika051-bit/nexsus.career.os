@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const careerPulseNewsSchema = new mongoose.Schema({
   headline: {
     type: String,
-    required: true,
-    unique: true
+    required: true
   },
   title: {
     type: String
@@ -15,14 +14,15 @@ const careerPulseNewsSchema = new mongoose.Schema({
   },
   whyItMatters: {
     type: String,
-    required: true
-  },
-  url: {
-    type: String
+    default: ''
   },
   articleUrl: {
     type: String,
-    required: true
+    required: true,
+    unique: true
+  },
+  url: {
+    type: String
   },
   source: {
     type: String,
@@ -47,7 +47,11 @@ const careerPulseNewsSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['Big Tech', 'AI', 'Hiring', 'Startups', 'Skills', 'Students']
+    enum: ['AI', 'Big Tech', 'Hiring', 'Startups', 'Skills', 'Students', 'Open Source', 'Cloud', 'Cybersecurity', 'Data Science', 'Internships', 'Scholarships', 'Career Tips', 'Remote Jobs']
+  },
+  tags: {
+    type: [String],
+    default: []
   },
   publishedAt: {
     type: Date,
@@ -59,10 +63,17 @@ const careerPulseNewsSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Pre-save hook to ensure 'title' is always populated from 'headline'
+// Index for fast category + date queries
+careerPulseNewsSchema.index({ category: 1, publishedAt: -1 });
+careerPulseNewsSchema.index({ timestamp: 1 }, { expireAfterSeconds: 172800 }); // Auto-delete after 48 hours
+
+// Pre-save: sync title from headline
 careerPulseNewsSchema.pre('save', function(next) {
   if (this.headline && !this.title) {
     this.title = this.headline;
+  }
+  if (!this.url && this.articleUrl) {
+    this.url = this.articleUrl;
   }
   next();
 });

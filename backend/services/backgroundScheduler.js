@@ -5,6 +5,7 @@ const JobCache = require('../models/JobCache');
 const { aggregateJobs } = require('./jobAggregator');
 const { callAI } = require('../utils/geminiClient');
 const { parseStructuredJson } = require('../utils/jsonParser');
+const { fetchAllFeeds } = require('./rssFeedService');
 
 // Popular developer query categories to pre-cache jobs for
 const POPULAR_JOB_ROLES = [
@@ -19,71 +20,74 @@ const POPULAR_JOB_ROLES = [
  * Main worker runner to execute all background caching tasks
  */
 const runAllTasks = async () => {
-  console.log('🏁 [Background Worker] Starting hourly pre-fetching tasks...');
+  console.log('🏁 [Background Worker] Starting pre-fetching tasks...');
 
-  // Task 1: Fetch and cache Career Pulse News
+  // ── Task 1: Fetch REAL articles from RSS feeds ──────────────────────────────
   try {
     const now = new Date();
-    const archiveThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    
-    // Clear news older than 24 hours
+    const archiveThreshold = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+    // Clear news older than 48 hours
     await CareerPulseNews.deleteMany({ timestamp: { $lt: archiveThreshold } });
 
-    console.log('🤖 [Background Worker] Curing Career Pulse News...');
-    const aiPrompt = `You are a Career Intelligence Editor. Review tech updates for today (${now.toDateString()}).
-Generate a structured JSON array of EXACTLY 6 fresh, highly relevant career news items.
-Generate exactly 1 news item for EACH of these 6 categories:
-- 'Big Tech' (NVIDIA, Google, Microsoft, Meta, Amazon, Apple, OpenAI, Anthropic)
-- 'AI' (Generative AI, LLMs, AI agents, hardware)
-- 'Hiring' (workforce trends, fresher recruitment, major technical hirings)
-- 'Startups' (Incubators, startup launches, unicorns, venture funding)
-- 'Skills' (DevOps, TypeScript, cloud computing, cybersecurity, AI engineering)
-- 'Students' (challenges, learning programs, developer bootcamps, scholarships)
+    console.log('📡 [Background Worker] Fetching real articles from RSS feeds...');
+    const realArticles = await fetchAllFeeds();
 
-Format as a clean JSON array with EXACTLY this structure:
-[
-  {
-    "headline": "Headline of the update",
-    "title": "Short title of the update (same as headline)",
-    "summary": "Concise 2-line summary explaining the update clearly.",
-    "whyItMatters": "Actionable explanation of why this matters to students, freshers, or job seekers (e.g. what skills they should learn).",
-    "source": "Source name (e.g., TechCrunch, Microsoft Blog, NVIDIA News)",
-    "sourceLogo": "Logo URL matching the publisher (e.g., 'https://logo.clearbit.com/techcrunch.com' or 'https://logo.clearbit.com/nvidia.com')",
-    "image": "A relevant illustrative tech image URL from Unsplash or direct from the source blog assets",
-    "articleUrl": "The exact valid deep URL to the original article (CRITICAL: Do NOT use the generic homepage. Must be the exact link to the specific blog post or news page, e.g. 'https://blogs.nvidia.com/blog/2024/05/generative-ai-nim/', 'https://techcrunch.com/2024/06/venture-fund-announcement/'. This ensures users read the actual article.)",
-    "url": "Same as articleUrl",
-    "author": "Name of the writer or publisher editor",
-    "readTime": "Estimated read duration (e.g., '4 min read')",
-    "category": "One of: Big Tech, AI, Hiring, Startups, Skills, Students"
-  }
-]
-Return ONLY the raw JSON array. Do not include markdown wraps or conversational preambles.`;
-
-    const aiResponse = await callAI({
-      messages: [{ role: 'user', content: aiPrompt }],
-      temperature: 0.75
-    });
-
-    const newsItems = parseStructuredJson(aiResponse.text);
-    if (Array.isArray(newsItems) && newsItems.length > 0) {
-      for (const item of newsItems) {
+    if (Array.isArray(realArticles) && realArticles.length > 0) {
+      let inserted = 0;
+      for (const article of realArticles) {
         try {
           await CareerPulseNews.findOneAndUpdate(
-            { headline: item.headline },
-            { ...item, timestamp: new Date() },
+            { articleUrl: article.articleUrl },
+            { ...article, timestamp: new Date() },
             { upsert: true, new: true }
           );
+          inserted++;
         } catch (dbErr) {
+          // 11000 = duplicate key (article already exists), skip silently
           if (dbErr.code !== 11000) console.error('Pulse DB Insert Err:', dbErr.message);
         }
       }
-      console.log('✅ [Background Worker] News updates populated successfully.');
+      console.log(`✅ [Background Worker] ${inserted} real articles stored from RSS feeds.`);
+
+      // Generate "Why it matters" insights for articles that don't have one yet
+      try {
+        const needInsight = await CareerPulseNews.find({
+          $or: [{ whyItMatters: '' }, { whyItMatters: { $exists: false } }]
+        }).limit(8);
+
+        if (needInsight.length > 0) {
+          const titles = needInsight.map((a, i) => `${i + 1}. [${a.category}] "${a.headline}": ${a.summary}`).join('\n');
+          const insightPrompt = `You are a career advisor. For each of these real tech news articles, write a 1-sentence career insight explaining why it matters to students, freshers, or job seekers. Focus on actionable skills, hiring impact, or learning opportunities.
+
+${titles}
+
+Return a JSON array of strings, one insight per article, in the same order. Example: ["insight1", "insight2", ...]
+Return ONLY the raw JSON array.`;
+
+          const aiResponse = await callAI({
+            messages: [{ role: 'user', content: insightPrompt }],
+            temperature: 0.6
+          });
+
+          const insights = parseStructuredJson(aiResponse.text);
+          if (Array.isArray(insights)) {
+            for (let i = 0; i < Math.min(insights.length, needInsight.length); i++) {
+              needInsight[i].whyItMatters = insights[i];
+              await needInsight[i].save();
+            }
+            console.log(`✅ [Background Worker] Generated career insights for ${Math.min(insights.length, needInsight.length)} articles.`);
+          }
+        }
+      } catch (aiErr) {
+        console.warn('⚠️ [Background Worker] AI insight generation skipped:', aiErr.message);
+      }
     }
   } catch (error) {
-    console.error('❌ [Background Worker] News curation task failed:', error.message);
+    console.error('❌ [Background Worker] RSS news fetch task failed:', error.message);
   }
 
-  // Task 2: Curate and Pre-seed active Student Opportunities (Radar)
+  // ── Task 2: Curate and Pre-seed active Student Opportunities (Radar) ────────
   try {
     const activeOppsCount = await Opportunity.countDocuments({ opportunityStatus: 'active' });
     
@@ -142,7 +146,7 @@ Return ONLY the raw JSON array.`;
     console.error('❌ [Background Worker] Opportunity Radar task failed:', error.message);
   }
 
-  // Task 3: Pre-Cache popular Job Aggregator Results (avoids slow search wait)
+  // ── Task 3: Pre-Cache popular Job Aggregator Results ────────────────────────
   for (const role of POPULAR_JOB_ROLES) {
     try {
       const cacheKey = `${role.toLowerCase().trim()}_any_remote_fulltime`;
@@ -171,26 +175,24 @@ Return ONLY the raw JSON array.`;
     }
   }
 
-  console.log('🏁 [Background Worker] Hourly pre-fetching tasks completed.');
+  console.log('🏁 [Background Worker] Pre-fetching tasks completed.');
 };
 
 /**
- * Initialize the hourly background worker
+ * Initialize the background worker (runs every 30 minutes)
  */
 const startScheduler = () => {
-  console.log('⏳ [Background Scheduler] Initializing background task worker (Runs every 60 minutes)...');
+  console.log('⏳ [Background Scheduler] Initializing background task worker (Runs every 30 minutes)...');
 
-  // Trigger an initial run on server startup (skipped in development to avoid hammering API on hot-reloads)
-  if (process.env.NODE_ENV !== 'development') {
-    setTimeout(() => {
-      runAllTasks().catch(err => console.error('Scheduler Startup Task Error:', err));
-    }, 5000); // 5-second delay to let MongoDB connect first
-  }
+  // Trigger an initial RSS fetch on server startup after a short delay
+  setTimeout(() => {
+    runAllTasks().catch(err => console.error('Scheduler Startup Task Error:', err));
+  }, 8000); // 8-second delay to let MongoDB connect first
 
-  // Setup interval loop
+  // Setup interval loop — every 30 minutes
   setInterval(() => {
     runAllTasks().catch(err => console.error('Scheduler Interval Task Error:', err));
-  }, 3600000); // 1 hour
+  }, 1800000); // 30 minutes
 };
 
 module.exports = {

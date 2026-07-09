@@ -40,114 +40,69 @@ exports.getDailyQuote = async (req, res) => {
 
 /**
  * GET /api/dashboard/news
- * Returns rolling list of career-focused, curated news items grouped by category.
- * Refreshes from AI every 1 hour and automatically deletes items older than 24 hours.
+ * Returns rolling list of REAL career news articles fetched from RSS feeds.
+ * Supports ?q=search&category=AI query params.
+ * If DB is empty, triggers an immediate RSS fetch.
  */
 exports.getNewsPulse = async (req, res) => {
   try {
-    // 1. Fetch current news from DB (which is pre-populated by the background scheduler)
-    let currentNews = await CareerPulseNews.find().sort({ timestamp: -1 });
+    const { q, category } = req.query;
 
-    // 2. Return fallback news immediately if DB is empty on first boot
-    if (currentNews.length === 0) {
-      const fallbacks = [
-        {
-          headline: "NVIDIA Launches Advanced AI Agent Bootcamp",
-          title: "NVIDIA Launches Advanced AI Agent Bootcamp",
-          summary: "NVIDIA announced a new developer initiative focused on training programmers to build autonomous agents using NIM microservices.",
-          whyItMatters: "Students learning LangChain, Python, and agent frameworks will have direct pathway opportunities into GPU-accelerated software roles.",
-          source: "NVIDIA Blog",
-          sourceLogo: "https://logo.clearbit.com/nvidia.com",
-          image: "https://images.unsplash.com/photo-1591453089816-0fbb971b454c?w=600&auto=format&fit=crop&q=60",
-          articleUrl: "https://blogs.nvidia.com/blog/nim-generative-ai-microservices/",
-          url: "https://blogs.nvidia.com/blog/nim-generative-ai-microservices/",
-          author: "NVIDIA Technical Staff",
-          readTime: "4 min read",
-          category: "AI",
-          timestamp: new Date()
-        },
-        {
-          headline: "Microsoft Expands Azure Cloud Internships for 2026",
-          title: "Microsoft Expands Azure Cloud Internships for 2026",
-          summary: "Applications have officially opened for Microsoft's global cloud infrastructure and engineering internship program.",
-          whyItMatters: "Prerequisites focus on TypeScript, Docker, and Kubernetes. Getting certified in AZ-900 will boost applications significantly.",
-          source: "Microsoft Careers",
-          sourceLogo: "https://logo.clearbit.com/microsoft.com",
-          image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=60",
-          articleUrl: "https://blogs.microsoft.com/blog/2024/05/20/microsoft-azure-ai-advancements/",
-          url: "https://blogs.microsoft.com/blog/2024/05/20/microsoft-azure-ai-advancements/",
-          author: "Azure Editor",
-          readTime: "5 min read",
-          category: "Big Tech",
-          timestamp: new Date()
-        },
-        {
-          headline: "TCS to Hire 40,000 Graduates in Massive Campus Drive",
-          title: "TCS to Hire 40,000 Graduates in Massive Campus Drive",
-          summary: "India's largest IT service exporter resumes wide-scale campus hiring focusing on digital systems and cloud-native solutions.",
-          whyItMatters: "A great entry point for freshers. Focus on preparing data structures, algorithms, and SQL basics to clear the initial assessments.",
-          source: "Economic Times",
-          sourceLogo: "https://logo.clearbit.com/tcs.com",
-          image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=60",
-          articleUrl: "https://economictimes.indiatimes.com/jobs/tcs-to-hire-40000-freshers-in-fy25-campus-hiring-drive/articleshow/111664188.cms",
-          url: "https://economictimes.indiatimes.com/jobs/tcs-to-hire-40000-freshers-in-fy25-campus-hiring-drive/articleshow/111664188.cms",
-          author: "Economic Times Desk",
-          readTime: "3 min read",
-          category: "Hiring",
-          timestamp: new Date()
-        },
-        {
-          headline: "Venture Accelerator Launches $50M Student Startup Fund",
-          title: "Venture Accelerator Launches $50M Student Startup Fund",
-          summary: "A new seed capital initiative is targeting tech ideas incubated inside engineering colleges and university labs.",
-          whyItMatters: "Students with solid MVPs can apply for non-dilutive grants, mentorship channels, and startup support ecosystems.",
-          source: "TechCrunch",
-          sourceLogo: "https://logo.clearbit.com/techcrunch.com",
-          image: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=600&auto=format&fit=crop&q=60",
-          articleUrl: "https://techcrunch.com/2024/06/18/sequoia-launches-new-50-million-seed-fund/",
-          url: "https://techcrunch.com/2024/06/18/sequoia-launches-new-50-million-seed-fund/",
-          author: "TechCrunch Writer",
-          readTime: "4 min read",
-          category: "Startups",
-          timestamp: new Date()
-        },
-        {
-          headline: "Cybersecurity Analyst Demand Surges 32% Globally",
-          title: "Cybersecurity Analyst Demand Surges 32% Globally",
-          summary: "Industry reports show an acute shortage of certified DevSecOps and cloud security engineers across enterprise networks.",
-          whyItMatters: "Learning basic penetration testing, network protocols, and OWASP standards is a highly resilient skill stack for 2026.",
-          source: "Hacker News",
-          sourceLogo: "https://logo.clearbit.com/ycombinator.com",
-          image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60",
-          articleUrl: "https://news.ycombinator.com/newsguidelines.html",
-          url: "https://news.ycombinator.com/newsguidelines.html",
-          author: "HN Staff",
-          readTime: "2 min read",
-          category: "Skills",
-          timestamp: new Date()
-        },
-        {
-          headline: "Google DevFest Student Challenges Go Live",
-          title: "Google DevFest Student Challenges Go Live",
-          summary: "Google developer groups announced local hackathons and sandbox challenges for college coders building web applications.",
-          whyItMatters: "Winning teams gain direct resume referral channels to Google technical recruiters and cloud platform credits.",
-          source: "Google Developers",
-          sourceLogo: "https://logo.clearbit.com/google.com",
-          image: "https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?w=600&auto=format&fit=crop&q=60",
-          articleUrl: "https://developers.google.com/community/gdsc-solution-challenge",
-          url: "https://developers.google.com/community/gdsc-solution-challenge",
-          author: "Google Developers Group",
-          readTime: "3 min read",
-          category: "Students",
-          timestamp: new Date()
-        }
+    // Build query filter
+    const filter = {};
+    if (category && category !== 'All') {
+      filter.category = category;
+    }
+    if (q && q.trim()) {
+      const searchRegex = new RegExp(q.trim(), 'i');
+      filter.$or = [
+        { headline: searchRegex },
+        { summary: searchRegex },
+        { source: searchRegex },
+        { tags: searchRegex }
       ];
-      return res.status(200).json({ success: true, source: 'fallback', data: fallbacks });
+    }
+
+    // Only return articles that have a valid articleUrl
+    filter.articleUrl = { $exists: true, $ne: '' };
+
+    let currentNews = await CareerPulseNews.find(filter)
+      .sort({ publishedAt: -1 })
+      .limit(30);
+
+    // If DB is empty on first boot, trigger an immediate RSS fetch
+    if (currentNews.length === 0 && !q && (!category || category === 'All')) {
+      try {
+        const { fetchAllFeeds } = require('../services/rssFeedService');
+        console.log('📡 [Dashboard] DB empty — triggering immediate RSS fetch...');
+        const articles = await fetchAllFeeds();
+
+        if (Array.isArray(articles) && articles.length > 0) {
+          for (const article of articles) {
+            try {
+              await CareerPulseNews.findOneAndUpdate(
+                { articleUrl: article.articleUrl },
+                { ...article, timestamp: new Date() },
+                { upsert: true, new: true }
+              );
+            } catch (dbErr) {
+              if (dbErr.code !== 11000) console.error('Pulse Insert Err:', dbErr.message);
+            }
+          }
+          // Re-query after insertion
+          currentNews = await CareerPulseNews.find(filter)
+            .sort({ publishedAt: -1 })
+            .limit(30);
+        }
+      } catch (fetchErr) {
+        console.error('❌ [Dashboard] Immediate RSS fetch failed:', fetchErr.message);
+      }
     }
 
     return res.status(200).json({
       success: true,
-      source: 'database',
+      source: 'rss',
+      count: currentNews.length,
       data: currentNews
     });
   } catch (error) {

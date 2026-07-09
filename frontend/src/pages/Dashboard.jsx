@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { assessmentService } from '../services/assessmentService';
 import api from '../services/api';
-import { formatExternalUrl } from '../utils/url';
+import { Search } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import ProgressRing from '../components/ProgressRing';
 import { SkeletonCard } from '../components/SkeletonLoader';
@@ -37,6 +37,7 @@ const DashboardPage = () => {
   const [news, setNews] = useState([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [newsSearch, setNewsSearch] = useState('');
   
   // Sara Insight of the Day
   const [insight, setInsight] = useState(null);
@@ -52,7 +53,7 @@ const DashboardPage = () => {
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
 
-  const categories = ['All', 'Big Tech', 'AI', 'Hiring', 'Startups', 'Skills', 'Students'];
+  const categories = ['All', 'AI', 'Big Tech', 'Startups', 'Cloud', 'Open Source', 'Skills', 'Cybersecurity', 'Data Science', 'Career Tips'];
 
   useEffect(() => {
     if (refreshUser) {
@@ -134,9 +135,11 @@ const DashboardPage = () => {
   const latest = assessments[0];
   const topMatchTitle = latest?.result?.[0]?.career?.title || (suggestionData?.suggestion?.actionRoute?.includes('roadmaps') ? 'Software Engineering' : 'Set Your Goal');
 
-  const filteredNews = activeCategory === 'All' 
-    ? news 
-    : news.filter(item => item.category.toLowerCase() === activeCategory.toLowerCase());
+  const filteredNews = news.filter(item => {
+    const matchesCat = activeCategory === 'All' || (item.category && item.category.toLowerCase() === activeCategory.toLowerCase());
+    const matchesSearch = !newsSearch.trim() || (item.headline + ' ' + item.summary + ' ' + item.source + ' ' + (item.tags || []).join(' ')).toLowerCase().includes(newsSearch.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
 
   return (
     <div className="app-shell">
@@ -203,27 +206,39 @@ const DashboardPage = () => {
           )}
         </div>
 
-        {/* ── SECTION 2: Career Pulse Hub (Curated and Categorized News) ────────────────── */}
+        {/* ── SECTION 2: Career Pulse Hub (Real-Time RSS Feed) ────────────────── */}
         <div style={{ marginBottom: '2.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Activity size={20} style={{ color: 'var(--color-primary)' }} />
               <h2 className="section-title" style={{ margin: 0, fontSize: '1.35rem', fontFamily: "var(--font-display)", fontWeight: 700 }}>Career Pulse Hub</h2>
-              <span style={{ background: 'var(--color-primary-glow)', color: 'var(--color-primary)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '0.65rem', padding: '0.2rem 0.5rem', borderRadius: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Intelligence</span>
+              <span style={{ background: 'var(--color-primary-glow)', color: 'var(--color-primary)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '0.65rem', padding: '0.2rem 0.5rem', borderRadius: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live RSS Feed</span>
             </div>
 
-            {/* Smart Filtering Tabs */}
-            <div className="cat-tabs" style={{ margin: 0 }}>
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`cat-tab ${activeCategory === cat ? 'active' : ''}`}
-                >
-                  {cat}
-                </button>
-              ))}
+            {/* Search Input */}
+            <div style={{ position: 'relative', minWidth: '220px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search articles..."
+                value={newsSearch}
+                onChange={e => setNewsSearch(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem 0.75rem 0.5rem 2rem', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: '0.8rem', outline: 'none', fontFamily: 'inherit' }}
+              />
             </div>
+          </div>
+
+          {/* Category Filter Tabs */}
+          <div className="cat-tabs" style={{ margin: '0 0 1.25rem 0', flexWrap: 'wrap' }}>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`cat-tab ${activeCategory === cat ? 'active' : ''}`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
 
           {/* Career Pulse rolling feed */}
@@ -243,38 +258,46 @@ const DashboardPage = () => {
                     transition={{ duration: 0.2 }}
                     key={item._id || item.headline}
                     className="glass-card dashboard-card"
-                    style={{ padding: '1.5rem', borderRadius: 16, display: 'flex', flexDirection: 'column', border: '1px solid var(--color-border)', justifyContent: 'space-between', minHeight: '260px' }}
+                    style={{ padding: '1.5rem', borderRadius: 16, display: 'flex', flexDirection: 'column', border: '1px solid var(--color-border)', justifyContent: 'space-between', minHeight: '280px' }}
                   >
                     <div>
+                      {/* Header: category + source + time */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                        <span className="tag tag-purple" style={{ textTransform: 'uppercase', fontSize: '0.65rem', fontWeight: 700 }}>{item.category}</span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
-                          {item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {item.sourceLogo && <img src={item.sourceLogo} alt="" style={{ width: '16px', height: '16px', borderRadius: '3px' }} onError={e => e.target.style.display = 'none'} />}
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{item.source}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {item.readTime && <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{item.readTime}</span>}
+                          <span className="tag tag-purple" style={{ textTransform: 'uppercase', fontSize: '0.6rem', fontWeight: 700 }}>{item.category}</span>
+                        </div>
                       </div>
+
                       <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text)', fontFamily: 'var(--font-display)', lineHeight: 1.3 }}>
-                        {item.headline}
+                        {item.headline || item.title}
                       </h4>
                       <p style={{ fontSize: '0.82rem', color: 'var(--color-text-secondary)', margin: '0 0 1rem 0', lineHeight: 1.5 }}>
                         {item.summary}
                       </p>
 
-                      {/* Why it Matters Block */}
-                      <div style={{ background: 'var(--color-primary-glow)', borderLeft: '3px solid var(--color-primary)', padding: '0.75rem', borderRadius: '4px 8px 8px 4px', marginBottom: '1.25rem' }}>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Why It Matters</span>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{item.whyItMatters}</span>
-                      </div>
+                      {/* Why it Matters Block — only if available */}
+                      {item.whyItMatters && (
+                        <div style={{ background: 'var(--color-primary-glow)', borderLeft: '3px solid var(--color-primary)', padding: '0.75rem', borderRadius: '4px 8px 8px 4px', marginBottom: '1rem' }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Career Insight</span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>{item.whyItMatters}</span>
+                        </div>
+                      )}
                     </div>
 
+                    {/* Footer: publish date + Read More link */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.85rem', marginTop: 'auto' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 600 }}>{item.source}</span>
-                      {item.articleUrl && /^https?:\/\//i.test(item.articleUrl) && !item.articleUrl.includes('placeholder') && !item.articleUrl.includes('example.com') && !item.articleUrl.includes('#') ? (
-                        <a href={item.articleUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
-                          Read More <ArrowRight size={14} />
-                        </a>
-                      ) : (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Original article unavailable.</span>
-                      )}
+                      <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+                        {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                        {item.author && item.author !== item.source ? ` · ${item.author}` : ''}
+                      </span>
+                      <a href={item.articleUrl || item.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
+                        Read Article <ArrowRight size={14} />
+                      </a>
                     </div>
                   </motion.div>
                 ))}
