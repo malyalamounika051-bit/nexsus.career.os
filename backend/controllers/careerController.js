@@ -221,11 +221,38 @@ const getGeneratedRoadmaps = async (req, res) => {
     const roadmaps = await Career.find({ 
       userUid: String(userUid),
       isGeneratedRoadmap: true,
-    })
-      .select('-weights')
-      .sort({ createdAt: -1 });
-    res.json({ success: true, count: roadmaps.length, data: roadmaps });
+    }).sort({ createdAt: -1 });
+
+    let updatedAny = false;
+    for (const roadmap of roadmaps) {
+      let roadmapNeedsUpgrade = false;
+      for (const phase of roadmap.roadmap) {
+        // If phase has no verified URL or has old layout (e.g. google search link, missing description/verified properties)
+        const hasLegacy = phase.resources.some(r => !r.verified || r.url.includes('google.com/search'));
+        if (hasLegacy || phase.resources.length === 0) {
+          roadmapNeedsUpgrade = true;
+          break;
+        }
+      }
+
+      if (roadmapNeedsUpgrade) {
+        console.log(`⚙️ Upgrading legacy resources for roadmap: "${roadmap.domain}"`);
+        for (const phase of roadmap.roadmap) {
+          phase.resources = await getVerifiedResourcesForTopics(phase.topics || []);
+        }
+        await roadmap.save();
+        updatedAny = true;
+      }
+    }
+
+    // Re-fetch if updates happened to ensure frontend gets the corrected links
+    const finalRoadmaps = updatedAny 
+      ? await Career.find({ userUid: String(userUid), isGeneratedRoadmap: true }).sort({ createdAt: -1 })
+      : roadmaps;
+
+    res.json({ success: true, count: finalRoadmaps.length, data: finalRoadmaps });
   } catch (error) {
+    console.error('Error fetching/upgrading roadmaps:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
