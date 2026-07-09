@@ -268,9 +268,13 @@ const DashboardPage = () => {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.85rem', marginTop: 'auto' }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 600 }}>{item.source}</span>
-                      <a href={formatExternalUrl(item.url, item.headline)} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
-                        Read More <ArrowRight size={14} />
-                      </a>
+                      {item.articleUrl && /^https?:\/\//i.test(item.articleUrl) && !item.articleUrl.includes('placeholder') && !item.articleUrl.includes('example.com') && !item.articleUrl.includes('#') ? (
+                        <a href={item.articleUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
+                          Read More <ArrowRight size={14} />
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Original article unavailable.</span>
+                      )}
                     </div>
                   </motion.div>
                 ))}

@@ -44,10 +44,16 @@ Format as a clean JSON array with EXACTLY this structure:
 [
   {
     "headline": "Headline of the update",
+    "title": "Short title of the update (same as headline)",
     "summary": "Concise 2-line summary explaining the update clearly.",
     "whyItMatters": "Actionable explanation of why this matters to students, freshers, or job seekers (e.g. what skills they should learn).",
     "source": "Source name (e.g., TechCrunch, Microsoft Blog, NVIDIA News)",
-    "url": "Official reference landing URL (CRITICAL: Do NOT hallucinate deep paths. Only use the main landing domain or main official blog index page of the source, e.g. 'https://techcrunch.com', 'https://blogs.nvidia.com', 'https://aws.amazon.com/blogs', 'https://news.ycombinator.com', 'https://careers.google.com', 'https://careers.microsoft.com', etc. This guarantees links never result in a 404 error.)",
+    "sourceLogo": "Logo URL matching the publisher (e.g., 'https://logo.clearbit.com/techcrunch.com' or 'https://logo.clearbit.com/nvidia.com')",
+    "image": "A relevant illustrative tech image URL from Unsplash or direct from the source blog assets",
+    "articleUrl": "The exact valid deep URL to the original article (CRITICAL: Do NOT use the generic homepage. Must be the exact link to the specific blog post or news page, e.g. 'https://blogs.nvidia.com/blog/2024/05/generative-ai-nim/', 'https://techcrunch.com/2024/06/venture-fund-announcement/'. This ensures users read the actual article.)",
+    "url": "Same as articleUrl",
+    "author": "Name of the writer or publisher editor",
+    "readTime": "Estimated read duration (e.g., '4 min read')",
     "category": "One of: Big Tech, AI, Hiring, Startups, Skills, Students"
   }
 ]
