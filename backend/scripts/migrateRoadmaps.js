@@ -9,7 +9,11 @@ const Career = require('../models/Career');
 const { getVerifiedResourcesForTopics } = require('../services/resourceRecommendationService');
 
 async function runMigration() {
-  const mongoUri = process.env.MONGO_URI || 'mongodb+srv://malyalamounika0:Nexus1234@cluster0.naruycx.mongodb.net/nexus_career_os?retryWrites=true&w=majority&appName=Cluster0';
+  const mongoUri = process.env.MONGO_URI;
+  if (!mongoUri) {
+    console.error('❌ MONGO_URI environment variable is missing.');
+    process.exit(1);
+  }
   
   console.log('🔌 Connecting to MongoDB...');
   await mongoose.connect(mongoUri);
