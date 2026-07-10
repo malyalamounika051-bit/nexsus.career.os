@@ -624,8 +624,8 @@ Return ONLY valid JSON.`;
 // @access  Private (or Public for testing)
 const triggerResourceVerification = async (req, res) => {
   try {
-    const { runSweep } = require('../scripts/run_resource_sweep');
-    runSweep()
+    const { runWeeklyResourceVerification } = require('../services/backgroundScheduler');
+    runWeeklyResourceVerification()
       .then(() => console.log('✅ Manual validation sweep finished.'))
       .catch(err => console.error('Manual validation sweep error:', err));
 
@@ -637,24 +637,6 @@ const triggerResourceVerification = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to start sweep: ' + error.message });
   }
 };
-
-// Start weekly resource validation sweep (runs every 7 days) - skipped in development
-if (process.env.NODE_ENV !== 'development') {
-  setInterval(() => {
-    console.log('⏰ Running weekly roadmap resource validation sweep...');
-    const { runSweep } = require('../scripts/run_resource_sweep');
-    runSweep().catch(err => console.error('Weekly sweep error:', err));
-  }, 7 * 24 * 60 * 60 * 1000);
-}
-
-// Trigger startup validation sweep 30 seconds after server startup - skipped in development
-if (process.env.NODE_ENV !== 'development') {
-  setTimeout(() => {
-    console.log('⏰ Running startup roadmap resource validation sweep...');
-    const { runSweep } = require('../scripts/run_resource_sweep');
-    runSweep().catch(err => console.error('Startup sweep error:', err));
-  }, 30000);
-}
 
 module.exports = {
   getAllCareers,
