@@ -341,7 +341,7 @@ const updateProgress = async (req, res) => {
 // @access Private
 const generateRoadmap = async (req, res) => {
   try {
-    const { query: rawQuery } = req.body;
+    const { query: rawQuery, skillLevel, targetRole, experienceYears, availableWeeklyHours, learningStyle, preferredLanguage, targetCompany, targetSalary, country, degree } = req.body;
     const query = rawQuery != null ? String(rawQuery).trim() : '';
     if (!query) {
       return res.status(400).json({ success: false, message: 'Career query is required' });
@@ -412,49 +412,68 @@ const generateRoadmap = async (req, res) => {
     }
 
     // ── Build AI prompt ──────────────────────────────────────
-        const structuredPrompt = `You are an expert career counselor and labor market analyst. Create a detailed career roadmap and educational pathway for: "${query}"
+        const structuredPrompt = `You are an expert career counselor. Create a personalized career roadmap for: "${query}"
 
-Return ONLY valid JSON — no markdown fences, no explanations. First character must be "{", last must be "}".
+Student Profile:
+- Skill Level: ${skillLevel || 'Beginner'}
+- Target Role: ${targetRole || query}
+- Experience: ${experienceYears || 0} years
+- Weekly Study Hours: ${availableWeeklyHours || 10}
+- Learning Style: ${learningStyle || 'Mixed'}
+- Country: ${country || 'India'}
+- Degree: ${degree || 'Not specified'}
+
+Return ONLY valid JSON. First character must be "{".
 
 JSON structure:
 {
   "domain": "Career Title",
   "description": "2-3 sentence career description",
-  "skills": ["skill1", "skill2", ...],
+  "skills": ["skill1", "skill2"],
   "demandScore": 78,
   "futureScore": 82,
   "avgSalary": "₹X-Y LPA",
   "growthRate": "X% YoY",
   "demand": "High",
-  "trendingSkills": ["trending1", ...],
+  "trendingSkills": ["trending1"],
   "salaryRange": { "min": "₹4 LPA", "max": "₹30 LPA", "currency": "INR" },
-  "alternativePaths": ["Related Career 1", "Related Career 2", ...],
-  "studyStrategy": "3-4 sentence personalized study advice covering daily hours, approach, and community engagement.",
+  "alternativePaths": ["Related Career 1", "Related Career 2"],
+  "studyStrategy": "Personalized study advice based on the student profile above.",
   "roadmap": [
     {
-      "phase": "Phase 1: Beginner Phase",
+      "phase": "Phase 1: Foundation",
+      "description": "Build core understanding of fundamentals",
       "duration": "4-6 weeks",
       "difficulty": "beginner",
-      "skills": ["HTML5", "CSS3", "Basic JavaScript"],
-      "topics": ["How the web works", "HTML semantic elements", "CSS Flexbox & Grid"],
-      "tools": ["VS Code", "Chrome DevTools", "Git"],
+      "skills": ["HTML5", "CSS3"],
+      "topics": ["How the web works", "HTML semantic elements"],
+      "tools": ["VS Code", "Chrome DevTools"],
       "certifications": ["freeCodeCamp Responsive Web Design"],
-      "practiceTasks": ["Build a personal portfolio page", "Complete 30 CSS challenges"],
-      "projects": ["Personal portfolio website with responsive design"]
+      "practiceTasks": ["Build a portfolio page"],
+      "projects": ["Personal portfolio website"],
+      "learningObjectives": ["Understand web fundamentals", "Write semantic HTML"],
+      "portfolioGoal": "Complete a personal website",
+      "certificationRecommendation": "freeCodeCamp Responsive Web Design",
+      "resumeUpdate": "Add HTML/CSS skills and portfolio project link",
+      "githubTarget": "Create 3 repositories with clean README files",
+      "interviewReadiness": "Explain basic web concepts in interviews",
+      "expectedOutcome": "Can build static websites independently",
+      "miniProject": "Landing page for a fictional startup",
+      "majorProject": "Multi-page responsive portfolio website"
     }
   ]
 }
 
 REQUIREMENTS:
-- DYNAMIC MARKET TRENDS: The demandScore, futureScore, avgSalary, growthRate, and trendingSkills must reflect the latest real-world industry demand, current hiring spikes, and labor statistics.
-- Create EXACTLY 7 phases: Beginner, Foundation, Skill Development, Project, Internship & Freelance, Advanced, Career Preparation
-- Each phase: 4-8 skills, 4-8 topics, 2-5 tools, 1-3 certifications, 2-4 practiceTasks, 1-3 projects
-- Skills/topics must be specific and actionable (e.g. "React Hooks" not "learn frontend")
-- Projects must be portfolio-worthy and specific (e.g. "Real-time chat app with Socket.io and React")
+- Generate EXACTLY 7 phases: Foundation, Core Skills, Intermediate Development, Advanced Concepts, Real World Projects, Interview & Career Preparation, Job Ready / Industry Ready
+- Personalize difficulty, duration, and depth based on the student profile
+- Each phase: 4-8 skills, 4-8 topics, 2-5 tools, 1-3 certifications, 2-4 practiceTasks, 2-4 projects
+- Include learningObjectives, portfolioGoal, certificationRecommendation, resumeUpdate, githubTarget, interviewReadiness, expectedOutcome, miniProject, majorProject for each phase
+- Skills/topics must be specific and actionable
+- Projects must be portfolio-worthy
+- Do NOT generate resources, URLs, links, course names, or platform references. Only generate the learning path structure.
 - difficulty values: beginner|intermediate|advanced
-- demandScore and futureScore: 0-100
 - Salary data for India in INR
-- 4-6 alternativePaths (related careers)
 
 Return ONLY valid JSON.`;
 
@@ -486,6 +505,17 @@ Return ONLY valid JSON.`;
       }
 
       generatedData = normalizeRoadmapData(generatedData, query.trim());
+
+      // Save personalization fields
+      if (skillLevel) generatedData.experienceLevel = skillLevel;
+      if (targetRole) generatedData.targetRole = targetRole;
+      if (availableWeeklyHours) generatedData.availableWeeklyHours = availableWeeklyHours;
+      if (learningStyle) generatedData.learningStyle = learningStyle;
+      if (preferredLanguage) generatedData.preferredLanguage = preferredLanguage;
+      if (targetCompany) generatedData.targetCompany = targetCompany;
+      if (targetSalary) generatedData.targetSalary = targetSalary;
+      if (country) generatedData.country = country;
+      if (degree) generatedData.degree = degree;
 
       // Inject verified resources for each phase based on its topics
       if (Array.isArray(generatedData.roadmap)) {

@@ -1,416 +1,213 @@
+/**
+ * Resource Recommendation Service v3.0
+ * 
+ * Maps AI-generated learning topics to verified, real resources from the catalog.
+ * Supports multi-resource per topic, priority ranking, and URL verification.
+ * 
+ * Priority Order:
+ * 1. Official Documentation
+ * 2. Microsoft Learn / AWS Skill Builder / Google Cloud
+ * 3. University Courses (CS50, MIT OCW)
+ * 4. freeCodeCamp
+ * 5. Coursera / edX
+ * 6. YouTube Tutorials
+ * 7. Community Articles
+ */
+
 const axios = require('axios');
+const { RESOURCE_CATALOG } = require('./resourceCatalog');
 
-// Detailed curated mapping of actual verified course URLs, documentation, and videos.
-// NO guessed URLs. All links below are verified and point directly to real pages.
-const DETAILED_TOPIC_RESOURCES = {
-  // Foundational Web
-  'html': [
-    {
-      title: 'MDN Web Docs: HTML Structuring the Web',
-      url: 'https://developer.mozilla.org/en-US/docs/Learn/HTML',
-      provider: 'Mozilla Developer Network',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '4 hours',
-      description: 'Learn the foundational languages of structuring web pages directly from MDN.',
-      isOfficial: true
-    },
-    {
-      title: 'HTML Full Course for Beginners Tutorial',
-      url: 'https://www.youtube.com/watch?v=kUMe1FH4YZY',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '4 hours',
-      description: 'A complete step-by-step introduction to HTML semantics, layout, and tags.',
-      isOfficial: false
-    },
-    {
-      title: 'Responsive Web Design Certification',
-      url: 'https://www.freecodecamp.org/learn/2022/responsive-web-design/',
-      provider: 'freeCodeCamp',
-      category: 'platform',
-      type: 'platform',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '300 hours',
-      description: 'Interactive HTML & CSS tutorial and project certification.',
-      isOfficial: false
-    }
-  ],
-  'css': [
-    {
-      title: 'MDN Web Docs: CSS Styling the Web',
-      url: 'https://developer.mozilla.org/en-US/docs/Learn/CSS',
-      provider: 'Mozilla Developer Network',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '6 hours',
-      description: 'Learn selectors, cascade, layout grids, Flexbox, animations, and box models.',
-      isOfficial: true
-    },
-    {
-      title: 'CSS Grid and Flexbox Complete Guide',
-      url: 'https://www.youtube.com/watch?v=jV8BXP4nGYo',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '2 hours',
-      description: 'Master CSS layouts using modern grid structures and flexible boxes.',
-      isOfficial: false
-    }
-  ],
-  'javascript': [
-    {
-      title: 'MDN Web Docs: JavaScript Guide',
-      url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide',
-      provider: 'Mozilla Developer Network',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '8 hours',
-      description: 'The definitive guide to JavaScript scripting, closures, inheritance, and syntax.',
-      isOfficial: true
-    },
-    {
-      title: 'CS50\'s Introduction to Computer Science',
-      url: 'https://www.edx.org/learn/computer-science/harvard-university-cs50-s-introduction-to-computer-science',
-      provider: 'Harvard University',
-      category: 'course',
-      type: 'course',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '12 weeks',
-      description: 'Learn computational thinking, algorithms, and web basics directly from Harvard.',
-      isOfficial: true
-    },
-    {
-      title: 'JavaScript Programming Tutorial for Beginners',
-      url: 'https://www.youtube.com/watch?v=PkZNo7MFNFg',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '8 hours',
-      description: 'Learn modern ES6+ JavaScript variables, control flows, loops, and async functions.',
-      isOfficial: false
-    }
-  ],
-
-  // Frameworks & Libraries
-  'react': [
-    {
-      title: 'React Documentation: Quick Start Guide',
-      url: 'https://react.dev/learn',
-      provider: 'React Core Team',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '3 hours',
-      description: 'Learn components, state, hooks, props, and official React fundamentals.',
-      isOfficial: true
-    },
-    {
-      title: 'React JS Course for Beginners - 2024 Edition',
-      url: 'https://www.youtube.com/watch?v=bMknfKXIFA8',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '12 hours',
-      description: 'A comprehensive React course including building multiple real-world projects.',
-      isOfficial: false
-    }
-  ],
-  'node': [
-    {
-      title: 'Node.js Learning Guides & API Reference',
-      url: 'https://nodejs.org/en/learn',
-      provider: 'Node.js Core Team',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Intermediate',
-      isFree: true,
-      duration: '4 hours',
-      description: 'Learn async loops, package structures, module management, and file systems.',
-      isOfficial: true
-    },
-    {
-      title: 'Node.js and Express.js Full Course',
-      url: 'https://www.youtube.com/watch?v=Oe421EPjeBE',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Intermediate',
-      isFree: true,
-      duration: '8 hours',
-      description: 'Master package configuration, server routers, and database connections in Express.',
-      isOfficial: false
-    }
-  ],
-  'python': [
-    {
-      title: 'Python Core Tutorial Documentation',
-      url: 'https://docs.python.org/3/tutorial/index.html',
-      provider: 'Python Software Foundation',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '5 hours',
-      description: 'Learn variables, loops, control blocks, class functions, and default libraries.',
-      isOfficial: true
-    },
-    {
-      title: 'Python for Beginners - Full Crash Course',
-      url: 'https://www.youtube.com/watch?v=ea5-DYr_v10',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: '6 hours',
-      description: 'An absolute beginner overview of Python basic scripts, loops, lists, and dicts.',
-      isOfficial: false
-    }
-  ],
-
-  // Cloud & DevOps
-  'aws': [
-    {
-      title: 'AWS Skill Builder Digital Training',
-      url: 'https://skillbuilder.aws/',
-      provider: 'Amazon Web Services',
-      category: 'platform',
-      type: 'platform',
-      difficulty: 'Intermediate',
-      isFree: true,
-      duration: 'Self-paced',
-      description: 'Build core cloud architecture concepts directly from Amazon technical trainers.',
-      isOfficial: true
-    }
-  ],
-  'docker': [
-    {
-      title: 'Docker Getting Started Guide',
-      url: 'https://docs.docker.com/get-started/',
-      provider: 'Docker Core Team',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Intermediate',
-      isFree: true,
-      duration: '2 hours',
-      description: 'Official introduction to containerizing applications, Dockerfiles, and volumes.',
-      isOfficial: true
-    },
-    {
-      title: 'Docker Course for Beginners',
-      url: 'https://www.youtube.com/watch?v=3c-iLsGzkiM',
-      provider: 'freeCodeCamp',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Intermediate',
-      isFree: true,
-      duration: '3 hours',
-      description: 'Learn virtual containers, ports, docker compose, and image hosting registries.',
-      isOfficial: false
-    }
-  ],
-  'kubernetes': [
-    {
-      title: 'Kubernetes Official Guides & Basics',
-      url: 'https://kubernetes.io/docs/tutorials/kubernetes-basics/',
-      provider: 'Cloud Native Computing Foundation',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Advanced',
-      isFree: true,
-      duration: '4 hours',
-      description: 'Learn load balancing, deployments, pods configuration, namespaces, and node grids.',
-      isOfficial: true
-    }
-  ]
+// Priority scoring for resource types (higher = better)
+const PROVIDER_PRIORITY = {
+  'Mozilla Developer Network': 100,
+  'Python Software Foundation': 100,
+  'React Core Team': 100,
+  'Node.js Foundation': 100,
+  'Docker': 100,
+  'CNCF': 100,
+  'Google': 95,
+  'Microsoft': 95,
+  'Oracle': 95,
+  'Meta AI': 95,
+  'Rust Foundation': 95,
+  'Go Team': 95,
+  'Amazon Web Services': 90,
+  'HashiCorp': 90,
+  'Harvard University': 85,
+  'freeCodeCamp': 80,
+  'Coursera': 70,
+  'edX': 70,
+  'Kaggle': 75,
+  'roadmap.sh': 60,
+  'LeetCode': 65,
+  'HackerRank': 65,
+  'CodeWars': 55,
+  'Exercism': 55,
 };
 
-// Guarantee a standard default fallback resource mapping for any general tech/topic queries
-const DEFAULT_VERIFIED_FALLBACKS = [
-  {
-    title: 'MDN Web Technology Reference Guides',
-    url: 'https://developer.mozilla.org/en-US/docs/Web',
-    provider: 'Mozilla Developer Network',
-    category: 'docs',
-    type: 'documentation',
-    difficulty: 'Beginner',
-    isFree: true,
-    duration: 'Self-paced',
-    description: 'Learn HTML, CSS, JavaScript, client data, security structures, and browser protocols.',
-    isOfficial: true
-  },
-  {
-    title: 'freeCodeCamp Developer Core Curriculum',
-    url: 'https://www.freecodecamp.org/learn',
-    provider: 'freeCodeCamp',
-    category: 'platform',
-    type: 'platform',
-    difficulty: 'Beginner',
-    isFree: true,
-    duration: 'Self-paced',
-    description: 'Learn software engineering for free with interactive browser tasks and certified paths.',
-    isOfficial: false
-  }
-];
-
 /**
- * Validates a single URL using real HTTP status checking.
- * Returns true if returns 200, 301, or 302.
+ * Validates a URL by checking for HTTP 200/301/302 status.
  */
 async function verifyResourceUrl(url) {
   if (!url || url === '#' || !url.startsWith('http')) return false;
   try {
     const res = await axios.head(url, {
-      timeout: 3000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+      timeout: 4000,
+      maxRedirects: 3,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      validateStatus: (status) => status < 400,
     });
-    return [200, 301, 302].includes(res.status);
-  } catch (err) {
+    return true;
+  } catch {
     try {
-      const resGet = await axios.get(url, {
-        timeout: 3000,
-        maxContentLength: 1000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+      const res = await axios.get(url, {
+        timeout: 4000,
+        maxRedirects: 3,
+        maxContentLength: 5000,
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        validateStatus: (status) => status < 400,
       });
-      return [200, 301, 302].includes(resGet.status);
-    } catch (innerErr) {
+      return true;
+    } catch {
       return false;
     }
   }
 }
 
 /**
- * Main system interface: Maps generated learning topics to real verified URLs.
+ * Finds matching resources from the catalog for a given topic string.
+ * Uses fuzzy keyword matching across all catalog keys.
+ */
+function findCatalogMatches(topic) {
+  const term = topic.toLowerCase().trim();
+  const matches = [];
+
+  for (const [key, resources] of Object.entries(RESOURCE_CATALOG)) {
+    // Check if the topic contains the catalog key or vice versa
+    const keyWords = key.split(/\s+/);
+    const termWords = term.split(/\s+/);
+
+    const directMatch = term.includes(key) || key.includes(term);
+    const wordOverlap = keyWords.some(kw => termWords.some(tw => tw.includes(kw) || kw.includes(tw)));
+
+    if (directMatch || wordOverlap) {
+      for (const resource of resources) {
+        matches.push({
+          ...resource,
+          matchScore: directMatch ? 100 : 50,
+        });
+      }
+    }
+  }
+
+  return matches;
+}
+
+/**
+ * Ranks resources by priority order:
+ * Official Docs > Microsoft/AWS/Google > Universities > freeCodeCamp > Coursera/edX > YouTube > Articles
+ */
+function rankResources(resources) {
+  return resources.sort((a, b) => {
+    const aPriority = PROVIDER_PRIORITY[a.provider] || 30;
+    const bPriority = PROVIDER_PRIORITY[b.provider] || 30;
+
+    // Primary sort: official resources first
+    if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
+
+    // Secondary sort: provider priority
+    if (aPriority !== bPriority) return bPriority - aPriority;
+
+    // Tertiary sort: match score
+    return (b.matchScore || 0) - (a.matchScore || 0);
+  });
+}
+
+/**
+ * Main interface: Maps learning topics to verified resources.
+ * Returns a balanced, deduplicated, priority-ranked set of resources.
  */
 async function getVerifiedResourcesForTopics(topics) {
-  const selected = [];
+  const allMatches = [];
   const seenUrls = new Set();
 
+  // Step 1: Collect matches from catalog for each topic
   for (const topic of topics) {
-    const term = topic.toLowerCase().trim();
-    let found = [];
-
-    // Simple keyword mapping
-    for (const key of Object.keys(DETAILED_TOPIC_RESOURCES)) {
-      if (term.includes(key) || key.includes(term)) {
-        found = found.concat(DETAILED_TOPIC_RESOURCES[key]);
-      }
-    }
-
-    for (const item of found) {
-      if (!seenUrls.has(item.url)) {
-        seenUrls.add(item.url);
-        selected.push(item);
+    const matches = findCatalogMatches(topic);
+    for (const match of matches) {
+      if (!seenUrls.has(match.url)) {
+        seenUrls.add(match.url);
+        allMatches.push(match);
       }
     }
   }
 
-  // Fallback if no specific matches found
-  if (selected.length === 0) {
-    selected.push(...DEFAULT_VERIFIED_FALLBACKS);
+  // Step 2: If no catalog matches, use universal fallbacks
+  if (allMatches.length === 0) {
+    allMatches.push(
+      { title: 'MDN Web Technology Guides', url: 'https://developer.mozilla.org/en-US/docs/Web', provider: 'Mozilla Developer Network', category: 'docs', type: 'documentation', difficulty: 'Beginner', isFree: true, duration: 'Self-paced', description: 'Official web development documentation.', isOfficial: true },
+      { title: 'freeCodeCamp Core Curriculum', url: 'https://www.freecodecamp.org/learn', provider: 'freeCodeCamp', category: 'platform', type: 'platform', difficulty: 'Beginner', isFree: true, duration: 'Self-paced', description: 'Free interactive coding certification platform.', isOfficial: false },
+      { title: 'Microsoft Learn', url: 'https://learn.microsoft.com/en-us/training/', provider: 'Microsoft', category: 'platform', type: 'platform', difficulty: 'Beginner', isFree: true, duration: 'Self-paced', description: 'Official Microsoft learning paths for developers.', isOfficial: true },
+    );
   }
 
+  // Step 3: Rank by priority
+  const ranked = rankResources(allMatches);
+
+  // Step 4: Verify URLs and build final list (cap at 8 per topic set)
   const verified = [];
-  for (const item of selected) {
+  for (const item of ranked.slice(0, 12)) {
     const isValid = await verifyResourceUrl(item.url);
     if (isValid) {
       verified.push({
-        ...item,
-        verifiedUrl: item.url,
+        title: item.title,
+        url: item.url,
+        provider: item.provider,
+        category: item.category,
+        type: item.type,
+        difficulty: item.difficulty,
+        isFree: item.isFree,
+        duration: item.duration,
+        description: item.description,
+        isOfficial: item.isOfficial,
         verified: true,
+        verifiedUrl: item.url,
         lastChecked: new Date(),
-        lastVerifiedDate: new Date()
+        lastVerifiedDate: new Date(),
       });
     }
   }
 
-  // Add hard placeholders if Coursera or edX is requested but not found (mandatory prompt rules)
-  // Let's check if Coursera/edX are present in the list. If not, we append the customized placeholders.
-  const hasCoursera = verified.some(item => item.provider.toLowerCase().includes('coursera'));
-  if (!hasCoursera) {
-    verified.push({
-      title: 'No verified Coursera course found.',
-      url: 'https://www.coursera.org',
-      provider: 'Coursera',
-      category: 'course',
-      type: 'course',
-      difficulty: 'Beginner',
-      isFree: false,
-      duration: 'N/A',
-      description: 'Check official Coursera portal directly for matching options.',
-      isOfficial: false,
-      verified: true
-    });
-  }
+  // Step 5: Ensure minimum resource diversity
+  const types = new Set(verified.map(v => v.type));
 
-  const hasEdx = verified.some(item => item.provider.toLowerCase().includes('edx'));
-  if (!hasEdx) {
-    verified.push({
-      title: 'No verified edX course found.',
-      url: 'https://www.edx.org',
-      provider: 'edX',
-      category: 'course',
-      type: 'course',
-      difficulty: 'Beginner',
-      isFree: false,
-      duration: 'N/A',
-      description: 'Check official edX portal directly for matching options.',
-      isOfficial: false,
-      verified: true
-    });
-  }
-
-  // Always append default documentation & video fallback to satisfy requirements
-  const docsCount = verified.filter(v => v.type === 'documentation').length;
-  if (docsCount === 0) {
+  // If no official docs, add MDN as fallback
+  if (!types.has('documentation')) {
     verified.unshift({
-      title: 'MDN Web Tech Docs',
-      url: 'https://developer.mozilla.org/en-US/',
-      provider: 'MDN',
-      category: 'docs',
-      type: 'documentation',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: 'Self-paced',
-      description: 'Official MDN web engineering guides.',
-      isOfficial: true,
-      verified: true
+      title: 'MDN Web Docs', url: 'https://developer.mozilla.org/en-US/', provider: 'Mozilla Developer Network',
+      category: 'docs', type: 'documentation', difficulty: 'Beginner', isFree: true, duration: 'Self-paced',
+      description: 'Official web technology reference.', isOfficial: true, verified: true,
+      verifiedUrl: 'https://developer.mozilla.org/en-US/', lastChecked: new Date(), lastVerifiedDate: new Date(),
     });
   }
 
-  const videoCount = verified.filter(v => v.type === 'video').length;
-  if (videoCount === 0) {
+  // If no videos, add freeCodeCamp channel
+  if (!types.has('video')) {
     verified.push({
-      title: 'freeCodeCamp Developer Video Channel',
-      url: 'https://www.youtube.com/@freecodecamp',
-      provider: 'YouTube',
-      category: 'youtube',
-      type: 'video',
-      difficulty: 'Beginner',
-      isFree: true,
-      duration: 'Self-paced',
-      description: 'Full length developer courses.',
-      isOfficial: false,
-      verified: true
+      title: 'freeCodeCamp YouTube Channel', url: 'https://www.youtube.com/@freecodecamp', provider: 'freeCodeCamp',
+      category: 'youtube', type: 'video', difficulty: 'Beginner', isFree: true, duration: 'Self-paced',
+      description: 'Full-length developer tutorials and courses.', isOfficial: false, verified: true,
+      verifiedUrl: 'https://www.youtube.com/@freecodecamp', lastChecked: new Date(), lastVerifiedDate: new Date(),
+    });
+  }
+
+  // If no practice platform, add LeetCode
+  if (!types.has('platform')) {
+    verified.push({
+      title: 'LeetCode', url: 'https://leetcode.com', provider: 'LeetCode',
+      category: 'platform', type: 'platform', difficulty: 'Intermediate', isFree: true, duration: 'Self-paced',
+      description: 'Practice coding problems for technical interview preparation.', isOfficial: false, verified: true,
+      verifiedUrl: 'https://leetcode.com', lastChecked: new Date(), lastVerifiedDate: new Date(),
     });
   }
 
@@ -419,5 +216,5 @@ async function getVerifiedResourcesForTopics(topics) {
 
 module.exports = {
   getVerifiedResourcesForTopics,
-  verifyResourceUrl
+  verifyResourceUrl,
 };

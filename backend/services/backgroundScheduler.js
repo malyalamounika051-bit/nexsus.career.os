@@ -2,10 +2,12 @@ const mongoose = require('mongoose');
 const CareerPulseNews = require('../models/CareerPulseNews');
 const Opportunity = require('../models/Opportunity');
 const JobCache = require('../models/JobCache');
+const Career = require('../models/Career');
 const { aggregateJobs } = require('./jobAggregator');
 const { callAI } = require('../utils/geminiClient');
 const { parseStructuredJson } = require('../utils/jsonParser');
 const { fetchAllFeeds } = require('./rssFeedService');
+const { getVerifiedResourcesForTopics, verifyResourceUrl } = require('./resourceRecommendationService');
 
 // Popular developer query categories to pre-cache jobs for
 const POPULAR_JOB_ROLES = [
@@ -179,6 +181,78 @@ Return ONLY the raw JSON array.`;
 };
 
 /**
+ * Weekly Roadmap Resource Verification Sweep
+ * Scans all generated roadmaps, checks every resource URL,
+ * and replaces broken ones with fresh verified resources.
+ * Preserves user progress and XP.
+ */
+const runWeeklyResourceVerification = async () => {
+  console.log('🔍 [Weekly Sweep] Starting roadmap resource verification...');
+  try {
+    const roadmaps = await Career.find({ isGeneratedRoadmap: true });
+    console.log(`📊 [Weekly Sweep] Found ${roadmaps.length} roadmaps to verify.`);
+
+    let totalFixed = 0;
+    let totalRegenerated = 0;
+
+    for (const roadmap of roadmaps) {
+      let brokenCount = 0;
+      let totalResources = 0;
+
+      // Count broken resources across all phases
+      for (const phase of roadmap.roadmap) {
+        for (const res of phase.resources) {
+          totalResources++;
+          const isValid = await verifyResourceUrl(res.url || res.verifiedUrl);
+          if (!isValid) brokenCount++;
+        }
+      }
+
+      const brokenPct = totalResources > 0 ? (brokenCount / totalResources) * 100 : 0;
+
+      if (brokenPct > 20) {
+        // More than 20% broken → regenerate all resources but preserve progress
+        console.log(`♻️ [Weekly Sweep] "${roadmap.domain}" has ${brokenPct.toFixed(0)}% broken resources. Regenerating all resources...`);
+        for (const phase of roadmap.roadmap) {
+          phase.resources = await getVerifiedResourcesForTopics(phase.topics || []);
+        }
+        await roadmap.save();
+        totalRegenerated++;
+      } else if (brokenCount > 0) {
+        // Replace only the broken individual resources
+        console.log(`🔧 [Weekly Sweep] "${roadmap.domain}" has ${brokenCount} broken resource(s). Replacing individually...`);
+        for (const phase of roadmap.roadmap) {
+          const freshResources = await getVerifiedResourcesForTopics(phase.topics || []);
+          const repairedResources = [];
+
+          for (const res of phase.resources) {
+            const isValid = await verifyResourceUrl(res.url || res.verifiedUrl);
+            if (isValid) {
+              res.lastChecked = new Date();
+              res.lastVerifiedDate = new Date();
+              repairedResources.push(res);
+            } else {
+              // Find a replacement from fresh resources that isn't already in the list
+              const replacement = freshResources.find(fr => !repairedResources.some(rr => rr.url === fr.url));
+              if (replacement) {
+                repairedResources.push({ ...replacement, verified: true, lastChecked: new Date(), lastVerifiedDate: new Date() });
+              }
+            }
+          }
+          phase.resources = repairedResources;
+        }
+        await roadmap.save();
+        totalFixed++;
+      }
+    }
+
+    console.log(`✅ [Weekly Sweep] Verification complete. Fixed: ${totalFixed}, Regenerated: ${totalRegenerated}.`);
+  } catch (err) {
+    console.error('❌ [Weekly Sweep] Resource verification failed:', err.message);
+  }
+};
+
+/**
  * Initialize the background worker (runs every 30 minutes)
  */
 const startScheduler = () => {
@@ -193,9 +267,17 @@ const startScheduler = () => {
   setInterval(() => {
     runAllTasks().catch(err => console.error('Scheduler Interval Task Error:', err));
   }, 1800000); // 30 minutes
+
+  // Weekly roadmap resource verification — every 7 days
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  console.log('📅 [Background Scheduler] Weekly roadmap resource verification scheduled (every 7 days).');
+  setInterval(() => {
+    runWeeklyResourceVerification().catch(err => console.error('Weekly Sweep Error:', err));
+  }, SEVEN_DAYS_MS);
 };
 
 module.exports = {
   startScheduler,
-  runAllTasks
+  runAllTasks,
+  runWeeklyResourceVerification
 };
