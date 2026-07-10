@@ -22,16 +22,36 @@ const { parseStructuredJson } = require('../utils/jsonParser');
 
 // Supported careers to regenerate
 const SUPPORTED_CAREERS = [
-  'AI Engineer',
+  'Software Engineer',
+  'Frontend Developer',
+  'Backend Developer',
   'Full Stack Developer',
-  'Cybersecurity Engineer',
-  'Cloud Engineer',
+  'Mobile App Developer',
+  'Data Analyst',
   'Data Scientist',
+  'AI/ML Engineer',
   'DevOps Engineer',
-  'Prompt Engineer',
-  'Blockchain Developer',
-  'Game Developer',
-  'Mobile App Developer'
+  'Cybersecurity Analyst',
+  'Project Manager',
+  'Product Manager',
+  'Business Analyst',
+  'Operations Manager',
+  'Human Resources (HR) Executive',
+  'Digital Marketing Specialist',
+  'SEO Specialist',
+  'Social Media Manager',
+  'Sales Executive',
+  'Customer Success Manager',
+  'Accountant',
+  'Financial Analyst',
+  'Investment Analyst',
+  'UI/UX Designer',
+  'Graphic Designer',
+  'Content Writer',
+  'Customer Support Executive',
+  'Administrative Assistant',
+  'Mechanical Engineer',
+  'Electrical Engineer'
 ];
 
 async function generateRoadmapForCareer(careerName) {

@@ -347,6 +347,42 @@ const RESOURCE_CATALOG = {
   'networks': [
     { title: 'Cisco Networking Basics', url: 'https://learn.microsoft.com/en-us/training/modules/network-fundamentals/', provider: 'Microsoft', category: 'docs', type: 'documentation', difficulty: 'Beginner', isFree: true, duration: '2 hours', description: 'Learn network topologies, IP addressing, and routing basics.', isOfficial: true },
   ],
+
+  // ═══════════════════════════════════════════════════════════════
+  // NON-TECH & EXPANDED CAREER TOPICS
+  // ═══════════════════════════════════════════════════════════════
+
+  'seo': [
+    { title: 'Google SEO Starter Guide', url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide', provider: 'Google', category: 'docs', type: 'documentation', difficulty: 'Beginner', isFree: true, duration: '2 hours', description: 'Official Google guide to search engine optimization fundamentals.', isOfficial: true },
+  ],
+
+  'finance': [
+    { title: 'Corporate Finance Institute free courses', url: 'https://corporatefinanceinstitute.com/', provider: 'CFI', category: 'platform', type: 'platform', difficulty: 'Beginner', isFree: true, duration: 'Self-paced', description: 'Financial analyst certifications and training resources.', isOfficial: true },
+  ],
+
+  'graphic design': [
+    { title: 'Graphic Design Basics & Fundamentals', url: 'https://learn.microsoft.com/en-us/training/', provider: 'Microsoft', category: 'platform', type: 'platform', difficulty: 'Beginner', isFree: true, duration: 'Self-paced', description: 'Learn principles of typography, layout, color, and design.', isOfficial: false },
+  ],
+
+  'content writing': [
+    { title: 'Technical Writing Courses by Google', url: 'https://developers.google.com/tech-writing', provider: 'Google', category: 'docs', type: 'course', difficulty: 'Beginner', isFree: true, duration: '4 hours', description: 'Official Google training for engineers and technical writers.', isOfficial: true },
+  ],
+
+  'hr': [
+    { title: 'Society for Human Resource Management Guides', url: 'https://www.shrm.org', provider: 'SHRM', category: 'docs', type: 'article', difficulty: 'Beginner', isFree: true, duration: 'Self-paced', description: 'Professional guidelines on talent acquisition, employee relations, and compliance.', isOfficial: true },
+  ],
+
+  'management': [
+    { title: 'Product Management Roadmap', url: 'https://roadmap.sh/product-manager', provider: 'roadmap.sh', category: 'community', type: 'article', difficulty: 'Beginner', isFree: true, duration: '20 min', description: 'Visual guide to project lifecycle, roadmap planning, and UX strategies.', isOfficial: false },
+  ],
+
+  'mechanical': [
+    { title: 'MIT OpenCourseWare Mechanical Engineering', url: 'https://ocw.mit.edu', provider: 'MIT', category: 'platform', type: 'platform', difficulty: 'Intermediate', isFree: true, duration: 'Self-paced', description: 'Free lecture notes and exams from MIT mechanical engineering courses.', isOfficial: true },
+  ],
+
+  'electrical': [
+    { title: 'MIT OpenCourseWare Electrical Engineering', url: 'https://ocw.mit.edu', provider: 'MIT', category: 'platform', type: 'platform', difficulty: 'Intermediate', isFree: true, duration: 'Self-paced', description: 'Free lecture notes and exams from MIT electrical engineering courses.', isOfficial: true },
+  ],
 };
 
 module.exports = { RESOURCE_CATALOG };
