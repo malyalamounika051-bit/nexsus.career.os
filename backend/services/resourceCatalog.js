@@ -321,6 +321,32 @@ const RESOURCE_CATALOG = {
     { title: 'DevOps Roadmap', url: 'https://roadmap.sh/devops', provider: 'roadmap.sh', category: 'community', type: 'article', difficulty: 'Intermediate', isFree: true, duration: '20 min', description: 'Visual learning path for DevOps engineers.', isOfficial: false },
     { title: 'Docker Getting Started Guide', url: 'https://docs.docker.com/get-started/', provider: 'Docker', category: 'docs', type: 'documentation', difficulty: 'Intermediate', isFree: true, duration: '2 hours', description: 'Official guide to containerization, Dockerfiles, and Docker Compose.', isOfficial: true },
   ],
+
+  // ═══════════════════════════════════════════════════════════════
+  // NEW CAREERS AND TOPICS
+  // ═══════════════════════════════════════════════════════════════
+
+  'qa automation': [
+    { title: 'Selenium Documentation', url: 'https://www.selenium.dev/documentation/', provider: 'Selenium', category: 'docs', type: 'documentation', difficulty: 'Intermediate', isFree: true, duration: '3 hours', description: 'Official Selenium docs for web browser automation testing.', isOfficial: true },
+    { title: 'QA Engineer Roadmap', url: 'https://roadmap.sh/qa', provider: 'roadmap.sh', category: 'community', type: 'article', difficulty: 'Beginner', isFree: true, duration: '20 min', description: 'Visual guide to modern quality assurance and automation testing.', isOfficial: false },
+  ],
+
+  'sre': [
+    { title: 'Google Site Reliability Engineering Book', url: 'https://sre.google/sre-book/table-of-contents/', provider: 'Google', category: 'docs', type: 'book', difficulty: 'Advanced', isFree: true, duration: '12 hours', description: 'Official Google SRE book explaining system reliability practices.', isOfficial: true },
+  ],
+
+  'architecture': [
+    { title: 'AWS Well-Architected Framework', url: 'https://aws.amazon.com/architecture/well-architected/', provider: 'Amazon Web Services', category: 'docs', type: 'documentation', difficulty: 'Advanced', isFree: true, duration: '4 hours', description: 'Official design guidelines for reliable, secure, and efficient cloud systems.', isOfficial: true },
+    { title: 'Software Design & Architecture Roadmap', url: 'https://roadmap.sh/software-design-architecture', provider: 'roadmap.sh', category: 'community', type: 'article', difficulty: 'Advanced', isFree: true, duration: '20 min', description: 'Visual learning path for software architects.', isOfficial: false },
+  ],
+
+  'embedded': [
+    { title: 'Embedded Systems Roadmap', url: 'https://roadmap.sh/embedded', provider: 'roadmap.sh', category: 'community', type: 'article', difficulty: 'Intermediate', isFree: true, duration: '20 min', description: 'Visual learning path for embedded system and firmware engineers.', isOfficial: false },
+  ],
+
+  'networks': [
+    { title: 'Cisco Networking Basics', url: 'https://learn.microsoft.com/en-us/training/modules/network-fundamentals/', provider: 'Microsoft', category: 'docs', type: 'documentation', difficulty: 'Beginner', isFree: true, duration: '2 hours', description: 'Learn network topologies, IP addressing, and routing basics.', isOfficial: true },
+  ],
 };
 
 module.exports = { RESOURCE_CATALOG };

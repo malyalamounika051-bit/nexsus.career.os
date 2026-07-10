@@ -638,6 +638,188 @@ const triggerResourceVerification = async (req, res) => {
   }
 };
 
+// @desc    Trigger full database reset and roadmap regeneration
+// @route   POST /api/careers/reset-regenerate
+// @access  Private (or Public for testing)
+const triggerDatabaseResetRegeneration = async (req, res) => {
+  try {
+    const { executeMigration } = require('../scripts/regenerateRoadmaps');
+    
+    // Run in background to prevent client timeouts
+    executeMigration()
+      .then(summary => {
+        console.log('\n═══════════════════════════════════════');
+        console.log('📊 ONLINE REGENERATION SUMMARY');
+        console.log('═══════════════════════════════════════');
+        console.log(`Deleted Roadmaps:   ${summary.deletedCount}`);
+        console.log(`Generated Roadmaps: ${summary.generatedCount}`);
+        console.log(`Verified Resources: ${summary.totalVerifiedResources}`);
+        console.log('═══════════════════════════════════════');
+      })
+      .catch(err => console.error('Regeneration execution failed:', err));
+
+    res.json({
+      success: true,
+      message: 'Database reset and regeneration process started in background.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to start migration: ' + error.message });
+  }
+};
+
+// @desc    Trigger single/missing roadmap regeneration recovery
+// @route   POST /api/careers/fill-missing
+// @access  Private (or Public for testing)
+const triggerSingleRegen = async (req, res) => {
+  try {
+    // Call generateSingle logic directly
+    const path = require('path');
+    const Career = require('../models/Career');
+    const { getVerifiedResourcesForTopics } = require('../services/resourceRecommendationService');
+    const { callAI } = require('../utils/geminiClient');
+    const { parseStructuredJson } = require('../utils/jsonParser');
+
+    const SUPPORTED_CAREERS = [
+      'AI Engineer',
+      'Full Stack Developer',
+      'Cybersecurity Engineer',
+      'Cloud Engineer',
+      'Data Scientist',
+      'DevOps Engineer',
+      'Prompt Engineer',
+      'Blockchain Developer',
+      'Game Developer',
+      'Mobile App Developer',
+      'AR/VR Game Developer',
+      'Embedded Systems Engineer',
+      'Solutions Architect',
+      'Data Engineer',
+      'QA Automation Engineer',
+      'SRE (Site Reliability Engineer)',
+      'Database Administrator',
+      'Product Designer',
+      'IT Security Consultant',
+      'Network Engineer'
+    ];
+
+    const generateAndSave = async (careerName) => {
+      const structuredPrompt = `You are an expert career counselor. Create a personalized career roadmap for: "${careerName}"
+Student Profile:
+- Skill Level: Beginner
+- Target Role: ${careerName}
+- Experience: 0 years
+- Weekly Study Hours: 15
+- Learning Style: Mixed
+- Country: India
+- Degree: Not specified
+
+Return ONLY valid JSON. First character must be "{".
+
+JSON structure:
+{
+  "domain": "${careerName}",
+  "description": "Comprehensive career roadmap description",
+  "skills": ["skill1", "skill2"],
+  "demandScore": 85,
+  "futureScore": 90,
+  "avgSalary": "₹8-15 LPA",
+  "growthRate": "20% YoY",
+  "demand": "High",
+  "trendingSkills": ["trending1"],
+  "salaryRange": { "min": "₹6 LPA", "max": "₹35 LPA", "currency": "INR" },
+  "alternativePaths": ["Related Career 1"],
+  "studyStrategy": "Actionable strategy based on the profile.",
+  "roadmap": [
+    {
+      "phase": "Phase 1: Foundation",
+      "description": "Foundational milestone",
+      "duration": "4 weeks",
+      "difficulty": "beginner",
+      "skills": ["skillA"],
+      "topics": ["topicA"],
+      "tools": ["toolA"],
+      "certifications": ["certA"],
+      "practiceTasks": ["taskA"],
+      "projects": ["projA"],
+      "learningObjectives": ["objectiveA"],
+      "portfolioGoal": "goalA",
+      "certificationRecommendation": "recA",
+      "resumeUpdate": "updateA",
+      "githubTarget": "gitA",
+      "interviewReadiness": "readyA",
+      "expectedOutcome": "outcomeA",
+      "miniProject": "miniA",
+      "majorProject": "majorA"
+    }
+  ]
+}
+
+REQUIREMENTS:
+- Generate EXACTLY 7 phases named: "Phase 1: Foundation", "Phase 2: Core Skills", "Phase 3: Intermediate Development", "Phase 4: Advanced Concepts", "Phase 5: Real World Projects", "Phase 6: Interview & Career Preparation", "Phase 7: Job Ready / Industry Ready"
+- Do NOT generate resources, URLs, links, course names, or platform references. Only generate the learning path structure.
+`;
+
+      const aiResponse = await callAI({
+        messages: [{ role: 'user', content: structuredPrompt }],
+        temperature: 0.2
+      });
+
+      const parsed = parseStructuredJson(aiResponse.text);
+      if (!parsed || !parsed.roadmap || parsed.roadmap.length === 0) {
+        throw new Error('Invalid JSON structure returned from LLM');
+      }
+
+      for (const phase of parsed.roadmap) {
+        let diff = String(phase.difficulty || 'beginner').toLowerCase().trim();
+        if (diff === 'expert' || diff === 'advanced' || diff === 'hard') {
+          phase.difficulty = 'advanced';
+        } else if (diff === 'medium' || diff === 'intermediate') {
+          phase.difficulty = 'intermediate';
+        } else {
+          phase.difficulty = 'beginner';
+        }
+        phase.resources = await getVerifiedResourcesForTopics(phase.topics || []);
+      }
+      return parsed;
+    };
+
+    const runCheck = async () => {
+      for (const career of SUPPORTED_CAREERS) {
+        const exists = await Career.findOne({ domain: career, isGeneratedRoadmap: true });
+        if (!exists) {
+          console.log(`🔍 Missing career found: "${career}". Regenerating now...`);
+          const data = await generateAndSave(career);
+          if (data) {
+            const doc = new Career({
+              ...data,
+              isGeneratedRoadmap: true,
+              userUid: 'SYSTEM_GEN',
+              experienceLevel: 'Beginner',
+              availableWeeklyHours: 15,
+              learningStyle: 'Mixed',
+              country: 'India',
+              preferredLanguage: 'English'
+            });
+            await doc.save();
+            console.log(`✨ Successfully generated and saved missing career: "${career}".`);
+          }
+        }
+      }
+    };
+
+    runCheck()
+      .then(() => console.log('✅ Missing careers regeneration sweep finished.'))
+      .catch(err => console.error('Regeneration of missing careers failed:', err));
+
+    res.json({
+      success: true,
+      message: 'Regeneration check for missing careers started in background.'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to start single regen: ' + error.message });
+  }
+};
+
 module.exports = {
   getAllCareers,
   getCareerById,
@@ -647,4 +829,6 @@ module.exports = {
   deleteRoadmap,
   updateProgress,
   triggerResourceVerification,
+  triggerDatabaseResetRegeneration,
+  triggerSingleRegen,
 };
