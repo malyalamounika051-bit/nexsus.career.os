@@ -75,7 +75,11 @@ Return ONLY the raw JSON array.`;
           const insights = parseStructuredJson(aiResponse.text);
           if (Array.isArray(insights)) {
             for (let i = 0; i < Math.min(insights.length, needInsight.length); i++) {
-              needInsight[i].whyItMatters = insights[i];
+              let insightText = insights[i];
+              if (insightText && typeof insightText === 'object') {
+                insightText = insightText.insight || insightText.text || insightText.insight1 || Object.values(insightText)[0] || '';
+              }
+              needInsight[i].whyItMatters = String(insightText || '').trim();
               await needInsight[i].save();
             }
             console.log(`✅ [Background Worker] Generated career insights for ${Math.min(insights.length, needInsight.length)} articles.`);

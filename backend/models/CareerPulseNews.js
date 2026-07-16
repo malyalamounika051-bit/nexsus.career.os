@@ -10,7 +10,7 @@ const careerPulseNewsSchema = new mongoose.Schema({
   },
   summary: {
     type: String,
-    required: true
+    default: ''
   },
   whyItMatters: {
     type: String,
@@ -37,7 +37,7 @@ const careerPulseNewsSchema = new mongoose.Schema({
     default: ''
   },
   author: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed,
     default: 'Staff Editor'
   },
   readTime: {
@@ -46,8 +46,7 @@ const careerPulseNewsSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true,
-    enum: ['AI', 'Big Tech', 'Hiring', 'Startups', 'Skills', 'Students', 'Open Source', 'Cloud', 'Cybersecurity', 'Data Science', 'Internships', 'Scholarships', 'Career Tips', 'Remote Jobs']
+    required: true
   },
   tags: {
     type: [String],

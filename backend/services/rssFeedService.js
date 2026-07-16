@@ -132,14 +132,29 @@ async function fetchSingleFeed(feedConfig) {
       if (!title) continue;
 
       const summary = cleanSummary(item.contentSnippet || item.content || item.summary || item.description || '');
-      const author = item.creator || item.dcCreator || item.author || feedConfig.source;
+      const finalSummary = summary ? summary.trim() : `${title}. Read more on the official blog of ${feedConfig.source}.`;
+      
+      const authorVal = item.creator || item.dcCreator || item.author || feedConfig.source;
+      let authorName = 'Staff Editor';
+      if (authorVal) {
+        if (typeof authorVal === 'string') {
+          authorName = authorVal.trim();
+        } else if (typeof authorVal === 'object') {
+          authorName = authorVal.name || authorVal.displayName || authorVal.creator || feedConfig.source;
+          if (Array.isArray(authorName)) {
+            authorName = authorName[0];
+          }
+        }
+      }
+      const author = String(authorName || feedConfig.source);
+
       const image = extractImage(item);
       const readTime = estimateReadTime(item.contentSnippet || item.content || '');
 
       articles.push({
         headline: title,
         title,
-        summary,
+        summary: finalSummary,
         articleUrl,
         url: articleUrl,
         source: feedConfig.source,

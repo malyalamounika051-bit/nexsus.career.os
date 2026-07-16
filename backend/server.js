@@ -38,7 +38,7 @@ app.use((req, res, next) => {
 // Ensure Database Connection Middleware
 const mongoose = require('mongoose');
 app.use(async (req, res, next) => {
-  if (req.path === '/api/health' || req.path === '/') {
+  if (req.path === '/api/health' || req.path === '/' || req.path === '/api/dashboard/quote') {
     return next();
   }
   if (mongoose.connection.readyState !== 1) {
