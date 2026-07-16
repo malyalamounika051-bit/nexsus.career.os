@@ -1,6 +1,4 @@
 const { callGeminiSDK } = require('../utils/geminiClient');
-const pdfParse = require('pdf-parse');
-const mammoth = require('mammoth');
 
 const SYSTEM_INSTRUCTION = `You are Sara, the Expert Career Mentor at Nexus Career OS. 
 Your task is to provide a rigorous, professional, and actionable critique of the user's resume or portfolio.
@@ -22,9 +20,11 @@ const analyzePortfolio = async (req, res) => {
     // If a file was uploaded, extract text from it
     if (req.file) {
       if (req.file.mimetype === 'application/pdf') {
+        const pdfParse = require('pdf-parse');
         const pdfData = await pdfParse(req.file.buffer);
         content = pdfData.text;
       } else if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        const mammoth = require('mammoth');
         const data = await mammoth.extractRawText({ buffer: req.file.buffer });
         content = data.value;
       }

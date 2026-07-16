@@ -4,7 +4,6 @@ const SavedJob = require('../models/SavedJob');
 const JobCache = require('../models/JobCache');
 const Resume = require('../models/Resume');
 const { aggregateJobs } = require('../services/jobAggregator');
-const pdfParse = require('pdf-parse');
 
 /**
  * AI-Powered Real-Time Job Aggregator
@@ -304,6 +303,7 @@ exports.matchJobsToResume = async (req, res) => {
     // 1. Extract Resume Text
     if (req.file) {
       try {
+        const pdfParse = require('pdf-parse');
         const pdfData = await pdfParse(req.file.buffer);
         resumeText = pdfData.text;
       } catch (err) {
