@@ -494,7 +494,7 @@ Return a single JSON object with this exact structure:
       "linkedin": "linkedin url",
       "github": "github url",
       "portfolio": "portfolio url",
-      "summary": "3-4 sentence ATS-optimized professional summary tailored to the target role, using ONLY verified skills and experience"
+      "summary": "3-4 sentence ATS-optimized professional summary tailored to the target role. CRITICAL: You must ONLY mention, list, or imply skills, tools, or languages that are explicitly listed in the candidate's SKILLS section above. Do NOT mention HTML, CSS, React, Angular, Vue, or any other unlisted skill under any circumstances. Focus summary ONLY on: ${skillNames} and real experience."
     },
     "skills": ["ONLY select skills from the candidate's actual SKILLS list above. Do NOT add, infer, or hallucinate any skills not listed in the candidate's SKILLS section."],
     "experiences": [
@@ -559,7 +559,7 @@ Return a single JSON object with this exact structure:
 
 Return ONLY valid JSON. No markdown, no explanation.`;
 
-    const aiResponse = await callGeminiDirectly({ prompt, temperature: 0.5, maxTokens: 8192 });
+    const aiResponse = await callGeminiDirectly({ prompt, temperature: 0.3, maxTokens: 8192 });
     let result;
     try {
       result = parseStructuredJson(aiResponse.text);
@@ -605,6 +605,26 @@ Return ONLY valid JSON. No markdown, no explanation.`;
     // Fallback to all profile skills if AI didn't return any matching ones
     const finalResumeSkills = filteredResumeSkills.length > 0 ? filteredResumeSkills : profileSkillNames;
 
+    // Sanitize skillGap object matching/missing skills lists
+    const rawMatchingSkills = result.skillGap?.matchingSkills || [];
+    const filteredMatchingSkills = rawMatchingSkills.filter(s => {
+      const name = typeof s === 'string' ? s : (s?.name || '');
+      return name && profileSkillNamesLower.includes(name.toLowerCase().trim());
+    });
+
+    const finalMatchingSkills = filteredMatchingSkills.length > 0 
+      ? filteredMatchingSkills.map(s => typeof s === 'string' ? { name: s, relevance: 'High' } : s)
+      : (profile.skills || []).map(s => ({ name: s.name, relevance: 'High' }));
+
+    const matchingNamesLower = finalMatchingSkills.map(s => s.name.toLowerCase().trim());
+
+    // Filter missingSkills so it never overlaps with matching skills
+    const rawMissingSkills = result.skillGap?.missingSkills || [];
+    const finalMissingSkills = rawMissingSkills.filter(s => {
+      const name = typeof s === 'string' ? s : (s?.name || '');
+      return name && !matchingNamesLower.includes(name.toLowerCase().trim());
+    });
+
     // Save the generated resume to database
     const resumeData = {
       user: req.user._id,
@@ -621,7 +641,7 @@ Return ONLY valid JSON. No markdown, no explanation.`;
         score: result.scores?.overall || 0,
         atsScore: result.scores?.atsScore || 0,
         tips: (result.recommendations || []).map(r => r.suggestion),
-        keywords: (result.skillGap?.missingSkills || []).map(s => s.name)
+        keywords: finalMissingSkills.map(s => s.name)
       }
     };
 
@@ -636,7 +656,10 @@ Return ONLY valid JSON. No markdown, no explanation.`;
           ...result.resume,
           skills: finalResumeSkills
         },
-        skillGap: result.skillGap,
+        skillGap: {
+          matchingSkills: finalMatchingSkills,
+          missingSkills: finalMissingSkills
+        },
         scores: result.scores,
         recommendations: result.recommendations
       }
