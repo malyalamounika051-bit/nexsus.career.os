@@ -20,4 +20,5 @@ export const resumeService = {
   tailorResume: (data) => api.post(`/resumes/ai/tailor`, data),
   atsAnalyze: (id) => api.post(`/resumes/${id}/ats-analyze`, {}),
   syncNexus: () => api.get(`/resumes/sync/nexus`),
+  generateFromProfile: (data) => api.post(`/resumes/ai/generate-from-profile`, data),
 };

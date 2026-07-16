@@ -383,3 +383,229 @@ exports.syncNexusCareerData = async (req, res) => {
     res.status(500).json({ success: false, message: 'Sync failed: ' + err.message });
   }
 };
+
+// ─── PROFILE-DRIVEN AI RESUME GENERATION ─────────────────────────────────────
+
+// @desc    Generate a complete ATS resume from user Profile + Job Description/Role
+// @route   POST /api/resumes/ai/generate-from-profile
+// @access  Private
+exports.generateProfileResume = async (req, res) => {
+  try {
+    const UserProfile = require('../models/UserProfile');
+    const profile = await UserProfile.findOne({ user: req.user._id });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Profile not found. Please complete your Profile first.'
+      });
+    }
+
+    const { jobDescription, jobRole } = req.body;
+    if (!jobDescription && !jobRole) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a Job Description or Job Role.'
+      });
+    }
+
+    // ── Build profile context string ──
+    const skillNames = (profile.skills || []).map(s => `${s.name} (${s.proficiency})`).join(', ') || 'None listed';
+    const educationStr = (profile.education || []).map(e =>
+      `${e.degree}${e.branch ? ' in ' + e.branch : ''} from ${e.college}${e.cgpa ? ' (CGPA: ' + e.cgpa + ')' : ''}${e.endYear ? ' (' + e.endYear + ')' : ''}`
+    ).join('; ') || 'None listed';
+    const experienceStr = (profile.experience || []).map(e =>
+      `${e.role} at ${e.company} (${e.type || 'Full-time'})${e.startDate ? ' | ' + e.startDate + ' - ' + (e.currentlyWorking ? 'Present' : e.endDate || 'N/A') : ''} | Responsibilities: ${(e.responsibilities || []).join(', ')} | Achievements: ${(e.achievements || []).join(', ')}`
+    ).join('\n') || 'None listed';
+    const projectsStr = (profile.projects || []).map(p =>
+      `${p.title}: ${p.shortDescription || 'No description'} | Tech: ${(p.technologies || []).join(', ')} | Role: ${p.role || 'Developer'}${p.githubRepo ? ' | GitHub: ' + p.githubRepo : ''}${p.liveDemo ? ' | Demo: ' + p.liveDemo : ''}`
+    ).join('\n') || 'None listed';
+    const certsStr = (profile.certifications || []).map(c =>
+      `${c.name}${c.organization ? ' by ' + c.organization : ''}${c.issueDate ? ' (' + c.issueDate + ')' : ''}`
+    ).join(', ') || 'None listed';
+    const achievementsStr = (profile.achievements || []).map(a =>
+      `${a.title}${a.description ? ': ' + a.description : ''} (${a.type || 'Other'})`
+    ).join(', ') || 'None listed';
+
+    // ── Determine job description ──
+    let finalJobDescription = jobDescription || '';
+    let finalJobRole = jobRole || '';
+
+    // If only a role is provided, generate a JD using AI
+    if (!finalJobDescription && finalJobRole) {
+      const jdPrompt = `Generate a realistic, detailed job description for the role: "${finalJobRole}". Include: Required Skills, Preferred Qualifications, Responsibilities, and Nice-to-haves. Return plain text only, no JSON.`;
+      const jdResponse = await callGeminiDirectly({ prompt: jdPrompt, temperature: 0.5 });
+      finalJobDescription = jdResponse.text || '';
+    }
+
+    // ── Main AI prompt ──
+    const prompt = `You are an expert ATS Resume Builder and Career Analyst. Generate a complete, personalized, ATS-optimized resume and skill gap analysis.
+
+CRITICAL RULES:
+- ONLY use the candidate's ACTUAL data provided below. NEVER invent, fabricate, or assume skills, experience, projects, or achievements.
+- Rewrite descriptions to be more impactful and aligned with the target role, but keep them truthful.
+- Use strong action verbs and quantify achievements where data supports it.
+
+═══ CANDIDATE PROFILE ═══
+
+Name: ${profile.fullName || 'Not provided'}
+Headline: ${profile.headline || 'Not provided'}
+Email: ${profile.email || 'Not provided'}
+Phone: ${profile.phone || 'Not provided'}
+Location: ${profile.location || 'Not provided'}
+LinkedIn: ${profile.linkedIn || ''}
+GitHub: ${profile.github || ''}
+Portfolio: ${profile.portfolio || ''}
+
+EDUCATION:
+${educationStr}
+
+SKILLS:
+${skillNames}
+
+EXPERIENCE:
+${experienceStr}
+
+PROJECTS:
+${projectsStr}
+
+CERTIFICATIONS:
+${certsStr}
+
+ACHIEVEMENTS:
+${achievementsStr}
+
+═══ TARGET JOB ═══
+Role: ${finalJobRole || 'Not specified'}
+Job Description:
+${finalJobDescription}
+
+═══ GENERATE ═══
+
+Return a single JSON object with this exact structure:
+{
+  "resume": {
+    "personalInfo": {
+      "name": "candidate name",
+      "title": "tailored professional title for target role",
+      "email": "candidate email",
+      "phone": "candidate phone",
+      "location": "candidate location",
+      "linkedin": "linkedin url",
+      "github": "github url",
+      "portfolio": "portfolio url",
+      "summary": "3-4 sentence ATS-optimized professional summary tailored to the target role, using ONLY verified skills and experience"
+    },
+    "skills": ["skill1", "skill2", "...all candidate skills relevant to the role, ordered by relevance"],
+    "experiences": [
+      {
+        "title": "role title",
+        "company": "company name",
+        "location": "",
+        "period": "start - end",
+        "desc": "2-3 impactful bullet points using STAR method, quantified where possible. ONLY use real responsibilities/achievements from the profile."
+      }
+    ],
+    "education": [
+      {
+        "degree": "degree name",
+        "institution": "college name",
+        "year": "graduation year",
+        "desc": "CGPA or relevant coursework if available"
+      }
+    ],
+    "projects": [
+      {
+        "name": "project title",
+        "tech": "technologies used",
+        "link": "github or demo link",
+        "desc": "2-3 sentences describing the project, its impact, and technologies. Rewrite for ATS optimization but keep truthful."
+      }
+    ],
+    "certifications": ["cert1", "cert2"],
+    "achievements": ["achievement1", "achievement2"]
+  },
+  "skillGap": {
+    "matchingSkills": [
+      { "name": "skill name", "relevance": "High/Medium/Low" }
+    ],
+    "missingSkills": [
+      {
+        "name": "skill name",
+        "importance": "Critical/Important/Nice-to-have",
+        "difficulty": "Easy/Medium/Hard",
+        "estimatedLearningTime": "2 weeks",
+        "whyItMatters": "brief explanation",
+        "careerImpact": "High/Medium/Low",
+        "salaryImpact": "+X LPA approximate"
+      }
+    ]
+  },
+  "scores": {
+    "atsScore": 85,
+    "jobMatch": 78,
+    "technicalMatch": 82,
+    "projectRelevance": 75,
+    "overall": 80
+  },
+  "recommendations": [
+    {
+      "suggestion": "actionable recommendation text",
+      "impact": "High/Medium/Low",
+      "category": "Skills/Projects/Experience/Certifications/Profile"
+    }
+  ]
+}
+
+Return ONLY valid JSON. No markdown, no explanation.`;
+
+    const aiResponse = await callGeminiDirectly({ prompt, temperature: 0.5, maxTokens: 8192 });
+    let result;
+    try {
+      result = parseStructuredJson(aiResponse.text);
+    } catch (parseErr) {
+      console.error('Profile Resume Generation Parse Error:', parseErr.message, 'Raw:', aiResponse.text?.substring(0, 500));
+      return res.status(500).json({
+        success: false,
+        message: 'AI failed to generate a valid resume. Please try again.'
+      });
+    }
+
+    // Save the generated resume to database
+    const resumeData = {
+      user: req.user._id,
+      resumeTitle: `${finalJobRole || 'AI Generated'} Resume`,
+      templateId: 'modern',
+      personalInfo: result.resume?.personalInfo || {},
+      skills: result.resume?.skills || [],
+      experiences: result.resume?.experiences || [],
+      education: result.resume?.education || [],
+      projects: result.resume?.projects || [],
+      certifications: result.resume?.certifications || [],
+      achievements: result.resume?.achievements || [],
+      analysis: {
+        score: result.scores?.overall || 0,
+        atsScore: result.scores?.atsScore || 0,
+        tips: (result.recommendations || []).map(r => r.suggestion),
+        keywords: (result.skillGap?.missingSkills || []).map(s => s.name)
+      }
+    };
+
+    const savedResume = await Resume.create(resumeData);
+    await updateUserCareerStateResume(req.user.id || req.user._id, savedResume);
+
+    res.json({
+      success: true,
+      data: {
+        resumeId: savedResume._id,
+        resume: result.resume,
+        skillGap: result.skillGap,
+        scores: result.scores,
+        recommendations: result.recommendations
+      }
+    });
+  } catch (err) {
+    console.error('generateProfileResume error:', err.message);
+    res.status(500).json({ success: false, message: 'Resume generation failed: ' + err.message });
+  }
+};

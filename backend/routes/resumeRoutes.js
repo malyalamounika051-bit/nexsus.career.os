@@ -15,7 +15,8 @@ const {
   analyzeJobDescription,
   tailorResume,
   getATSAnalysis,
-  syncNexusCareerData
+  syncNexusCareerData,
+  generateProfileResume
 } = require('../controllers/resumeController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -47,5 +48,8 @@ router.post('/ai/analyze-job', analyzeJobDescription);
 router.post('/ai/tailor', tailorResume);
 router.post('/:id/duplicate', duplicateResume);
 router.post('/:id/ats-analyze', getATSAnalysis);
+
+// Profile-driven AI generation
+router.post('/ai/generate-from-profile', generateProfileResume);
 
 module.exports = router;
