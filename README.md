@@ -17,7 +17,7 @@
 
 Nexus Career OS is an all-in-one platform that helps students and job seekers discover their career path, build ATS-optimized resumes, practice mock interviews, track skill gaps, and find job opportunities — all from one unified dashboard.
 
-[🚀 Live Demo](#-quick-start) · [📖 Documentation](documentation/) · [🐛 Report Bug](https://github.com/malyalamounika051-bit/nexsus.career.os/issues) · [✨ Request Feature](https://github.com/malyalamounika051-bit/nexsus.career.os/issues)
+[🚀 Live Demo](https://nexus-career-os.vercel.app) · [📖 Documentation](documentation/) · [🐛 Report Bug](https://github.com/malyalamounika051-bit/nexsus.career.os/issues) · [✨ Request Feature](https://github.com/malyalamounika051-bit/nexsus.career.os/issues)
 
 </div>
 
