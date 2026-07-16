@@ -336,26 +336,61 @@ const getInterview = async (req, res) => {
   }
 };
 
-// @desc    Transcribe / enhance browser-captured speech
+// @desc    Transcribe uploaded audio file or enhance browser-captured text via AssemblyAI/ASR Service
 // @route   POST /api/interview/transcribe
 // @access  Private
 const transcribeAudio = async (req, res) => {
   try {
-    const { browserTranscript, duration } = req.body;
+    let result;
+    const durationParam = req.body.duration ? parseFloat(req.body.duration) : 0;
 
-    if (!browserTranscript && browserTranscript !== '') {
-      return res.status(400).json({ success: false, message: 'browserTranscript is required.' });
+    if (req.file) {
+      // Physical audio file upload (Multer buffer)
+      console.log(`[ASR] Transcribing audio buffer of size: ${req.file.size} bytes (${req.file.mimetype})`);
+      result = await asrService.transcribe(req.file.buffer, {
+        duration: durationParam
+      });
+    } else {
+      // Browser Speech API text fallback
+      const { browserTranscript } = req.body;
+      if (!browserTranscript && browserTranscript !== '') {
+        return res.status(400).json({ success: false, message: 'No audio file uploaded and browserTranscript is missing.' });
+      }
+      result = await asrService.transcribe(null, {
+        browserTranscript,
+        duration: durationParam
+      });
     }
 
-    const result = await asrService.transcribe(null, {
-      browserTranscript,
-      duration: duration || 0
-    });
+    // Calculate required analytics
+    const wordCount = result.wordCount || 0;
+    const duration = result.duration || durationParam || 1;
+    const wordsPerMinute = duration > 0 ? Math.round((wordCount / (duration / 60))) : 0;
+    
+    // Normalize confidence (0-1) to estimated fluency % (0-100)
+    const rawConfidence = result.confidence || 0.90;
+    const estimatedFluency = Math.round(rawConfidence * 100);
+    const estimatedSpeakingSpeed = wordsPerMinute;
+    const averageConfidence = rawConfidence;
 
-    res.json({ success: true, data: result });
+    res.json({
+      success: true,
+      data: {
+        transcript: result.transcript,
+        confidence: estimatedFluency,
+        duration: Math.round(duration),
+        wordCount,
+        wordsPerMinute,
+        estimatedFluency,
+        estimatedSpeakingSpeed,
+        averageConfidence,
+        words: result.words || [],
+        analytics: result.analytics || {}
+      }
+    });
   } catch (error) {
     console.error('Error transcribing audio:', error);
-    res.status(500).json({ success: false, message: 'Failed to transcribe audio.' });
+    res.status(500).json({ success: false, message: error.message || 'Failed to transcribe audio.' });
   }
 };
 

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mic, MicOff, Video, VideoOff, PhoneMissed, Loader2, Play, 
   Check, RefreshCw, Volume2, AlertCircle, Sparkles, BookOpen, 
-  Award, ArrowLeft, Send, CheckCircle2, ChevronRight, Edit3, Save, Activity
+  Award, ArrowLeft, Send, CheckCircle2, ChevronRight, Edit3, Save, Activity, Trash2, CheckCircle
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -20,97 +20,62 @@ export default function InterviewRoom() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [speechText, setSpeechText] = useState('');
-  
-  // Real-time Web Speech Recognition instances
+
+  // Audio Recording States
   const [isRecording, setIsRecording] = useState(false);
-  const [recognition, setRecognition] = useState(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+
+  // Loading and Transcription Statuses
+  const [transcriptionStatus, setTranscriptionStatus] = useState('idle'); // idle, uploading, transcribing, ready, error
+  const [transcriptionMetadata, setTranscriptionMetadata] = useState(null); // confidence, duration, wordCount, language
+  const [asrError, setAsrError] = useState('');
+  const [evalLoading, setEvalLoading] = useState(false);
 
   // Statistics
-  const [noiseFilterLevel, setNoiseFilterLevel] = useState('99.2% Clean');
-  const [latency, setLatency] = useState('85ms');
-  const [timerCount, setTimerCount] = useState(0);
+  const [noiseFilterLevel] = useState('99.2% Clean');
+  const [latency] = useState('85ms');
+  const [totalTimerCount, setTotalTimerCount] = useState(0);
 
-  // Conversational loops
+  // Dialogue loops
   const [dialogueHistory, setDialogueHistory] = useState([]);
   const [currentPromptQuestion, setCurrentPromptQuestion] = useState('');
-  const [evalLoading, setEvalLoading] = useState(false);
 
   // Speech TTS ref
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
 
-  // Initialize Speech Recognition
+  // Initialize Room
   useEffect(() => {
     if (!jobRole) {
       navigate('/mock-interview/setup');
       return;
     }
 
-    // Set first question
     if (questions && questions.length > 0) {
       setCurrentPromptQuestion(questions[0]);
       speakQuestion(questions[0]);
     }
 
-    // Timer logic
-    const interval = setInterval(() => {
-      setTimerCount(prev => prev + 1);
+    const totalInterval = setInterval(() => {
+      setTotalTimerCount(prev => prev + 1);
     }, 1000);
 
-    // Web Speech API initialization
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const rec = new SpeechRecognition();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'en-US';
-
-      rec.onresult = (e) => {
-        let transcript = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          transcript += e.results[i][0].transcript;
-        }
-        setSpeechText(transcript);
-      };
-
-      rec.onerror = (err) => {
-        console.error('Speech recognition error:', err);
-      };
-
-      rec.onend = () => {
-        setIsRecording(false);
-      };
-
-      setRecognition(rec);
-    }
-
     return () => {
-      clearInterval(interval);
+      clearInterval(totalInterval);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (synthRef.current) {
         synthRef.current.cancel();
       }
     };
   }, []);
 
-  const formatTime = (sec) => {
+  const formatDuration = (sec) => {
     const mins = Math.floor(sec / 60);
     const secs = sec % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const startVoiceRecording = () => {
-    if (!recognition) {
-      alert('Speech recognition is not supported in this browser. Please type your answer instead.');
-      return;
-    }
-    if (isRecording) {
-      recognition.stop();
-      setIsRecording(false);
-    } else {
-      setSpeechText('');
-      recognition.start();
-      setIsRecording(true);
-    }
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
   const speakQuestion = (text) => {
@@ -133,15 +98,6 @@ export default function InterviewRoom() {
 
       utterance.onend = () => {
         setInterviewerState('listening');
-        // Auto-start recording for immersive hands-free feeling
-        setTimeout(() => {
-          if (recognition && !isMuted) {
-            try {
-              recognition.start();
-              setIsRecording(true);
-            } catch(e){}
-          }
-        }, 300);
       };
       
       utteranceRef.current = utterance;
@@ -153,45 +109,135 @@ export default function InterviewRoom() {
     }
   };
 
+  // MediaRecorder Speech Recording Flow
+  const startRecording = async () => {
+    try {
+      setAsrError('');
+      setTranscriptionStatus('idle');
+      audioChunksRef.current = [];
+      setRecordingDuration(0);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const options = { mimeType: 'audio/webm' };
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, options);
+      } catch (err) {
+        recorder = new MediaRecorder(stream);
+      }
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        // Construct Audio Blob from Chunks
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        
+        // Stop all audio tracks from stream to release the mic
+        stream.getTracks().forEach(track => track.stop());
+
+        if (audioBlob.size < 500) {
+          setAsrError('Recording too short. Please try speaking again.');
+          setTranscriptionStatus('error');
+          return;
+        }
+
+        uploadAudioForTranscription(audioBlob);
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+
+    } catch (err) {
+      console.error('Microphone permission denied / error:', err);
+      setAsrError('Microphone permission denied or device disconnected. Please verify connection.');
+      setTranscriptionStatus('error');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    }
+  };
+
+  const uploadAudioForTranscription = async (blob) => {
+    setTranscriptionStatus('uploading');
+    
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.webm');
+    formData.append('duration', recordingDuration);
+
+    try {
+      setTranscriptionStatus('transcribing');
+      const response = await api.post('/interview/transcribe', formData);
+      
+      if (response.data.success) {
+        const data = response.data.data;
+        setSpeechText(data.transcript);
+        setTranscriptionMetadata({
+          confidence: data.confidence,
+          duration: data.duration,
+          wordCount: data.wordCount,
+          language: data.language === 'en' ? 'English' : data.language
+        });
+        setTranscriptionStatus('ready');
+      } else {
+        throw new Error(response.data.message || 'ASR parsing error');
+      }
+    } catch (err) {
+      console.error('ASR Upload Failure:', err);
+      setAsrError(err.response?.data?.message || err.message || 'AssemblyAI was unable to transcribe this recording. Please re-record.');
+      setTranscriptionStatus('error');
+    }
+  };
+
   const handleSendResponse = async () => {
     if (!speechText.trim()) return;
 
-    if (recognition && isRecording) {
-      recognition.stop();
-      setIsRecording(false);
-    }
-
     const answer = speechText;
     setDialogueHistory(prev => [...prev, { role: 'candidate', text: answer, question: currentPromptQuestion }]);
+    
+    // Reset status and preview box
     setSpeechText('');
+    setTranscriptionStatus('idle');
+    setTranscriptionMetadata(null);
     setInterviewerState('thinking');
 
     try {
-      // Evaluate answer and check for AI follow-up
       const response = await api.post('/interview/evaluate', {
         interviewId,
         question: currentPromptQuestion,
         userAnswer: answer,
-        confidence: 0.90,
-        duration: 25 // Simulated elapsed time
+        confidence: transcriptionMetadata?.confidence || 90,
+        duration: transcriptionMetadata?.duration || 20
       });
 
       if (response.data.success) {
         const payload = response.data.data;
         
-        // If the AI decides a follow-up question is needed to probe deeper
         if (payload.isFollowUpNeeded && payload.followUpQuestion) {
           setCurrentPromptQuestion(payload.followUpQuestion);
           speakQuestion(payload.followUpQuestion);
         } else {
-          // Progress to the next structured profile question
           const nextIndex = currentIdx + 1;
           if (nextIndex < questions.length) {
             setCurrentIdx(nextIndex);
             setCurrentPromptQuestion(questions[nextIndex]);
             speakQuestion(questions[nextIndex]);
           } else {
-            // Completed all questions
             setInterviewerState('speaking');
             setSubtitles("Thank you. I have gathered enough information. Generating your complete report now.");
             handleCompleteInterview();
@@ -200,7 +246,6 @@ export default function InterviewRoom() {
       }
     } catch (err) {
       console.error('Error in evaluation loop:', err);
-      // Failover progression
       const nextIndex = currentIdx + 1;
       if (nextIndex < questions.length) {
         setCurrentIdx(nextIndex);
@@ -242,12 +287,12 @@ export default function InterviewRoom() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 700 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}>
-            <Activity size={12} /> Live transcription active
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#8b5cf6' }}>
+            <Sparkles size={12} /> AssemblyAI HD Speech-to-Text Pipeline
           </span>
           <span>Latency: {latency}</span>
           <span style={{ background: 'var(--color-surface-2)', padding: '0.35rem 0.75rem', borderRadius: '6px', color: 'var(--color-text)' }}>
-            {formatTime(timerCount)}
+            {formatDuration(totalTimerCount)}
           </span>
         </div>
       </header>
@@ -257,7 +302,7 @@ export default function InterviewRoom() {
           <Loader2 size={48} className="animate-spin" color="var(--color-primary)" />
           <div style={{ textAlign: 'center' }}>
             <h3 style={{ margin: 0, color: 'var(--color-text)', fontWeight: 800 }}>Synthesizing Communication Scores...</h3>
-            <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)' }}>Calculating filler word density, tech accuracy index, and career GPS roadmaps.</p>
+            <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)' }}>Calculating speech analytics, grammar accuracy, and active metrics.</p>
           </div>
         </div>
       ) : (
@@ -302,7 +347,7 @@ export default function InterviewRoom() {
 
                 <div style={{ display: 'flex', gap: '0.5rem', background: '#ffffff10', padding: '0.4rem 1.25rem', borderRadius: '99px' }}>
                   <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: interviewerState === 'speaking' ? '#8b5cf6' : interviewerState === 'listening' ? '#10b981' : '#f59e0b' }}>
-                    {interviewerState === 'speaking' ? 'Speaking...' : interviewerState === 'listening' ? 'Listening...' : 'Analyzing answer...'}
+                    {interviewerState === 'speaking' ? 'Speaking...' : interviewerState === 'listening' ? 'Listening...' : 'Thinking...'}
                   </span>
                 </div>
               </div>
@@ -340,65 +385,159 @@ export default function InterviewRoom() {
 
           </div>
 
-          {/* Right panel: Live Transcript Viewer & Editor */}
+          {/* Right panel: Recording Area, Loading States, Review Screen */}
           <div className="glass-card" style={{ padding: '1.5rem', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', paddingBottom: '0.75rem' }}>
+            <div style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: '0.75rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>
-                Response Transcript
+                Response Control
               </h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={startVoiceRecording}
-                  style={{
-                    padding: '0.4rem 0.85rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem',
-                    background: isRecording ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                    border: isRecording ? '1px solid #ef4444' : '1px solid #10b981',
-                    color: isRecording ? '#ef4444' : '#10b981'
-                  }}
-                >
-                  <Mic size={12} />
-                  {isRecording ? 'Listening...' : 'Click to Speak'}
-                </button>
-              </div>
             </div>
 
-            {/* Dialogue list */}
+            {/* Conversation list */}
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.5rem 0' }}>
               {dialogueHistory.length === 0 ? (
-                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
-                  Speak or type your response below. You can verify and edit the text in the preview box before sending.
+                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifycontent: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem', justifyContent: 'center' }}>
+                  Speak your answer by clicking "Record Response" below. Once transcription completes, review and submit.
                 </div>
               ) : (
                 dialogueHistory.map((log, i) => (
                   <div key={i} style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-2)', borderRadius: '12px', borderLeft: '3px solid var(--color-primary)' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary)', display: 'block', marginBottom: '0.2rem' }}>Candidate Response</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary)', display: 'block', marginBottom: '0.2rem' }}>Q{i+1}: {log.question.substring(0, 40)}...</span>
                     <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.4 }}>{log.text}</p>
                   </div>
                 ))
               )}
             </div>
 
-            {/* Editable transcript preview panel */}
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-muted)' }}>EDITABLE TRANSCRIPT PREVIEW</span>
-                {isRecording && <span className="animate-pulse" style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>}
-              </div>
-              <textarea
-                value={speechText}
-                onChange={e => setSpeechText(e.target.value)}
-                placeholder="Transcribing voice input... (or type your response directly here)"
-                style={{ width: '100%', minHeight: '80px', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem 1rem', borderRadius: '12px', outline: 'none', fontSize: '0.9rem', resize: 'vertical', fontFamily: 'inherit' }}
-              />
-              <button 
-                onClick={handleSendResponse} 
-                disabled={!speechText.trim()}
-                className="btn-primary" 
-                style={{ width: '100%', padding: '0.85rem', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-              >
-                <Send size={16} /> Submit Answer
-              </button>
+            {/* Action workspace */}
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              
+              {asrError && (
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: '8px', color: '#ef4444', fontSize: '0.8rem' }}>
+                  <AlertCircle size={16} style={{ shrink: 0 }} />
+                  <span>{asrError}</span>
+                </div>
+              )}
+
+              {/* Status Indicator */}
+              {transcriptionStatus !== 'idle' && transcriptionStatus !== 'ready' && transcriptionStatus !== 'error' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--color-surface-2)', padding: '1rem', borderRadius: '12px', alignItems: 'center' }}>
+                  <Loader2 size={24} className="animate-spin" color="var(--color-primary)" />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                    {transcriptionStatus === 'uploading' && 'Uploading audio to AssemblyAI...'}
+                    {transcriptionStatus === 'transcribing' && 'Transcribing audio buffer...'}
+                  </span>
+                </div>
+              )}
+
+              {/* Review Screen */}
+              {transcriptionStatus === 'ready' && transcriptionMetadata && (
+                <div style={{ background: 'var(--color-surface-2)', padding: '1.25rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--color-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <CheckCircle size={12} /> TRANSCRIPT READY
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>You can edit text before submitting</span>
+                  </div>
+
+                  <textarea
+                    value={speechText}
+                    onChange={e => setSpeechText(e.target.value)}
+                    style={{ width: '100%', minHeight: '90px', background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem', borderRadius: '10px', fontSize: '0.85rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+
+                  {/* Metadata display */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', fontSize: '0.7rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
+                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
+                      <div style={{ fontWeight: 800, color: '#8b5cf6' }}>{transcriptionMetadata.confidence}%</div>
+                      <div>Confidence</div>
+                    </div>
+                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
+                      <div style={{ fontWeight: 800, color: '#06b6d4' }}>{formatDuration(transcriptionMetadata.duration)}</div>
+                      <div>Duration</div>
+                    </div>
+                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
+                      <div style={{ fontWeight: 800, color: '#f59e0b' }}>{transcriptionMetadata.wordCount}</div>
+                      <div>Words</div>
+                    </div>
+                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
+                      <div style={{ fontWeight: 800, color: 'var(--color-text)' }}>{transcriptionMetadata.language}</div>
+                      <div>Language</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button 
+                      onClick={handleSendResponse} 
+                      className="btn-primary" 
+                      style={{ padding: '0.75rem', borderRadius: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '0.25rem', fontSize: '0.8rem', justifyContent: 'center' }}
+                    >
+                      <CheckCircle2 size={14} /> Submit Answer
+                    </button>
+                    <button 
+                      onClick={startVoiceRecording} 
+                      className="btn-ghost" 
+                      style={{ padding: '0.75rem', borderRadius: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '0.25rem', border: '1px solid var(--color-border)', fontSize: '0.8rem', justifyContent: 'center' }}
+                    >
+                      <RefreshCw size={12} /> Re-record
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Record buttons */}
+              {transcriptionStatus !== 'uploading' && transcriptionStatus !== 'transcribing' && transcriptionStatus !== 'ready' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  
+                  {isRecording && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface-2)', padding: '0.75rem 1rem', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="animate-ping" style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'white' }}>🎤 Recording Answer...</span>
+                      </div>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#ef4444', fontFamily: 'monospace' }}>{formatDuration(recordingDuration)}</span>
+                    </div>
+                  )}
+
+                  {isRecording ? (
+                    <button 
+                      onClick={stopRecording} 
+                      className="btn-primary" 
+                      style={{ width: '100%', padding: '0.85rem', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#ef4444', border: '1px solid #ef4444' }}
+                    >
+                      <Check size={16} /> Stop & Transcribe
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={startRecording} 
+                      className="btn-primary" 
+                      style={{ width: '100%', padding: '0.85rem', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      <Mic size={16} /> Record Response
+                    </button>
+                  )}
+
+                  {/* Typing input alternative fallback */}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <input 
+                      value={speechText}
+                      onChange={e => setSpeechText(e.target.value)}
+                      placeholder="Or type your answer directly here..."
+                      style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.65rem 0.85rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem' }}
+                      onKeyDown={e => { if (e.key === 'Enter') { setTranscriptionStatus('ready'); setTranscriptionMetadata({ confidence: 100, duration: 15, wordCount: speechText.trim().split(/\s+/).length, language: 'English' }); } }}
+                    />
+                    <button 
+                      onClick={() => { if (speechText.trim()) { setTranscriptionStatus('ready'); setTranscriptionMetadata({ confidence: 100, duration: 15, wordCount: speechText.trim().split(/\s+/).length, language: 'English' }); } }} 
+                      className="btn-primary" 
+                      style={{ padding: '0 0.85rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700 }}
+                    >
+                      Type Preview
+                    </button>
+                  </div>
+
+                </div>
+              )}
+
             </div>
           </div>
 

@@ -2,22 +2,20 @@
  * ASR (Automatic Speech Recognition) Service
  *
  * Provides a provider-abstracted transcription pipeline with:
- *  - Deepgram as the primary cloud provider
+ *  - AssemblyAI as the primary cloud provider
+ *  - Deepgram as the secondary cloud provider
  *  - OpenAI Whisper as the fallback cloud provider
  *  - BrowserTranscriptProvider for zero-config operation (uses browser-captured text)
  *  - Technical vocabulary boosting for software engineering interviews
  *  - Speech analytics (WPM, filler words, pause frequency)
  */
 
+const { AssemblyAI } = require('assemblyai');
+
 // ---------------------------------------------------------------------------
 // Technical Vocabulary Booster
 // ---------------------------------------------------------------------------
 
-/**
- * TechnicalVocabularyBooster corrects common ASR mis-transcriptions of
- * technical terms by running a case-insensitive replacement pass over the
- * raw transcript.
- */
 class TechnicalVocabularyBooster {
   constructor() {
     this.vocabularyLists = {
@@ -41,7 +39,6 @@ class TechnicalVocabularyBooster {
       ]
     };
 
-    // Build a flat lookup map: lowercased term -> canonical form
     this._canonicalMap = new Map();
     for (const category of Object.values(this.vocabularyLists)) {
       for (const term of category) {
@@ -50,37 +47,21 @@ class TechnicalVocabularyBooster {
     }
   }
 
-  /**
-   * Boost a transcript by replacing mis-cased or mis-spaced technical terms
-   * with their canonical forms.
-   *
-   * @param {string} text - Raw transcript text
-   * @returns {string} Boosted transcript
-   */
   boost(text) {
     if (!text) return text;
-
     let boosted = text;
-
-    // Sort terms longest-first so multi-word terms match before their parts
     const sortedTerms = [...this._canonicalMap.entries()].sort(
       (a, b) => b[0].length - a[0].length
     );
 
     for (const [lower, canonical] of sortedTerms) {
-      // Use word-boundary-aware regex so we don't replace partial matches
       const escaped = lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = new RegExp(`\\b${escaped}\\b`, 'gi');
       boosted = boosted.replace(pattern, canonical);
     }
-
     return boosted;
   }
 
-  /**
-   * Return all vocabulary terms as a flat array (useful for provider hints).
-   * @returns {string[]}
-   */
   getAllTerms() {
     const terms = [];
     for (const category of Object.values(this.vocabularyLists)) {
@@ -95,7 +76,6 @@ class TechnicalVocabularyBooster {
 // ---------------------------------------------------------------------------
 
 const FILLER_PATTERNS = [
-  // Multi-word fillers must come first so they are matched before singles
   { pattern: /\byou know\b/gi, label: 'you know' },
   { pattern: /\bsort of\b/gi, label: 'sort of' },
   { pattern: /\bkind of\b/gi, label: 'kind of' },
@@ -106,17 +86,7 @@ const FILLER_PATTERNS = [
   { pattern: /\buh\b/gi, label: 'uh' }
 ];
 
-/**
- * SpeechAnalytics computes quantitative metrics from a transcript.
- */
 class SpeechAnalytics {
-  /**
-   * Analyse a transcript string.
-   *
-   * @param {string} text     - The transcript text to analyse
-   * @param {number} duration - Speaking duration in seconds
-   * @returns {{ wordsSpoken: number, speakingSpeed: number, fillerWords: string[], fillerWordCount: number, pauseFrequency: number }}
-   */
   static analyse(text, duration = 0) {
     if (!text || typeof text !== 'string') {
       return {
@@ -128,22 +98,17 @@ class SpeechAnalytics {
       };
     }
 
-    // Word count — split on whitespace, filter empties
     const words = text.trim().split(/\s+/).filter(Boolean);
     const wordsSpoken = words.length;
-
-    // Speaking speed (words per minute)
     const durationMinutes = duration > 0 ? duration / 60 : 0;
     const speakingSpeed = durationMinutes > 0
       ? Math.round((wordsSpoken / durationMinutes) * 10) / 10
       : 0;
 
-    // Filler word detection
     const fillerWords = [];
     let fillerWordCount = 0;
 
     for (const { pattern, label } of FILLER_PATTERNS) {
-      // Reset regex state (global flag)
       pattern.lastIndex = 0;
       const matches = text.match(pattern);
       if (matches && matches.length > 0) {
@@ -152,7 +117,6 @@ class SpeechAnalytics {
       }
     }
 
-    // Pause frequency — estimated as filler-word density per minute
     const pauseFrequency = durationMinutes > 0
       ? Math.round((fillerWordCount / durationMinutes) * 10) / 10
       : 0;
@@ -172,43 +136,74 @@ class SpeechAnalytics {
 // ---------------------------------------------------------------------------
 
 /**
- * BrowserTranscriptProvider — works without any external API keys.
- * Accepts the transcript text already captured by the browser's Web Speech
- * API and enriches it with vocabulary boosting + analytics.
+ * AssemblyAIProvider — primary speech-to-text cloud provider.
  */
+class AssemblyAIProvider {
+  constructor() {
+    this.name = 'assemblyai';
+    this.apiKey = process.env.ASSEMBLYAI_API_KEY || '9f41c789c7fc4f32b3c26c62cc23c1db';
+    this.client = new AssemblyAI({ apiKey: this.apiKey });
+    this._booster = new TechnicalVocabularyBooster();
+  }
+
+  async transcribe(audioBuffer, options = {}) {
+    if (!audioBuffer) {
+      throw new Error('Audio data buffer is required for AssemblyAI transcription.');
+    }
+
+    // Run transcription via AssemblyAI SDK upload + transcribe
+    const transcriptResponse = await this.client.transcripts.transcribe({
+      audio: audioBuffer,
+      punctuate: true,
+      format_text: true,
+      word_boost: this._booster.getAllTerms(),
+      boost_param: 'high',
+      language_detection: true,
+      speaker_labels: true,
+      entity_detection: false
+    });
+
+    if (transcriptResponse.status === 'error') {
+      throw new Error(`AssemblyAI Error: ${transcriptResponse.error}`);
+    }
+
+    const rawTranscript = transcriptResponse.text || '';
+    const transcript = this._booster.boost(rawTranscript);
+    const duration = transcriptResponse.audio_duration || options.duration || 0;
+    const analytics = SpeechAnalytics.analyse(transcript, duration);
+
+    return {
+      transcript,
+      confidence: transcriptResponse.confidence || 0.90,
+      language: transcriptResponse.language_code || 'en',
+      duration,
+      analytics,
+      words: transcriptResponse.words || [],
+      wordCount: analytics.wordsSpoken,
+      speakingDuration: duration
+    };
+  }
+}
+
 class BrowserTranscriptProvider {
   constructor() {
     this.name = 'browser';
     this._booster = new TechnicalVocabularyBooster();
   }
 
-  /**
-   * @param {Buffer|null} _audioBuffer - Unused (browser already did STT)
-   * @param {{ browserTranscript?: string, duration?: number, language?: string }} options
-   * @returns {Promise<{ transcript: string, confidence: number, language: string, duration: number, analytics: object }>}
-   */
   async transcribe(_audioBuffer, options = {}) {
     const raw = options.browserTranscript || '';
     const duration = options.duration || 0;
     const language = options.language || 'en';
 
-    // Boost technical terms
     const transcript = this._booster.boost(raw);
-
-    // Compute analytics
     const analytics = SpeechAnalytics.analyse(transcript, duration);
-
-    // Confidence is set to a reasonable baseline for browser STT
     const confidence = raw.length > 0 ? 0.85 : 0;
 
-    return { transcript, confidence, language, duration, analytics };
+    return { transcript, confidence, language, duration, analytics, words: [], wordCount: analytics.wordsSpoken, speakingDuration: duration };
   }
 }
 
-/**
- * DeepgramProvider — primary cloud ASR provider.
- * Requires DEEPGRAM_API_KEY environment variable.
- */
 class DeepgramProvider {
   constructor() {
     this.name = 'deepgram';
@@ -216,10 +211,6 @@ class DeepgramProvider {
     this._booster = new TechnicalVocabularyBooster();
   }
 
-  /**
-   * @param {Buffer} audioBuffer
-   * @param {{ language?: string, duration?: number }} options
-   */
   async transcribe(audioBuffer, options = {}) {
     if (!this.apiKey) {
       throw new Error('DEEPGRAM_API_KEY is not configured');
@@ -227,7 +218,6 @@ class DeepgramProvider {
 
     const https = require('https');
     const language = options.language || 'en';
-
     const keywords = this._booster.getAllTerms().map(t => `${t}:2`).join('&keywords=');
 
     const requestOptions = {
@@ -265,15 +255,14 @@ class DeepgramProvider {
       confidence: alt.confidence || 0,
       language,
       duration,
-      analytics
+      analytics,
+      words: alt.words || [],
+      wordCount: analytics.wordsSpoken,
+      speakingDuration: duration
     };
   }
 }
 
-/**
- * OpenAIWhisperProvider — fallback cloud ASR provider.
- * Requires OPENAI_API_KEY environment variable.
- */
 class OpenAIWhisperProvider {
   constructor() {
     this.name = 'whisper';
@@ -281,10 +270,6 @@ class OpenAIWhisperProvider {
     this._booster = new TechnicalVocabularyBooster();
   }
 
-  /**
-   * @param {Buffer} audioBuffer
-   * @param {{ language?: string, duration?: number }} options
-   */
   async transcribe(audioBuffer, options = {}) {
     if (!this.apiKey) {
       throw new Error('OPENAI_API_KEY is not configured');
@@ -293,7 +278,6 @@ class OpenAIWhisperProvider {
     const https = require('https');
     const language = options.language || 'en';
 
-    // Build multipart/form-data manually
     const boundary = '----ASRServiceBoundary' + Date.now();
     const preamble = [
       `--${boundary}`,
@@ -358,10 +342,13 @@ class OpenAIWhisperProvider {
 
     return {
       transcript,
-      confidence: 0.9, // Whisper doesn't return per-utterance confidence
+      confidence: 0.9,
       language,
       duration,
-      analytics
+      analytics,
+      words: [],
+      wordCount: analytics.wordsSpoken,
+      speakingDuration: duration
     };
   }
 }
@@ -371,6 +358,7 @@ class OpenAIWhisperProvider {
 // ---------------------------------------------------------------------------
 
 const PROVIDER_MAP = {
+  assemblyai: AssemblyAIProvider,
   deepgram: DeepgramProvider,
   whisper: OpenAIWhisperProvider,
   browser: BrowserTranscriptProvider
@@ -384,18 +372,11 @@ function createProvider(name) {
   return new Provider();
 }
 
-// ---------------------------------------------------------------------------
-// ASR Service (main entry point)
-// ---------------------------------------------------------------------------
-
 class ASRService {
-  /**
-   * @param {{ primaryProvider?: string, fallbackProvider?: string }} config
-   */
   constructor(config = {}) {
     this.primaryName = config.primaryProvider
       || process.env.ASR_PRIMARY_PROVIDER
-      || 'browser';
+      || 'assemblyai';
     this.fallbackName = config.fallbackProvider
       || process.env.ASR_FALLBACK_PROVIDER
       || 'browser';
@@ -404,14 +385,6 @@ class ASRService {
     this.fallback = createProvider(this.fallbackName);
   }
 
-  /**
-   * Transcribe audio (or enhance a browser transcript) with automatic
-   * fallback if the primary provider fails.
-   *
-   * @param {Buffer|null} audioBuffer - Raw audio data (null when using browser provider)
-   * @param {{ browserTranscript?: string, duration?: number, language?: string }} options
-   * @returns {Promise<{ transcript: string, confidence: number, language: string, duration: number, analytics: object }>}
-   */
   async transcribe(audioBuffer, options = {}) {
     try {
       const result = await this.primary.transcribe(audioBuffer, options);
@@ -437,14 +410,11 @@ class ASRService {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
-
 module.exports = {
   ASRService,
   TechnicalVocabularyBooster,
   SpeechAnalytics,
+  AssemblyAIProvider,
   BrowserTranscriptProvider,
   DeepgramProvider,
   OpenAIWhisperProvider
