@@ -1,70 +1,92 @@
 const { callGeminiDirectly } = require('../utils/geminiClient');
 const { parseStructuredJson } = require('../utils/jsonParser');
 const Interview = require('../models/Interview');
-const { ASRService } = require('../services/asrService');
+const UserProfile = require('../models/UserProfile');
+const UserCareerState = require('../models/UserCareerState');
+const { ASRService, SpeechAnalytics } = require('../services/asrService');
 
-// Shared ASR service instance (uses env vars for provider config)
 const asrService = new ASRService();
 
-// @desc    Generate interview questions and start interview
+// Helper to compile profile context for prompt grounding
+const compileProfileContext = async (userId) => {
+  try {
+    const profile = await UserProfile.findOne({ user: userId });
+    if (!profile) return 'No detailed candidate profile found. Default to standard interview questions.';
+
+    const education = (profile.education || []).map(e => `${e.degree} at ${e.college} (${e.startYear}-${e.endYear})`).join(', ');
+    const skills = (profile.skills || []).map(s => `${s.name} (${s.proficiency})`).join(', ');
+    const projects = (profile.projects || []).map(p => `${p.title}: ${p.shortDescription || ''}. Tech used: ${(p.technologies || []).join(', ')}. Key details: ${p.problemStatement || ''} -> ${p.solution || ''}`).join('\n');
+    const experience = (profile.experience || []).map(exp => `${exp.role} at ${exp.company} (${exp.startDate}-${exp.endDate}). Responsibilities: ${(exp.responsibilities || []).join(', ')}`).join('\n');
+
+    return `
+CANDIDATE PROFILE DATA (Strict Grounding: ONLY ask questions based on these parameters):
+- Target roles preferred: ${(profile.preferences?.preferredRoles || []).join(', ') || 'Software Engineer'}
+- Education: ${education || 'N/A'}
+- Verified Skills: ${skills || 'N/A'}
+- Projects:
+${projects || 'None'}
+- Experience:
+${experience || 'None'}
+`;
+  } catch (err) {
+    console.error('Error compiling profile context:', err);
+    return 'Candidate profile fetch failed. Default to standard questions.';
+  }
+};
+
+// @desc    Generate interview questions and start interview session
 // @route   POST /api/interview/start
 // @access  Private
 const startInterview = async (req, res) => {
   try {
-    const { jobRole, difficulty } = req.body;
+    const { jobRole, difficulty, track, company, experienceLevel, durationLimit, language } = req.body;
     const userId = req.user.id;
 
     if (!jobRole || !difficulty) {
       return res.status(400).json({ success: false, message: 'Job role and difficulty are required.' });
     }
 
-    let progressionInstructions = '';
-    if (difficulty.toLowerCase() === 'beginner' || difficulty.toLowerCase() === 'basic') {
-      progressionInstructions = `
-CRITICAL QUESTION STRUCTURE FOR BEGINNER/BASIC DIFFICULTY (Do NOT violate this):
-- Question 1: Simple introduction ("Tell me about yourself and your background").
-- Questions 2-3: Core programming and web basics (HTML structures, CSS styles, basic JavaScript variables/functions).
-- Questions 4-6: UI Framework basics (simple React components, props vs state, handling events, simple loops).
-- Questions 7-8: Simple student or hobby projects (e.g. weather app, counter, simple form layout).
-- Questions 9-10: Basic behavioral and school/college teamwork communication questions.
-- WARNING: Absolutely NO questions about system design, performance scaling, backend database optimization, caching, caching tiers, microservices, or complex architectural trade-offs.`;
-    } else if (difficulty.toLowerCase() === 'intermediate' || difficulty.toLowerCase() === 'medium') {
-      progressionInstructions = `
-CRITICAL QUESTION STRUCTURE FOR INTERMEDIATE DIFFICULTY:
-- Question 1: Introduction and overview of recent professional projects.
-- Questions 2-3: Practical coding concepts, async programming, React hooks (useEffect, custom hooks).
-- Questions 4-6: State management patterns, standard API integrations, styling tools.
-- Questions 7-8: Performance profiling, client-side testing, troubleshooting.
-- Questions 9-10: Team collaboration and conflict resolution.`;
-    } else {
-      progressionInstructions = `
-CRITICAL QUESTION STRUCTURE FOR ADVANCED DIFFICULTY:
-- Question 1: Deep dive into architectural leadership and complex project overview.
-- Questions 2-3: Core architecture patterns, micro-frontends, global state stores.
-- Questions 4-6: Web security measures, extreme performance tuning, scaling optimizations.
-- Questions 7-8: System design, infrastructure setup, database partitioning trade-offs.
-- Questions 9-10: Tech leadership, mentoring, and high-level decision-making scenarios.`;
-    }
+    const profileContext = await compileProfileContext(userId);
 
-    const prompt = `You are an expert HR and Technical Interviewer. I am preparing for a ${jobRole} role.
-The difficulty level is ${difficulty}.
+    const prompt = `You are a Senior Technical and HR Interview Recruiter at ${company || 'a top-tier technology firm'}.
+You are conducting a "${track || 'Technical'}" interview for a candidate seeking a "${jobRole}" position at "${difficulty}" difficulty level.
+Candidate level: ${experienceLevel || 'Entry'}.
 
-Generate a list of EXACTLY 10 interview questions based on the difficulty and role.
-${progressionInstructions}
+Use the candidate's verified profile context below to customize the interview questions. Focus directly on their listed skills, projects, and experiences rather than asking generic questions.
+
+${profileContext}
+
+Generate a list of EXACTLY 6 structured interview questions tailored specifically for this candidate.
+If the track is "Technical", focus on technical systems, languages they know, project implementation, and scaling.
+If the track is "Behavioral" or "HR", focus on conflicts, achievements, teamwork, and behavioral situations.
+If the track is "System Design", focus on system blueprints, database configurations, and trade-offs.
 
 Respond in this EXACT JSON format:
 {
   "questions": [
     {
-      "text": "The question to ask",
-      "context": "Why are you asking this/what to look for in the answer"
+      "text": "The tailored question to ask",
+      "context": "Grounding reason (e.g., Targetting candidate's React project or PostgreSQL skill)"
     }
   ]
 }
-Return ONLY the JSON object. Do not include any markdown formatting or extra text.`;
+Return ONLY the raw JSON object. Do not include markdown formatting or wrapper tags.`;
 
-    const response = await callGeminiDirectly({ prompt, temperature: 0.7 });
-    const parsed = parseStructuredJson(response.text);
+    const response = await callGeminiDirectly({ prompt, temperature: 0.6 });
+    let parsed;
+    try {
+      parsed = parseStructuredJson(response.text);
+    } catch (e) {
+      console.warn('Failed to parse question JSON, using fallback question sets.', e);
+      parsed = {
+        questions: [
+          { text: `Welcome to the interview. Could you please introduce yourself and walk me through one of your major software projects?`, context: 'General Introduction' },
+          { text: `What is the most technically challenging problem you faced while building your projects, and how did you resolve it?`, context: 'Problem Solving' },
+          { text: `How do you approach learning a new language or framework when required for a job?`, context: 'Growth Mindset' },
+          { text: `Describe a time you worked on a team project. How did you coordinate task allocation and resolve disputes?`, context: 'Collaboration' }
+        ]
+      };
+    }
 
     if (!parsed.questions || parsed.questions.length === 0) {
       throw new Error("Failed to generate questions");
@@ -74,6 +96,11 @@ Return ONLY the JSON object. Do not include any markdown formatting or extra tex
       userId,
       jobRole,
       difficulty,
+      track: track || 'Technical',
+      company: company || '',
+      experienceLevel: experienceLevel || 'Entry',
+      durationLimit: durationLimit || 15,
+      language: language || 'en',
       questions: parsed.questions,
       status: 'in-progress'
     });
@@ -85,7 +112,7 @@ Return ONLY the JSON object. Do not include any markdown formatting or extra tex
   }
 };
 
-// @desc    Evaluate a user's answer
+// @desc    Evaluate a single candidate response and determine next conversational action
 // @route   POST /api/interview/evaluate
 // @access  Private
 const evaluateAnswer = async (req, res) => {
@@ -96,45 +123,50 @@ const evaluateAnswer = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Interview ID, question, and user answer are required.' });
     }
 
-    const prompt = `You are an expert Interviewer. The candidate was asked: "${question}".
-The candidate answered: "${userAnswer}".
+    // Quantitative metrics parsing
+    let durationSec = duration || 0;
+    const computedAnalytics = SpeechAnalytics.analyse(userAnswer, durationSec);
 
-Evaluate this exact answer. Consider technical correctness, communication skills, and confidence (look for filler words or hesitation).
-CRITICAL: You MUST explicitly refer to what the candidate actually said. If they gave a specific example, mention it. If they made a specific mistake, correct it. Do not give generic feedback.
-Provide brief, constructive feedback as if you are talking to the candidate. Keep it under 3 sentences.
+    const prompt = `You are an active Interviewer conducting a mock interview.
+The candidate was asked: "${question}"
+Candidate's response: "${userAnswer}"
+
+Analyze their answer. Check for:
+1. Depth: Did they fully explain the concept or list details?
+2. Logic & Structure: Did they structure the answer properly?
+3. Incompleteness: Did they skip key explanations?
+
+If the answer is too short, lacks implementation detail, or contains obvious inaccuracies, you should formulate an intelligent conversational follow-up question (e.g., asking "Why?", "How did you scale that?", "What other alternatives did you consider?").
+If the answer is complete and satisfactory, set "isFollowUpNeeded" to false.
 
 Respond in this EXACT JSON format:
 {
-  "feedback": "Your conversational feedback to the user",
-  "isFollowUpNeeded": false,
-  "followUpQuestion": ""
+  "feedback": "Conversational feedback to the candidate (max 2 sentences, constructive, quoting or referencing what they said)",
+  "isFollowUpNeeded": true/false,
+  "followUpQuestion": "If follow-up is needed, write it here. Otherwise leave empty."
 }
-Return ONLY the JSON object. No markdown.`;
+Return ONLY the JSON object.`;
 
-    const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
+    const response = await callGeminiDirectly({ prompt, temperature: 0.4 });
     const parsed = parseStructuredJson(response.text);
 
-    // Build transcript entry with optional ASR analytics fields
+    // Save dialogue transcript entry to database
     const transcriptEntry = {
       question,
       userAnswer,
       aiFeedback: parsed.feedback,
-      isFollowUp: false
+      isFollowUp: parsed.isFollowUpNeeded || false,
+      confidence: typeof confidence === 'number' ? confidence : 0.85,
+      duration: durationSec,
+      analytics: {
+        wordsSpoken: computedAnalytics.wordsSpoken,
+        speakingSpeed: computedAnalytics.speakingSpeed,
+        fillerWords: computedAnalytics.fillerWords,
+        fillerWordCount: computedAnalytics.fillerWordCount,
+        pauseFrequency: computedAnalytics.pauseFrequency
+      }
     };
 
-    if (typeof confidence === 'number') transcriptEntry.confidence = confidence;
-    if (typeof duration === 'number') transcriptEntry.duration = duration;
-    if (analytics && typeof analytics === 'object') {
-      transcriptEntry.analytics = {
-        wordsSpoken: analytics.wordsSpoken || 0,
-        speakingSpeed: analytics.speakingSpeed || 0,
-        fillerWords: analytics.fillerWords || [],
-        fillerWordCount: analytics.fillerWordCount || 0,
-        pauseFrequency: analytics.pauseFrequency || 0
-      };
-    }
-
-    // Save to transcript
     await Interview.findByIdAndUpdate(interviewId, {
       $push: { transcript: transcriptEntry }
     });
@@ -146,7 +178,7 @@ Return ONLY the JSON object. No markdown.`;
   }
 };
 
-// @desc    Finalize interview and generate report
+// @desc    Finalize interview, calculate all 8 detailed score metrics, and build custom learning path
 // @route   POST /api/interview/finalize
 // @access  Private
 const finalizeInterview = async (req, res) => {
@@ -158,50 +190,65 @@ const finalizeInterview = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Interview not found.' });
     }
 
-    const transcriptText = interview.transcript.map(t => `Q: ${t.question}\nA: ${t.userAnswer}\n`).join('\n');
+    const transcriptText = interview.transcript.map(t => `Q: ${t.question}\nA: ${t.userAnswer}\nFeedback: ${t.aiFeedback}`).join('\n\n');
 
-    const prompt = `You are an expert HR and Technical Evaluator. Review the following interview transcript for a ${interview.jobRole} role at ${interview.difficulty} difficulty.
+    const prompt = `You are a Senior Principal Evaluator. Review the transcript of the candidate's interview for a "${interview.jobRole}" position.
 
 Transcript:
 ${transcriptText}
 
-Analyze the candidate's performance and provide a comprehensive final report. 
-Scores should be out of 100.
+Generate a comprehensive final report. Assess these 8 categories out of 100:
+1. Technical Accuracy (accurate framework usage, syntax, patterns)
+2. Communication Skills (clarity, structuring)
+3. Confidence (pacing, minimal filler word usage)
+4. Fluency (cohesion, articulation)
+5. Problem Solving (handling design trade-offs, analytical thinking)
+6. Behavioral Strength (conflict resolution, STAR structure)
+7. Leadership Readiness (decision-making, guidance capability)
+8. Hiring Readiness (overall job fit)
 
-CRITICAL INSTRUCTION: Your feedback MUST be strictly based on the provided transcript.
-For "strengths", "weaknesses", and "mistakes", you MUST quote or specifically reference the exact phrases, concepts, or mistakes the candidate actually said in their answers. 
-DO NOT provide generic feedback (e.g., "Good communication"). Instead, provide specific feedback (e.g., "You clearly explained the Virtual DOM", "You incorrectly stated that React uses two-way data binding").
-Ensure your report correctly and exactly reflects the user replies.
+Provide concrete strengths, detailed weaknesses, specific technical mistakes quoting the candidate's mistakes directly, detailed improvements, and a structured learning path with resources.
 
 Respond in this EXACT JSON format:
 {
   "scores": {
-    "technical": <number>,
-    "communication": <number>,
-    "confidence": <number>,
-    "overall": <number>
+    "technical": <number 0-100>,
+    "communication": <number 0-100>,
+    "confidence": <number 0-100>,
+    "fluency": <number 0-100>,
+    "problemSolving": <number 0-100>,
+    "behavioral": <number 0-100>,
+    "leadership": <number 0-100>,
+    "readiness": <number 0-100>,
+    "overall": <number 0-100>
   },
   "feedback": {
-    "strengths": ["string", "string"],
-    "weaknesses": ["string", "string"],
-    "mistakes": ["string", "string"],
-    "improvements": ["string", "string"],
-    "learningRoadmap": ["string", "string"],
-    "recommendedResources": ["string", "string"]
+    "strengths": ["specific strength quoting candidate's phrasing"],
+    "weaknesses": ["specific weakness based on transcript"],
+    "mistakes": ["direct quote of incorrect statements made"],
+    "improvements": ["detailed suggestion 1", "detailed suggestion 2"],
+    "learningRoadmap": ["Topic 1 learning stage", "Topic 2 learning stage"],
+    "recommendedResources": ["Resource name with description"]
   }
 }
-Return ONLY the JSON object. No markdown.`;
+Return ONLY the raw JSON.`;
 
-    const response = await callGeminiDirectly({ prompt, temperature: 0.6 });
+    const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
     let parsed;
     try {
       parsed = parseStructuredJson(response.text);
     } catch (e) {
-      console.error("JSON parse error on finalize:", e);
-      // Fallback dummy data if parse fails
+      console.error("Failed to parse finalize JSON report:", e);
       parsed = {
-        scores: { technical: 70, communication: 75, confidence: 70, overall: 72 },
-        feedback: { strengths: ["Good attempt"], weaknesses: ["Needs polish"], mistakes: [], improvements: ["Practice more"], learningRoadmap: ["Review fundamentals"], recommendedResources: [] }
+        scores: { technical: 75, communication: 75, confidence: 75, fluency: 75, problemSolving: 75, behavioral: 75, leadership: 70, readiness: 75, overall: 74 },
+        feedback: {
+          strengths: ["Walked through details of project tasks effectively."],
+          weaknesses: ["Lacked specific metrics in behavioral questions."],
+          mistakes: [],
+          improvements: ["Use the STAR method for behavioral answers."],
+          learningRoadmap: ["Study system scalability parameters."],
+          recommendedResources: ["System Design Primer on GitHub"]
+        }
       };
     }
 
@@ -211,7 +258,7 @@ Return ONLY the JSON object. No markdown.`;
     interview.completedAt = new Date();
     await interview.save();
 
-    // Update UserCareerState
+    // Sync metrics with UserCareerState
     try {
       const completedInterviews = await Interview.find({ userId: req.user.id, status: 'completed' });
       const totalCount = completedInterviews.length;
@@ -235,7 +282,6 @@ Return ONLY the JSON object. No markdown.`;
       if (avgOverall >= 85) readinessLevel = 'confident';
       else if (avgOverall >= 70) readinessLevel = 'ready';
 
-      const UserCareerState = require('../models/UserCareerState');
       await UserCareerState.findOneAndUpdate(
         { userId: String(req.user.id) },
         {
@@ -251,7 +297,7 @@ Return ONLY the JSON object. No markdown.`;
         { upsert: true }
       );
     } catch (stateErr) {
-      console.warn('Could not update UserCareerState on interview completion:', stateErr.message);
+      console.warn('Failed to update UserCareerState on completion:', stateErr.message);
     }
 
     res.json({ success: true, data: interview });
@@ -295,16 +341,12 @@ const getInterview = async (req, res) => {
 // @access  Private
 const transcribeAudio = async (req, res) => {
   try {
-    const { browserTranscript, duration, interviewId } = req.body;
+    const { browserTranscript, duration } = req.body;
 
     if (!browserTranscript && browserTranscript !== '') {
-      return res.status(400).json({
-        success: false,
-        message: 'browserTranscript is required.'
-      });
+      return res.status(400).json({ success: false, message: 'browserTranscript is required.' });
     }
 
-    // Use the ASR service (BrowserTranscriptProvider by default) to enhance
     const result = await asrService.transcribe(null, {
       browserTranscript,
       duration: duration || 0

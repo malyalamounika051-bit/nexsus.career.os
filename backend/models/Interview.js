@@ -15,6 +15,28 @@ const interviewSchema = new mongoose.Schema({
     enum: ['Basic', 'Medium', 'Tough'],
     default: 'Medium'
   },
+  track: {
+    type: String,
+    enum: ['Technical', 'Behavioral', 'System Design', 'HR', 'Coding', 'Managerial', 'Case Study', 'Product', 'Group Discussion', 'Leadership', 'Company-Specific'],
+    default: 'Technical'
+  },
+  company: {
+    type: String,
+    default: ''
+  },
+  experienceLevel: {
+    type: String,
+    enum: ['Intern', 'Entry', 'Mid', 'Senior'],
+    default: 'Entry'
+  },
+  durationLimit: {
+    type: Number,
+    default: 15
+  },
+  language: {
+    type: String,
+    default: 'en'
+  },
   questions: [{
     text: String,
     context: String
@@ -39,6 +61,11 @@ const interviewSchema = new mongoose.Schema({
     technical: { type: Number, default: 0 },
     communication: { type: Number, default: 0 },
     confidence: { type: Number, default: 0 },
+    fluency: { type: Number, default: 0 },
+    problemSolving: { type: Number, default: 0 },
+    behavioral: { type: Number, default: 0 },
+    leadership: { type: Number, default: 0 },
+    readiness: { type: Number, default: 0 },
     overall: { type: Number, default: 0 }
   },
   feedback: {
