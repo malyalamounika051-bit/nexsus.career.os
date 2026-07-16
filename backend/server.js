@@ -87,7 +87,7 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/api/health', async (req, res) => {
-  const uri = process.env.MONGO_URI || 'mongodb+srv://malyalamounika0:Mounika%401234567890@cluster0.naruycx.mongodb.net/nexus_career_os?retryWrites=true&w=majority&appName=Cluster0';
+  const uri = process.env.MONGO_URI;
   let connectionError = null;
   try {
     if (mongoose.connection.readyState !== 1) {
