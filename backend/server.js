@@ -1,5 +1,4 @@
-// Force Nodemon Reload: Fix for OpenSSL TLS alert 80 on Windows with MongoDB Atlas
-// Triggering backend Vercel deployment after connecting repository
+// Force Vercel rebuild to pick up new MONGO_URI environment variable configurations.
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 require('dotenv').config();
 const express = require('express');
