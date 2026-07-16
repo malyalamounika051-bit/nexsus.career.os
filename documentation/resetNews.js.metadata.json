@@ -1,0 +1,4 @@
+{
+  "summary":  "Scratch script to connect to MongoDB, wipe the cached CareerPulseNews collection, and execute a fresh RSS feed sync to fetch active career stories.",
+  "updatedAt":  "2026-07-14T06:13:56.761763200Z"
+}

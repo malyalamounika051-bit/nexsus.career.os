@@ -1,0 +1,5 @@
+{
+  "summary":  "Backend Architecture detailing route structures, database controllers, failover chains, and connection pooling.",
+  "updatedAt":  "2026-07-16T06:47:36.082644200Z",
+  "userFacing":  true
+}

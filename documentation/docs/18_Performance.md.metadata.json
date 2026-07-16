@@ -1,0 +1,5 @@
+{
+  "summary":  "Performance optimization plans covering database pooling, query caches, and payload size controls.",
+  "updatedAt":  "2026-07-16T06:47:58.022802400Z",
+  "userFacing":  true
+}
