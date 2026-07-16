@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const CareerPulseNews = require('../models/CareerPulseNews');
 const SaraInsight = require('../models/SaraInsight');
 const quotes = require('../utils/quotesPool');
@@ -25,7 +26,7 @@ const DEFAULT_FALLBACK_QUOTE = {
 
 /**
  * GET /api/dashboard/quote
- * Returns daily motivation quote (same for all users on a given day).
+ * Returns daily motivation quote.
  * Fully in-memory, independent of DB connection states.
  */
 exports.getDailyQuote = async (req, res) => {
@@ -48,7 +49,7 @@ exports.getDailyQuote = async (req, res) => {
 /**
  * GET /api/dashboard/news
  * Returns rolling list of REAL career news articles.
- * Falls back to curated backup stories if database query fails or is empty.
+ * Bypasses MongoDB queries if connection is not active to prevent execution timeouts on Vercel.
  */
 exports.getNewsPulse = async (req, res) => {
   try {
@@ -70,64 +71,69 @@ exports.getNewsPulse = async (req, res) => {
     filter.articleUrl = { $exists: true, $ne: '' };
 
     let currentNews = [];
-    try {
-      currentNews = await CareerPulseNews.find(filter)
-        .sort({ publishedAt: -1 })
-        .limit(20);
-    } catch (dbFindErr) {
-      console.warn('⚠️ MongoDB news query failed, falling back to curated news data:', dbFindErr.message);
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    // Only query MongoDB if connection is active
+    if (isDbConnected) {
+      try {
+        currentNews = await CareerPulseNews.find(filter)
+          .sort({ publishedAt: -1 })
+          .limit(20);
+      } catch (dbFindErr) {
+        console.warn('⚠️ MongoDB news query failed, falling back:', dbFindErr.message);
+      }
     }
 
     const forceRefresh = req.query.refresh === 'true';
-    if (forceRefresh) {
+    if (forceRefresh && isDbConnected) {
       try {
         await CareerPulseNews.deleteMany({});
         currentNews = [];
       } catch(e){}
     }
 
-    // Trigger on-the-fly RSS parsing if DB is empty
+    // Trigger on-the-fly RSS parsing if DB news is empty
     if (currentNews.length === 0 && !q && (!category || category === 'All')) {
       try {
         const { fetchAllFeeds } = require('../services/rssFeedService');
         const articles = await fetchAllFeeds();
 
         if (Array.isArray(articles) && articles.length > 0) {
-          for (const article of articles) {
-            try {
-              const normalizedTitle = IngestionNormalizer.normalizeString(article.headline || article.title, 'Tech Update');
-              const normalizedSummary = IngestionNormalizer.normalizeSummary(article.summary, normalizedTitle, article.source);
-              const normalizedAuthor = IngestionNormalizer.normalizeAuthor(article.author, article.source);
+          currentNews = articles;
 
-              await CareerPulseNews.findOneAndUpdate(
-                { articleUrl: article.articleUrl },
-                { 
-                  ...article, 
-                  headline: normalizedTitle,
-                  title: normalizedTitle,
-                  summary: normalizedSummary,
-                  author: normalizedAuthor,
-                  timestamp: new Date() 
-                },
-                { upsert: true, new: true, runValidators: true }
-              );
-            } catch (dbErr) {
-              // Ignore individual duplicates
-            }
+          // Only attempt database cache update if connected
+          if (isDbConnected) {
+            // Push updates asynchronously in background, do NOT await sequentially to prevent timeouts
+            Promise.resolve().then(async () => {
+              for (const article of articles) {
+                try {
+                  const normalizedTitle = IngestionNormalizer.normalizeString(article.headline || article.title, 'Tech Update');
+                  const normalizedSummary = IngestionNormalizer.normalizeSummary(article.summary, normalizedTitle, article.source);
+                  const normalizedAuthor = IngestionNormalizer.normalizeAuthor(article.author, article.source);
+
+                  await CareerPulseNews.findOneAndUpdate(
+                    { articleUrl: article.articleUrl },
+                    { 
+                      ...article, 
+                      headline: normalizedTitle,
+                      title: normalizedTitle,
+                      summary: normalizedSummary,
+                      author: normalizedAuthor,
+                      timestamp: new Date() 
+                    },
+                    { upsert: true, new: true, runValidators: true }
+                  );
+                } catch (dbErr) {}
+              }
+            });
           }
-          
-          try {
-            currentNews = await CareerPulseNews.find(filter)
-              .sort({ publishedAt: -1 })
-              .limit(20);
-          } catch(e){}
         }
       } catch (fetchErr) {
         console.error('❌ [Dashboard] RSS fetch failed:', fetchErr.message);
       }
     }
 
-    // Secondary fallback to make sure UI never appears blank
+    // Fallback if still empty
     if (currentNews.length === 0) {
       currentNews = CURATED_FALLBACK_NEWS;
     }
@@ -150,7 +156,6 @@ exports.getNewsPulse = async (req, res) => {
 /**
  * GET /api/dashboard/insight
  * Returns SARA AI Career Insight.
- * Includes deterministic coaching fallbacks if LLM calls fail.
  */
 exports.getSaraInsight = async (req, res) => {
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -161,18 +166,24 @@ exports.getSaraInsight = async (req, res) => {
 
   try {
     let dailyInsight = null;
-    try {
-      dailyInsight = await SaraInsight.findOne({ date: todayStr });
-    } catch (dbErr) {
-      console.warn('⚠️ Mongoose insight query failed, generating in-memory insight.', dbErr.message);
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    if (isDbConnected) {
+      try {
+        dailyInsight = await SaraInsight.findOne({ date: todayStr });
+      } catch (dbErr) {
+        console.warn('⚠️ Mongoose insight query failed:', dbErr.message);
+      }
     }
 
     if (!dailyInsight) {
       try {
         let recentNews = [];
-        try {
-          recentNews = await CareerPulseNews.find().limit(5);
-        } catch(e){}
+        if (isDbConnected) {
+          try {
+            recentNews = await CareerPulseNews.find().limit(5);
+          } catch(e){}
+        }
 
         const newsHeadlineString = recentNews.map(n => n.headline).join(', ') || 'AI Agents, Tech Scaling';
 
@@ -187,14 +198,14 @@ exports.getSaraInsight = async (req, res) => {
         const rawInsightText = aiResponse.text || fallbackInsight.content;
         const insightText = IngestionNormalizer.normalizeString(rawInsightText, fallbackInsight.content);
 
-        try {
-          dailyInsight = await SaraInsight.create({
+        dailyInsight = { content: insightText, date: todayStr };
+
+        if (isDbConnected) {
+          // Fire save asynchronously in background
+          SaraInsight.create({
             content: insightText,
             date: todayStr
-          });
-        } catch(saveErr) {
-          // If save fails, return in-memory object
-          dailyInsight = { content: insightText, date: todayStr };
+          }).catch(() => {});
         }
       } catch (aiErr) {
         console.error('⚠️ AI Daily Insight generation failed:', aiErr.message);
@@ -215,7 +226,6 @@ exports.getSaraInsight = async (req, res) => {
   }
 };
 
-// Curated list of hiring firms
 const fallbackHiring = [
   { company: "Google", logoText: "G", color: "#4285F4", openRoles: 142, categories: ["AI Research", "Cloud Engine"], location: "Bangalore" },
   { company: "Microsoft", logoText: "MS", color: "#00A4EF", openRoles: 98, categories: [".NET Core", "Azure Infra"], location: "Hyderabad" },
