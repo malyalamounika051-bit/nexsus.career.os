@@ -17,19 +17,38 @@ try {
 
   const app = express();
 
-  // Middleware
-  const corsOrigin =
-    process.env.NODE_ENV === 'production'
-      ? (process.env.FRONTEND_URL || 'http://localhost:5173')
-      : (origin, callback) => {
-          if (!origin) return callback(null, true);
-          if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return callback(null, true);
-          // Allow Vercel preview deployments in development mode
-          if (/\.vercel\.app$/.test(origin)) return callback(null, true);
-          if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) return callback(null, true);
-          return callback(new Error('Not allowed by CORS'));
-        };
-  app.use(cors({ origin: corsOrigin, credentials: true }));
+  // Dynamic CORS Origin Validator
+  const corsOrigin = (origin, callback) => {
+    if (!origin) return callback(null, true);
+    
+    const configuredUrl = process.env.FRONTEND_URL;
+    const cleanOrigin = origin.replace(/\/$/, '');
+    
+    const whitelist = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    ];
+    
+    if (configuredUrl) {
+      whitelist.push(configuredUrl.replace(/\/$/, ''));
+    }
+    
+    if (whitelist.includes(cleanOrigin) || /\.vercel\.app$/.test(cleanOrigin)) {
+      return callback(null, true);
+    }
+    
+    console.warn(`⚠️ [CORS] Origin rejected: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  };
+  
+  app.use(cors({ 
+    origin: corsOrigin, 
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  }));
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(passport.initialize());
