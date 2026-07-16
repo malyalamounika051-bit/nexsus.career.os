@@ -8,7 +8,9 @@ const connectDB = require('./config/db');
 require('./config/passport'); // Initialize OAuth strategies
 
 // Connect to MongoDB
-connectDB();
+connectDB().catch(err => {
+  console.error('⚠️ Initial database connection warning:', err.message);
+});
 
 const app = express();
 
