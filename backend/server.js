@@ -87,7 +87,16 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Nexus Career OS API is running 🚀', timestamp: new Date().toISOString() });
+  const uri = process.env.MONGO_URI;
+  res.json({ 
+    success: true, 
+    message: 'Nexus Career OS API is running 🚀', 
+    timestamp: new Date().toISOString(),
+    dbReadyState: mongoose.connection.readyState,
+    hasMongoUri: !!uri,
+    mongoUriLength: uri ? uri.length : 0,
+    mongoUriStart: uri ? uri.substring(0, 15) : 'none'
+  });
 });
 
 // 404 handler
