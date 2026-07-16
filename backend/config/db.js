@@ -30,6 +30,8 @@ const connectDB = async () => {
   // Otherwise, create a new connection promise and cache it
   cachedPromise = mongoose.connect(mongoUri, {
     serverSelectionTimeoutMS: 3000,
+    connectTimeoutMS: 3000,
+    socketTimeoutMS: 3000,
     tls: true,
     tlsAllowInvalidCertificates: true,
     tlsAllowInvalidHostnames: true,
