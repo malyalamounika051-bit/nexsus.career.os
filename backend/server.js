@@ -86,16 +86,25 @@ app.get('/', (req, res) => {
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
-  const uri = process.env.MONGO_URI;
+app.get('/api/health', async (req, res) => {
+  const uri = process.env.MONGO_URI || 'mongodb+srv://malyalamounika0:Mounika%401234567890@cluster0.naruycx.mongodb.net/nexus_career_os?retryWrites=true&w=majority&appName=Cluster0';
+  let connectionError = null;
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
+  } catch (err) {
+    connectionError = err.message;
+  }
+
   res.json({ 
     success: true, 
     message: 'Nexus Career OS API is running 🚀', 
     timestamp: new Date().toISOString(),
     dbReadyState: mongoose.connection.readyState,
-    hasMongoUri: !!uri,
-    mongoUriLength: uri ? uri.length : 0,
-    mongoUriStart: uri ? uri.substring(0, 15) : 'none'
+    hasMongoUri: !!process.env.MONGO_URI,
+    mongoUriLength: process.env.MONGO_URI ? process.env.MONGO_URI.length : 0,
+    connectionError: connectionError
   });
 });
 
