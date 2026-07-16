@@ -37,15 +37,15 @@ app.use((req, res, next) => {
 // Ensure Database Connection Middleware
 const mongoose = require('mongoose');
 app.use(async (req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/') {
+    return next();
+  }
   if (mongoose.connection.readyState !== 1) {
     console.log('🔄 MongoDB not connected. Attempting connection...');
     try {
       await connectDB();
     } catch (err) {
       console.error('❌ Database connection middleware error:', err);
-      if (req.path === '/api/health' || req.path === '/') {
-        return next();
-      }
       return res.status(500).json({ 
         success: false, 
         message: 'Database connection failed', 
