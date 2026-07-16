@@ -23,7 +23,7 @@ const connectDB = async () => {
     return cachedPromise;
   }
 
-  const mongoUri = process.env.MONGO_URI || 'mongodb+srv://malyalamounika0:Mounika%401234567890@cluster0.naruycx.mongodb.net/nexus_career_os?retryWrites=true&w=majority&appName=Cluster0';
+  const mongoUri = 'mongodb+srv://malyalamounika0:Mounika%401234567890@cluster0.naruycx.mongodb.net/nexus_career_os?retryWrites=true&w=majority&appName=Cluster0';
 
   // Otherwise, create a new connection promise and cache it
   cachedPromise = mongoose.connect(mongoUri, {
