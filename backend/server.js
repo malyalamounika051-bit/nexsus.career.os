@@ -120,16 +120,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: err.message || 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-  
-  // Start the Background Caching Scheduler for News, Opportunities, and Jobs
-  try {
-    const { startScheduler } = require('./services/backgroundScheduler');
-    startScheduler();
-  } catch (schedErr) {
-    console.error('⚠️ Failed to initialize background scheduler:', schedErr.message);
-  }
-});
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+    
+    // Start the Background Caching Scheduler for News, Opportunities, and Jobs
+    try {
+      const { startScheduler } = require('./services/backgroundScheduler');
+      startScheduler();
+    } catch (schedErr) {
+      console.error('⚠️ Failed to initialize background scheduler:', schedErr.message);
+    }
+  });
+}
+
+module.exports = app;
