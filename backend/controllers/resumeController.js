@@ -571,6 +571,29 @@ Return ONLY valid JSON. No markdown, no explanation.`;
       });
     }
 
+    // Sanitize fields to match database string schema expectations
+    const sanitizedExperiences = (result.resume?.experiences || []).map(exp => ({
+      title: exp.title || '',
+      company: exp.company || '',
+      location: exp.location || '',
+      period: exp.period || '',
+      desc: Array.isArray(exp.desc) ? exp.desc.join('\n') : String(exp.desc || '')
+    }));
+
+    const sanitizedProjects = (result.resume?.projects || []).map(proj => ({
+      name: proj.name || '',
+      tech: proj.tech || '',
+      link: proj.link || '',
+      desc: Array.isArray(proj.desc) ? proj.desc.join('\n') : String(proj.desc || '')
+    }));
+
+    const sanitizedEducation = (result.resume?.education || []).map(edu => ({
+      degree: edu.degree || '',
+      institution: edu.institution || '',
+      year: edu.year || '',
+      desc: Array.isArray(edu.desc) ? edu.desc.join('\n') : String(edu.desc || '')
+    }));
+
     // Save the generated resume to database
     const resumeData = {
       user: req.user._id,
@@ -578,9 +601,9 @@ Return ONLY valid JSON. No markdown, no explanation.`;
       templateId: 'modern',
       personalInfo: result.resume?.personalInfo || {},
       skills: result.resume?.skills || [],
-      experiences: result.resume?.experiences || [],
-      education: result.resume?.education || [],
-      projects: result.resume?.projects || [],
+      experiences: sanitizedExperiences,
+      education: sanitizedEducation,
+      projects: sanitizedProjects,
       certifications: result.resume?.certifications || [],
       achievements: result.resume?.achievements || [],
       analysis: {
