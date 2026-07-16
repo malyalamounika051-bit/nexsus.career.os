@@ -228,20 +228,21 @@ export default function InterviewRoom() {
       if (response.data.success) {
         const payload = response.data.data;
         
-        if (payload.isFollowUpNeeded && payload.followUpQuestion) {
-          setCurrentPromptQuestion(payload.followUpQuestion);
-          speakQuestion(payload.followUpQuestion);
-        } else {
-          const nextIndex = currentIdx + 1;
-          if (nextIndex < questions.length) {
-            setCurrentIdx(nextIndex);
-            setCurrentPromptQuestion(questions[nextIndex]);
-            speakQuestion(questions[nextIndex]);
-          } else {
-            setInterviewerState('speaking');
-            setSubtitles("Thank you. I have gathered enough information. Generating your complete report now.");
+        if (payload.isCompleted) {
+          setInterviewerState('speaking');
+          setSubtitles("Thank you. We have completed all stages of the interview. Let me generate your detailed report.");
+          setTimeout(() => {
             handleCompleteInterview();
-          }
+          }, 2000);
+        } else if (payload.nextQuestion) {
+          setCurrentIdx(prev => prev + 1);
+          setCurrentPromptQuestion(payload.nextQuestion);
+          speakQuestion(payload.nextQuestion);
+        } else {
+          // Fallback if nextQuestion is empty
+          setInterviewerState('speaking');
+          setSubtitles("Thank you. I have gathered enough information. Generating your complete report now.");
+          handleCompleteInterview();
         }
       }
     } catch (err) {
