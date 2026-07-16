@@ -82,7 +82,8 @@ const matchCareers = (scores, careers) => {
     let total = 0;
     const cats = ['technical', 'creative', 'analytical', 'leadership', 'communication'];
     cats.forEach((cat) => {
-      const weight = career.weights[cat] || 0;
+      const weights = career.weights || { technical: 1, creative: 1, analytical: 1, leadership: 1, communication: 1 };
+      const weight = weights[cat] || 0;
       const userScore = Math.min(scores[cat] || 0, maxPossible);
       dot += weight * userScore;
       total += weight * maxPossible;
