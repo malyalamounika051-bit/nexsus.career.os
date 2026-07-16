@@ -496,7 +496,7 @@ Return a single JSON object with this exact structure:
       "portfolio": "portfolio url",
       "summary": "3-4 sentence ATS-optimized professional summary tailored to the target role, using ONLY verified skills and experience"
     },
-    "skills": ["skill1", "skill2", "...all candidate skills relevant to the role, ordered by relevance"],
+    "skills": ["ONLY select skills from the candidate's actual SKILLS list above. Do NOT add, infer, or hallucinate any skills not listed in the candidate's SKILLS section."],
     "experiences": [
       {
         "title": "role title",
@@ -594,13 +594,24 @@ Return ONLY valid JSON. No markdown, no explanation.`;
       desc: Array.isArray(edu.desc) ? edu.desc.join('\n') : String(edu.desc || '')
     }));
 
+    const profileSkillNames = (profile.skills || []).map(s => s.name);
+    const profileSkillNamesLower = profileSkillNames.map(name => name.toLowerCase().trim());
+
+    // Filter AI-suggested skills to match ONLY verified profile skills
+    const filteredResumeSkills = (result.resume?.skills || [])
+      .map(s => String(s).trim())
+      .filter(s => profileSkillNamesLower.includes(s.toLowerCase()));
+
+    // Fallback to all profile skills if AI didn't return any matching ones
+    const finalResumeSkills = filteredResumeSkills.length > 0 ? filteredResumeSkills : profileSkillNames;
+
     // Save the generated resume to database
     const resumeData = {
       user: req.user._id,
       resumeTitle: `${finalJobRole || 'AI Generated'} Resume`,
       templateId: 'modern',
       personalInfo: result.resume?.personalInfo || {},
-      skills: result.resume?.skills || [],
+      skills: finalResumeSkills,
       experiences: sanitizedExperiences,
       education: sanitizedEducation,
       projects: sanitizedProjects,
@@ -621,7 +632,10 @@ Return ONLY valid JSON. No markdown, no explanation.`;
       success: true,
       data: {
         resumeId: savedResume._id,
-        resume: result.resume,
+        resume: {
+          ...result.resume,
+          skills: finalResumeSkills
+        },
         skillGap: result.skillGap,
         scores: result.scores,
         recommendations: result.recommendations
