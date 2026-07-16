@@ -113,7 +113,7 @@ async function fetchSingleFeed(feedConfig) {
   try {
     const feed = await parser.parseURL(feedConfig.url);
     const now = Date.now();
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
 
     const articles = [];
 
@@ -121,8 +121,8 @@ async function fetchSingleFeed(feedConfig) {
       const pubDate = item.pubDate || item.isoDate;
       const publishedAt = pubDate ? new Date(pubDate) : new Date();
 
-      // Skip articles older than 7 days
-      if (publishedAt.getTime() < sevenDaysAgo) continue;
+      // Skip articles older than 60 days
+      if (publishedAt.getTime() < sixtyDaysAgo) continue;
 
       const articleUrl = item.link || item.guid;
       // CRITICAL: Skip articles without a valid URL

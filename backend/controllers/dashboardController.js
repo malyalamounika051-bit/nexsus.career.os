@@ -70,11 +70,18 @@ exports.getNewsPulse = async (req, res) => {
       .sort({ publishedAt: -1 })
       .limit(30);
 
-    // If DB is empty on first boot, trigger an immediate RSS fetch
+    const forceRefresh = req.query.refresh === 'true';
+    if (forceRefresh) {
+      console.log('📡 [Dashboard] Force refresh requested — clearing old news cache...');
+      await CareerPulseNews.deleteMany({});
+      currentNews = [];
+    }
+
+    // If DB is empty or force refresh was triggered, execute RSS sync
     if (currentNews.length === 0 && !q && (!category || category === 'All')) {
       try {
         const { fetchAllFeeds } = require('../services/rssFeedService');
-        console.log('📡 [Dashboard] DB empty — triggering immediate RSS fetch...');
+        console.log('📡 [Dashboard] Triggering immediate RSS fetch...');
         const articles = await fetchAllFeeds();
 
         if (Array.isArray(articles) && articles.length > 0) {
@@ -95,7 +102,7 @@ exports.getNewsPulse = async (req, res) => {
             .limit(30);
         }
       } catch (fetchErr) {
-        console.error('❌ [Dashboard] Immediate RSS fetch failed:', fetchErr.message);
+        console.error('❌ [Dashboard] RSS fetch failed:', fetchErr.message);
       }
     }
 
