@@ -115,7 +115,7 @@ const DashboardPage = () => {
       .finally(() => setOppLoading(false));
 
     // 8. Fetch Career GPS Snapshot
-    api.get('/gps')
+    api.get('/gps/current')
       .then(({ data }) => {
         if (data.success) setGpsData(data.data || data.gps);
       })

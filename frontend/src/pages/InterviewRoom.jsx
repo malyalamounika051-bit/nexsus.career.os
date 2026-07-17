@@ -9,13 +9,22 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 
+// Interview Room States:
+// - 'IDLE': Initialized, waiting to start
+// - 'AI_SPEAKING': The AI avatar is speaking the question
+// - 'WAITING_FOR_USER': Wait for user to start recording or typing
+// - 'RECORDING': MediaRecorder is active and capturing audio
+// - 'TRANSCRIBING': Audio is uploading and transcribing via AssemblyAI
+// - 'PROCESSING': AI is evaluating the answer and planning the next step
+// - 'INTERVIEW_COMPLETE': Final report is being generated
+
 export default function InterviewRoom() {
   const location = useLocation();
   const navigate = useNavigate();
   const { interviewId, jobRole, difficulty, track, company, experienceLevel, durationLimit, avatar, questions } = location.state || {};
 
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [interviewerState, setInterviewerState] = useState('speaking'); // speaking, thinking, listening
+  const [interviewStatus, setInterviewStatus] = useState('IDLE');
   const [subtitles, setSubtitles] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -28,24 +37,24 @@ export default function InterviewRoom() {
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
 
-  // Loading and Transcription Statuses
-  const [transcriptionStatus, setTranscriptionStatus] = useState('idle'); // idle, uploading, transcribing, ready, error
-  const [transcriptionMetadata, setTranscriptionMetadata] = useState(null); // confidence, duration, wordCount, language
+  // Status and Metadata
+  const [transcriptionMetadata, setTranscriptionMetadata] = useState(null);
   const [asrError, setAsrError] = useState('');
   const [evalLoading, setEvalLoading] = useState(false);
 
-  // Statistics
+  // Statistics & Timer
   const [noiseFilterLevel] = useState('99.2% Clean');
   const [latency] = useState('85ms');
   const [totalTimerCount, setTotalTimerCount] = useState(0);
 
-  // Dialogue loops
+  // Dialogue Loop History
   const [dialogueHistory, setDialogueHistory] = useState([]);
   const [currentPromptQuestion, setCurrentPromptQuestion] = useState('');
 
-  // Speech TTS ref
+  // Speech Synthesis Refs
   const synthRef = useRef(window.speechSynthesis);
   const utteranceRef = useRef(null);
+  const speakingTimeoutRef = useRef(null);
 
   // Initialize Room
   useEffect(() => {
@@ -66,6 +75,7 @@ export default function InterviewRoom() {
     return () => {
       clearInterval(totalInterval);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
       if (synthRef.current) {
         synthRef.current.cancel();
       }
@@ -80,10 +90,12 @@ export default function InterviewRoom() {
 
   const speakQuestion = (text) => {
     if (!text) return;
-    setInterviewerState('speaking');
+    setInterviewStatus('AI_SPEAKING');
     setSubtitles(text);
     
-    if (synthRef.current) {
+    if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+
+    if (synthRef.current && !isMuted) {
       synthRef.current.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       
@@ -97,14 +109,29 @@ export default function InterviewRoom() {
       }
 
       utterance.onend = () => {
-        setInterviewerState('listening');
+        setInterviewStatus('WAITING_FOR_USER');
+      };
+
+      utterance.onerror = (e) => {
+        console.warn('TTS Speech Error:', e);
+        setInterviewStatus('WAITING_FOR_USER');
       };
       
       utteranceRef.current = utterance;
       synthRef.current.speak(utterance);
+
+      // Fallback in case onend event fails to fire
+      const wordsCount = text.split(/\s+/).length;
+      const estimatedDurationMs = Math.max(3000, (wordsCount / 140) * 60000 + 1500);
+      speakingTimeoutRef.current = setTimeout(() => {
+        if (synthRef.current && synthRef.current.speaking) {
+          synthRef.current.cancel();
+        }
+        setInterviewStatus('WAITING_FOR_USER');
+      }, estimatedDurationMs);
     } else {
       setTimeout(() => {
-        setInterviewerState('listening');
+        setInterviewStatus('WAITING_FOR_USER');
       }, 3000);
     }
   };
@@ -113,7 +140,7 @@ export default function InterviewRoom() {
   const startRecording = async () => {
     try {
       setAsrError('');
-      setTranscriptionStatus('idle');
+      setTranscriptionMetadata(null);
       audioChunksRef.current = [];
       setRecordingDuration(0);
 
@@ -133,15 +160,14 @@ export default function InterviewRoom() {
       };
 
       recorder.onstop = async () => {
-        // Construct Audio Blob from Chunks
         const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         
-        // Stop all audio tracks from stream to release the mic
+        // Stop all audio tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
 
         if (audioBlob.size < 500) {
           setAsrError('Recording too short. Please try speaking again.');
-          setTranscriptionStatus('error');
+          setInterviewStatus('WAITING_FOR_USER');
           return;
         }
 
@@ -151,7 +177,9 @@ export default function InterviewRoom() {
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
+      setInterviewStatus('RECORDING');
 
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
@@ -159,7 +187,7 @@ export default function InterviewRoom() {
     } catch (err) {
       console.error('Microphone permission denied / error:', err);
       setAsrError('Microphone permission denied or device disconnected. Please verify connection.');
-      setTranscriptionStatus('error');
+      setInterviewStatus('WAITING_FOR_USER');
     }
   };
 
@@ -174,81 +202,86 @@ export default function InterviewRoom() {
   };
 
   const uploadAudioForTranscription = async (blob) => {
-    setTranscriptionStatus('uploading');
+    setInterviewStatus('TRANSCRIBING');
     
     const formData = new FormData();
     formData.append('audio', blob, 'recording.webm');
     formData.append('duration', recordingDuration);
 
     try {
-      setTranscriptionStatus('transcribing');
       const response = await api.post('/interview/transcribe', formData);
       
       if (response.data.success) {
         const data = response.data.data;
         setSpeechText(data.transcript);
-        setTranscriptionMetadata({
-          confidence: data.confidence,
-          duration: data.duration,
-          wordCount: data.wordCount,
-          language: data.language === 'en' ? 'English' : data.language
-        });
-        setTranscriptionStatus('ready');
+        const metadata = {
+          confidence: data.confidence || 90,
+          duration: data.duration || recordingDuration || 10,
+          wordCount: data.wordCount || 0,
+          language: data.language === 'en' ? 'English' : data.language || 'English'
+        };
+        setTranscriptionMetadata(metadata);
+        
+        // Auto-submit transcription response
+        await handleSendResponse(data.transcript, metadata);
       } else {
         throw new Error(response.data.message || 'ASR parsing error');
       }
     } catch (err) {
       console.error('ASR Upload Failure:', err);
       setAsrError(err.response?.data?.message || err.message || 'AssemblyAI was unable to transcribe this recording. Please re-record.');
-      setTranscriptionStatus('error');
+      setInterviewStatus('WAITING_FOR_USER');
     }
   };
 
-  const handleSendResponse = async () => {
-    if (!speechText.trim()) return;
+  const handleSendResponse = async (customAnswer = null, customMeta = null) => {
+    const answer = (typeof customAnswer === 'string' ? customAnswer : speechText).trim();
+    if (!answer) return;
 
-    const answer = speechText;
     setDialogueHistory(prev => [...prev, { role: 'candidate', text: answer, question: currentPromptQuestion }]);
     
-    // Reset status and preview box
+    // Reset inputs & update state
     setSpeechText('');
-    setTranscriptionStatus('idle');
-    setTranscriptionMetadata(null);
-    setInterviewerState('thinking');
+    setInterviewStatus('PROCESSING');
+
+    const confidenceVal = customMeta?.confidence || transcriptionMetadata?.confidence || 90;
+    const durationVal = customMeta?.duration || transcriptionMetadata?.duration || 20;
 
     try {
       const response = await api.post('/interview/evaluate', {
         interviewId,
         question: currentPromptQuestion,
         userAnswer: answer,
-        confidence: transcriptionMetadata?.confidence || 90,
-        duration: transcriptionMetadata?.duration || 20
+        confidence: confidenceVal,
+        duration: durationVal
       });
 
       if (response.data.success) {
         const payload = response.data.data;
         
         if (payload.isCompleted) {
-          setInterviewerState('speaking');
-          setSubtitles("Thank you. We have completed all stages of the interview. Let me generate your detailed report.");
+          setInterviewStatus('AI_SPEAKING');
+          setSubtitles("Thank you! We have completed all stages of this interview round. Generating your report now...");
           setTimeout(() => {
             handleCompleteInterview();
-          }, 2000);
+          }, 3000);
         } else if (payload.nextQuestion) {
           setCurrentIdx(prev => prev + 1);
           setCurrentPromptQuestion(payload.nextQuestion);
           speakQuestion(payload.nextQuestion);
         } else {
-          // Fallback if nextQuestion is empty
-          setInterviewerState('speaking');
-          setSubtitles("Thank you. I have gathered enough information. Generating your complete report now.");
-          handleCompleteInterview();
+          setInterviewStatus('AI_SPEAKING');
+          setSubtitles("Thank you. I have gathered enough details to evaluate your profile. Let me prepare the final report.");
+          setTimeout(() => {
+            handleCompleteInterview();
+          }, 2000);
         }
       }
     } catch (err) {
       console.error('Error in evaluation loop:', err);
+      // Failover transition
       const nextIndex = currentIdx + 1;
-      if (nextIndex < questions.length) {
+      if (nextIndex < (questions || []).length) {
         setCurrentIdx(nextIndex);
         setCurrentPromptQuestion(questions[nextIndex]);
         speakQuestion(questions[nextIndex]);
@@ -259,11 +292,14 @@ export default function InterviewRoom() {
   };
 
   const handleCompleteInterview = async () => {
+    setInterviewStatus('INTERVIEW_COMPLETE');
     setEvalLoading(true);
     try {
       const response = await api.post('/interview/finalize', { interviewId });
       if (response.data.success) {
         navigate('/mock-interview/report', { state: { interview: response.data.data } });
+      } else {
+        throw new Error(response.data.message || 'Report finalize failed');
       }
     } catch (err) {
       console.error('Error finalizing report:', err);
@@ -271,6 +307,27 @@ export default function InterviewRoom() {
     } finally {
       setEvalLoading(false);
     }
+  };
+
+  const handleMutedToggle = () => {
+    if (!isMuted) {
+      if (synthRef.current) {
+        synthRef.current.cancel();
+      }
+      setIsMuted(true);
+      if (interviewStatus === 'AI_SPEAKING') {
+        setInterviewStatus('WAITING_FOR_USER');
+      }
+    } else {
+      setIsMuted(false);
+      speakQuestion(currentPromptQuestion);
+    }
+  };
+
+  const handleTypeSubmission = () => {
+    if (!speechText.trim()) return;
+    const wordCount = speechText.trim().split(/\s+/).length;
+    handleSendResponse(speechText, { confidence: 100, duration: 15, wordCount });
   };
 
   return (
@@ -298,7 +355,7 @@ export default function InterviewRoom() {
         </div>
       </header>
 
-      {evalLoading ? (
+      {evalLoading || interviewStatus === 'INTERVIEW_COMPLETE' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
           <Loader2 size={48} className="animate-spin" color="var(--color-primary)" />
           <div style={{ textAlign: 'center' }}>
@@ -316,7 +373,7 @@ export default function InterviewRoom() {
             <div className="glass-card" style={{ flex: 1, background: '#090d16', border: '1px solid var(--color-border)', borderRadius: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden', minHeight: '380px' }}>
               
               {/* Voice waves */}
-              {interviewerState === 'speaking' && (
+              {interviewStatus === 'AI_SPEAKING' && (
                 <div style={{ position: 'absolute', display: 'flex', gap: '6px', bottom: '2rem' }}>
                   {[1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1].map((h, i) => (
                     <motion.div 
@@ -324,6 +381,7 @@ export default function InterviewRoom() {
                       animate={{ height: [12, h * 7, 12] }}
                       transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.04 }}
                       style={{ width: '4px', background: '#8b5cf6', borderRadius: '99px' }}
+                      className="visualizer-bar"
                     />
                   ))}
                 </div>
@@ -347,8 +405,12 @@ export default function InterviewRoom() {
                 </span>
 
                 <div style={{ display: 'flex', gap: '0.5rem', background: '#ffffff10', padding: '0.4rem 1.25rem', borderRadius: '99px' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: interviewerState === 'speaking' ? '#8b5cf6' : interviewerState === 'listening' ? '#10b981' : '#f59e0b' }}>
-                    {interviewerState === 'speaking' ? 'Speaking...' : interviewerState === 'listening' ? 'Listening...' : 'Thinking...'}
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: interviewStatus === 'AI_SPEAKING' ? '#8b5cf6' : interviewStatus === 'RECORDING' ? '#ef4444' : interviewStatus === 'WAITING_FOR_USER' ? '#10b981' : '#f59e0b' }}>
+                    {interviewStatus === 'AI_SPEAKING' && 'Speaking...'}
+                    {interviewStatus === 'RECORDING' && 'Listening...'}
+                    {interviewStatus === 'WAITING_FOR_USER' && 'Ready for answer'}
+                    {interviewStatus === 'TRANSCRIBING' && 'Transcribing...'}
+                    {interviewStatus === 'PROCESSING' && 'Thinking...'}
                   </span>
                 </div>
               </div>
@@ -362,7 +424,7 @@ export default function InterviewRoom() {
             {/* Candidate controls */}
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
               <button 
-                onClick={() => setIsMuted(!isMuted)} 
+                onClick={handleMutedToggle} 
                 className="btn-ghost" 
                 style={{ width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isMuted ? '#ef444420' : 'var(--color-surface-2)', color: isMuted ? '#ef4444' : 'var(--color-text)', border: '1px solid var(--color-border)' }}
               >
@@ -421,76 +483,21 @@ export default function InterviewRoom() {
               )}
 
               {/* Status Indicator */}
-              {transcriptionStatus !== 'idle' && transcriptionStatus !== 'ready' && transcriptionStatus !== 'error' && (
+              {(interviewStatus === 'TRANSCRIBING' || interviewStatus === 'PROCESSING') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--color-surface-2)', padding: '1rem', borderRadius: '12px', alignItems: 'center' }}>
                   <Loader2 size={24} className="animate-spin" color="var(--color-primary)" />
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                    {transcriptionStatus === 'uploading' && 'Uploading audio to AssemblyAI...'}
-                    {transcriptionStatus === 'transcribing' && 'Transcribing audio buffer...'}
+                    {interviewStatus === 'TRANSCRIBING' && 'Uploading audio to AssemblyAI...'}
+                    {interviewStatus === 'PROCESSING' && 'AI Evaluating response...'}
                   </span>
                 </div>
               )}
 
-              {/* Review Screen */}
-              {transcriptionStatus === 'ready' && transcriptionMetadata && (
-                <div style={{ background: 'var(--color-surface-2)', padding: '1.25rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--color-border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <CheckCircle size={12} /> TRANSCRIPT READY
-                    </span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>You can edit text before submitting</span>
-                  </div>
-
-                  <textarea
-                    value={speechText}
-                    onChange={e => setSpeechText(e.target.value)}
-                    style={{ width: '100%', minHeight: '90px', background: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.75rem', borderRadius: '10px', fontSize: '0.85rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-
-                  {/* Metadata display */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', fontSize: '0.7rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
-                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
-                      <div style={{ fontWeight: 800, color: '#8b5cf6' }}>{transcriptionMetadata.confidence}%</div>
-                      <div>Confidence</div>
-                    </div>
-                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
-                      <div style={{ fontWeight: 800, color: '#06b6d4' }}>{formatDuration(transcriptionMetadata.duration)}</div>
-                      <div>Duration</div>
-                    </div>
-                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
-                      <div style={{ fontWeight: 800, color: '#f59e0b' }}>{transcriptionMetadata.wordCount}</div>
-                      <div>Words</div>
-                    </div>
-                    <div style={{ background: 'var(--color-bg)', padding: '0.4rem', borderRadius: '6px' }}>
-                      <div style={{ fontWeight: 800, color: 'var(--color-text)' }}>{transcriptionMetadata.language}</div>
-                      <div>Language</div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <button 
-                      onClick={handleSendResponse} 
-                      className="btn-primary" 
-                      style={{ padding: '0.75rem', borderRadius: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '0.25rem', fontSize: '0.8rem', justifyContent: 'center' }}
-                    >
-                      <CheckCircle2 size={14} /> Submit Answer
-                    </button>
-                    <button 
-                      onClick={startVoiceRecording} 
-                      className="btn-ghost" 
-                      style={{ padding: '0.75rem', borderRadius: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '0.25rem', border: '1px solid var(--color-border)', fontSize: '0.8rem', justifyContent: 'center' }}
-                    >
-                      <RefreshCw size={12} /> Re-record
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Record buttons */}
-              {transcriptionStatus !== 'uploading' && transcriptionStatus !== 'transcribing' && transcriptionStatus !== 'ready' && (
+              {interviewStatus !== 'TRANSCRIBING' && interviewStatus !== 'PROCESSING' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   
-                  {isRecording && (
+                  {interviewStatus === 'RECORDING' && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-surface-2)', padding: '0.75rem 1rem', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span className="animate-ping" style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>
@@ -500,7 +507,7 @@ export default function InterviewRoom() {
                     </div>
                   )}
 
-                  {isRecording ? (
+                  {interviewStatus === 'RECORDING' ? (
                     <button 
                       onClick={stopRecording} 
                       className="btn-primary" 
@@ -512,7 +519,8 @@ export default function InterviewRoom() {
                     <button 
                       onClick={startRecording} 
                       className="btn-primary" 
-                      style={{ width: '100%', padding: '0.85rem', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                      disabled={interviewStatus === 'AI_SPEAKING'}
+                      style={{ width: '100%', padding: '0.85rem', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: interviewStatus === 'AI_SPEAKING' ? 0.6 : 1 }}
                     >
                       <Mic size={16} /> Record Response
                     </button>
@@ -524,15 +532,17 @@ export default function InterviewRoom() {
                       value={speechText}
                       onChange={e => setSpeechText(e.target.value)}
                       placeholder="Or type your answer directly here..."
-                      style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.65rem 0.85rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem' }}
-                      onKeyDown={e => { if (e.key === 'Enter') { setTranscriptionStatus('ready'); setTranscriptionMetadata({ confidence: 100, duration: 15, wordCount: speechText.trim().split(/\s+/).length, language: 'English' }); } }}
+                      disabled={interviewStatus === 'AI_SPEAKING'}
+                      style={{ flex: 1, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)', padding: '0.65rem 0.85rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', opacity: interviewStatus === 'AI_SPEAKING' ? 0.6 : 1 }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleTypeSubmission(); }}
                     />
                     <button 
-                      onClick={() => { if (speechText.trim()) { setTranscriptionStatus('ready'); setTranscriptionMetadata({ confidence: 100, duration: 15, wordCount: speechText.trim().split(/\s+/).length, language: 'English' }); } }} 
+                      onClick={handleTypeSubmission} 
                       className="btn-primary" 
+                      disabled={interviewStatus === 'AI_SPEAKING' || !speechText.trim()}
                       style={{ padding: '0 0.85rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700 }}
                     >
-                      Type Preview
+                      Submit
                     </button>
                   </div>
 
