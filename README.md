@@ -158,6 +158,9 @@ Generate ATS-optimized resumes tailored to specific job descriptions.
 - **How it works**: Fetches your profile from the database, sends it along with the job description to the AI model, and sanitizes the output to ensure only your real skills appear. Comes with 7 premium templates (Sahara Contrast, Royal Essence, Glacier Chill, and more). Export as PDF or DOCX.
 - **Benefit**: One-click tailored resumes. No copy-pasting. No fake skills. Professional templates ready for submission.
 
+#### 🔄 Resume Ingestion & Optimization Pipeline
+![AI-Powered ATS-Optimized Resume Builder & Parser Pipeline](documentation/images/resume_builder_pipeline.jpg)
+
 ---
 
 ### 📊 Skill Gap Analysis
