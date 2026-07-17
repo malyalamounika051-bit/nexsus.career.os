@@ -515,27 +515,29 @@ const updateTaskProgress = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Roadmap template not found' });
     }
 
-    // Find user checkpoint progress
-    let userCp = gps.completedCheckpoints.find(c => c.level === Number(checkpointLevel));
-    if (!userCp) {
-      userCp = { level: Number(checkpointLevel), completed: false, completedCriteria: [] };
-      gps.completedCheckpoints.push(userCp);
+    // Find user checkpoint progress using index to mutate the Mongoose subdocument directly
+    let userCpIdx = gps.completedCheckpoints.findIndex(c => Number(c.level) === Number(checkpointLevel));
+    if (userCpIdx === -1) {
+      gps.completedCheckpoints.push({ level: Number(checkpointLevel), completed: false, completedCriteria: [] });
+      userCpIdx = gps.completedCheckpoints.length - 1;
     }
+    const userCp = gps.completedCheckpoints[userCpIdx];
 
     // Find matching criteria progress
-    let userCrit = userCp.completedCriteria.find(c => c.title === taskTitle);
-    if (!userCrit) {
-      userCrit = { title: taskTitle, completed: false };
-      userCp.completedCriteria.push(userCrit);
+    let userCritIdx = userCp.completedCriteria.findIndex(c => c.title === taskTitle);
+    const wasCompleted = userCritIdx !== -1 ? userCp.completedCriteria[userCritIdx].completed : false;
+
+    if (userCritIdx === -1) {
+      userCp.completedCriteria.push({ title: taskTitle, completed: Boolean(completed) });
+    } else {
+      userCp.completedCriteria[userCritIdx].completed = Boolean(completed);
     }
 
-    const wasCompleted = userCrit.completed;
-    userCrit.completed = Boolean(completed);
-
     let xpEarned = 0;
-    if (userCrit.completed && !wasCompleted) {
+    const isNowCompleted = Boolean(completed);
+    if (isNowCompleted && !wasCompleted) {
       xpEarned += 50; 
-    } else if (!userCrit.completed && wasCompleted) {
+    } else if (!isNowCompleted && wasCompleted) {
       xpEarned -= 50;
     }
 
