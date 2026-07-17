@@ -292,6 +292,11 @@ export default function InterviewRoom() {
   };
 
   const handleCompleteInterview = async () => {
+    if (dialogueHistory.length === 0) {
+      alert("No answers were recorded. Exiting mock interview room.");
+      navigate('/mock-interview/setup');
+      return;
+    }
     setInterviewStatus('INTERVIEW_COMPLETE');
     setEvalLoading(true);
     try {

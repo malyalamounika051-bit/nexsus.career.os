@@ -150,8 +150,18 @@ Respond in this EXACT JSON format:
 }
 Return ONLY the raw JSON.`;
 
-    const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
-    const parsed = parseStructuredJson(response.text);
+    let parsed;
+    try {
+      const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
+      parsed = parseStructuredJson(response.text);
+    } catch (geminiErr) {
+      console.warn("Gemini evaluation call failed. Using fallback:", geminiErr.message);
+      parsed = {
+        feedback: "Thank you for sharing your answer. Let's continue building on that.",
+        isFollowUpNeeded: false,
+        followUpQuestion: "Can you walk me through another project or key concept you have worked with?"
+      };
+    }
 
     // Save answer transcript
     const transcriptEntry = {
@@ -214,9 +224,18 @@ const finalizeInterview = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Interview not found.' });
     }
 
+    if (!interview.transcript || interview.transcript.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'You must answer at least one question before completing the interview. Please record a response.' 
+      });
+    }
+
     const transcriptText = interview.transcript.map(t => `Q: ${t.question}\nA: ${t.userAnswer}\nFeedback: ${t.aiFeedback}`).join('\n\n');
 
-    const prompt = `You are a supportive Hiring Manager. Review the transcript of this candidate's mock interview.
+    let parsed;
+    try {
+      const prompt = `You are a supportive Hiring Manager. Review the transcript of this candidate's mock interview.
 Target role: ${interview.jobRole}. Track: ${interview.track}. Difficulty level: ${interview.difficulty}.
 
 Transcript:
@@ -269,23 +288,41 @@ Respond in this EXACT JSON format:
 }
 Return ONLY the raw JSON.`;
 
-    const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
-    let parsed;
-    try {
+      const response = await callGeminiDirectly({ prompt, temperature: 0.5 });
       parsed = parseStructuredJson(response.text);
-    } catch (e) {
-      console.error("Failed to parse finalize JSON report:", e);
+    } catch (geminiErr) {
+      console.warn("Gemini finalize call failed. Generating dynamic heuristic fallback:", geminiErr.message);
+      
+      const count = interview.transcript.length;
+      const sumConf = interview.transcript.reduce((sum, t) => sum + (t.confidence || 80), 0);
+      const avgConf = count > 0 ? Math.round(sumConf / count) : 75;
+
       parsed = {
-        scores: { technical: 75, communication: 75, confidence: 75, fluency: 75, problemSolving: 75, behavioral: 75, leadership: 70, readiness: 75, overall: 74 },
+        scores: {
+          technical: Math.max(60, avgConf - 5),
+          communication: avgConf,
+          confidence: Math.min(95, avgConf + 2),
+          fluency: avgConf,
+          problemSolving: Math.max(60, avgConf - 4),
+          behavioral: avgConf,
+          leadership: 70,
+          readiness: Math.max(60, avgConf - 3),
+          overall: avgConf
+        },
         feedback: {
-          strengths: ["Good React knowledge", "Walked through projects well"],
-          weaknesses: ["Needs better JavaScript fundamentals"],
+          strengths: ["Completed the mock interview session", "Maintained good communication pacing"],
+          weaknesses: ["Elaborate on core engineering concepts with examples", "Revise topic fundamentals in the target domain"],
           mistakes: [],
-          improvements: ["Practice React Hooks and JavaScript array algorithms"],
-          learningRoadmap: ["Week 1: Revise JavaScript", "Week 2: React Hooks", "Week 3: Practice mock interviews", "Week 4: Resume polish"],
-          recommendedResources: ["MDN JavaScript Documentation"],
+          improvements: ["Use the STAR method to structure project answers with metrics"],
+          learningRoadmap: [
+            "Week 1: Revise domain core concepts and basic syntax",
+            "Week 2: Practice explaining project architecture patterns",
+            "Week 3: Solve scenario challenges under mock constraints",
+            "Week 4: Review interview analytics for voice flow"
+          ],
+          recommendedResources: [`Official ${interview.jobRole} core learning guides`],
           difficultyLevelAchieved: interview.difficulty,
-          hiringRecommendation: "Almost Ready"
+          hiringRecommendation: avgConf >= 80 ? "Almost Ready" : "Needs Improvement"
         }
       };
     }
