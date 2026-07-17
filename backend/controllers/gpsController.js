@@ -617,7 +617,7 @@ const updateTaskProgress = async (req, res) => {
     if (gps.streak >= 7 && !gps.badges.some(b => b.name === '7-Day Streak')) {
       gps.badges.push({ name: '7-Day Streak', unlockedAt: new Date() });
     }
-
+    gps.markModified('completedCheckpoints');
     await gps.save();
 
     // Also update UserCareerState
@@ -743,6 +743,7 @@ const submitProject = async (req, res) => {
       gps.badges.push({ name: 'First Project', unlockedAt: new Date() });
     }
 
+    gps.markModified('completedCheckpoints');
     await gps.save();
     
     const responseData = formatGpsResponse(gps, template);

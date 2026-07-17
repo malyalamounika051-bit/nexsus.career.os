@@ -144,7 +144,7 @@ const RoadmapPage = () => {
         setGps(data.data);
         setGpsList(prev => prev.map(g => g.templateId === data.data.templateId ? data.data : g));
         // Keep active checkpoint in sync
-        const updatedCp = data.data.checkpoints.find(c => c.level === checkpointLevel);
+        const updatedCp = data.data.checkpoints.find(c => Number(c.level) === Number(checkpointLevel));
         setActiveCheckpoint(updatedCp);
       }
     } catch (err) {
